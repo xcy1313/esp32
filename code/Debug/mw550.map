@@ -1,0 +1,884 @@
+
+Map of Debug\mw550.sm8 from link file Debug\mw550.lkf - Mon May 27 18:08:40 2013
+
+
+                               --------
+                               Segments
+                               --------
+
+start 00008080 end 00008394 length   788 segment .const
+start 0000839f end 00009a6f length  5840 segment .text
+start 00004000 end 00004000 length     0 segment .eeprom
+start 00000000 end 00000003 length     3 segment .bsct, initialized
+start 0000839c end 0000839f length     3 segment .bsct, from
+start 00000003 end 0000005a length    87 segment .ubsct
+start 0000005a end 0000005a length     0 segment .bit
+start 0000005a end 0000005a length     0 segment .share
+start 00000100 end 00000100 length     0 segment .data
+start 00000100 end 00000100 length     0 segment .bss
+start 00000000 end 00005363 length 21347 segment .debug
+start 00008000 end 00008080 length   128 segment .const
+start 00008394 end 0000839c length     8 segment .init
+
+
+                               -------
+                               Modules
+                               -------
+
+C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8:
+start 0000839f end 000083ea length    75 section .text
+start 00000100 end 00000100 length     0 section .bss
+start 00000003 end 00000003 length     0 section .ubsct
+
+Debug\audio.o:
+start 000083ea end 000084b9 length   207 section .text
+start 00000003 end 00000008 length     5 section .ubsct
+start 00000000 end 000002ff length   767 section .debug
+
+Debug\bluetooth.o:
+start 000084b9 end 000088ab length  1010 section .text
+start 00000000 end 00000001 length     1 section .bsct
+start 00000008 end 00000016 length    14 section .ubsct
+start 000002ff end 00000a5f length  1888 section .debug
+
+Debug\cdr11iic.o:
+start 000088ab end 00008b77 length   716 section .text
+start 00000016 end 00000017 length     1 section .ubsct
+start 00000a5f end 0000118c length  1837 section .debug
+
+Debug\global.o:
+start 00008b77 end 00008d75 length   510 section .text
+start 00000017 end 0000001a length     3 section .ubsct
+start 0000118c end 0000167b length  1263 section .debug
+
+Debug\idt_acs422a67.o:
+start 00008d75 end 00008fd4 length   607 section .text
+start 0000167b end 00001946 length   715 section .debug
+start 00008080 end 00008360 length   736 section .const
+
+Debug\key.o:
+start 00008fd4 end 00009255 length   641 section .text
+start 00000001 end 00000003 length     2 section .bsct
+start 0000001a end 00000029 length    15 section .ubsct
+start 00001946 end 0000201a length  1748 section .debug
+start 00008360 end 00008394 length    52 section .const
+
+Debug\main.o:
+start 00009255 end 0000929f length    74 section .text
+start 00000029 end 0000002b length     2 section .ubsct
+start 0000201a end 0000211e length   260 section .debug
+
+Debug\stm8s105_adc.o:
+start 0000929f end 00009500 length   609 section .text
+start 0000211e end 00002ffa length  3804 section .debug
+
+Debug\stm8s105_awu.o:
+start 00009500 end 0000952c length    44 section .text
+start 00002ffa end 000031e5 length   491 section .debug
+
+Debug\stm8s105_exti.o:
+start 0000952c end 00009656 length   298 section .text
+start 000031e5 end 00003a1a length  2101 section .debug
+
+Debug\stm8s105_flash.o:
+start ******** end ******** length     0 section .text *** removed ***
+start 00003a1a end 00003d4b length   817 section .debug
+
+Debug\stm8s105_global.o:
+start 00009656 end 000097df length   393 section .text
+start 00003d4b end 00004314 length  1481 section .debug
+
+Debug\stm8s105_timer.o:
+start 000097df end 00009a22 length   579 section .text
+start 0000002b end 00000050 length    37 section .ubsct
+start 00004314 end 000051f8 length  3812 section .debug
+
+(C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)lreg.o:
+start 00000050 end 00000054 length     4 section .ubsct
+
+(C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)ltor.o:
+start 00009a22 end 00009a34 length    18 section .text
+
+(C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)lursh.o:
+start 00009a34 end 00009a43 length    15 section .text
+
+(C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)sdivx.o:
+start 00009a43 end 00009a6e length    43 section .text
+
+(C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)xreg.o:
+start 00000054 end 00000057 length     3 section .ubsct
+
+(C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)yreg.o:
+start 00000057 end 0000005a length     3 section .ubsct
+
+Debug\stm8_interrupt_vector.o:
+start 00009a6e end 00009a6f length     1 section .text
+start 000051f8 end 00005363 length   363 section .debug
+start 00008000 end 00008080 length   128 section .const
+
+
+                             -----------
+                             Stack usage
+                             -----------
+
+Debug\audio.o:
+_AudioHandler                     20   (3)
+_Audio_AudioSleepCheck             2   (2)
+_Audio_SetAudioSource             17   (2)
+
+Debug\bluetooth.o:
+_BTLedBlink                        5   (5)
+_BT_BTSingalHandle                22   (5)
+_BT_GetBluetoothSignal             2   (2)
+_BluetoothHandle                   5   (3)
+_ChargeLedBlink                    6   (6)
+_ChargeSingalHandle               29   (2)
+_GetBatteryADValue                27   (22)
+_Key_LedBlinkTask                  7   (2)
+_Key_SetBTLedMode                  2   (2)
+
+Debug\cdr11iic.o:
+_p_dr11_CheckAck                   6   (3)
+_p_dr11_I2cAck                     7   (2)
+_p_dr11_I2cRecB                   14   (5)
+_p_dr11_I2cRecStr             >   16   (7)
+_p_dr11_I2cRecStrWithoutStop  >   16   (7)
+_p_dr11_I2cSendB                  13   (4)
+_p_dr11_I2cSendStr            >   16   (7)
+_p_dr11_I2cStart                   6   (3)
+_p_dr11_I2cStop                    5   (2)
+_p_dr11_InitI2cBus            >    2   (2)
+_p_dr11_RcvB                       7   (4)
+_p_dr11_SendB                      9   (4)
+_p_dr11_Send_0                     5   (2)
+_p_dr11_Send_1                     5   (2)
+_p_dr11_nop                        3   (3)
+
+Debug\global.o:
+_AllLed_OFF                        2   (2)
+_Charging_PowerOFF_Handle          4   (2)
+_DelayNms                          8   (8)
+_Global_AllKey_Prcoess            23   (3)
+_Global_GetADIOValueTask           4   (2)
+_Golobal_Reset                     2   (2)
+_MenuHandler                      20   (3)
+_ParameterInit                     2   (2)
+_PowerOFF_Handle                  17   (2)
+_PowerON_Handle                   25   (2)
+_SystemInitial                    12   (2)
+
+Debug\idt_acs422a67.o:
+_IDT_EQ                           21   (7)
+_IDT_Init                         23   (2)
+_IDT_InputChannel                 15   (2)
+_IDT_MuteOn                       15   (2)
+_IDT_SetVolume                    17   (2)
+
+Debug\key.o:
+_Key_GetADKey                     28   (22)
+_Key_GetCode                       2   (2)
+_Key_GetKeyCode                    6   (6)
+_Key_IsRepeatStep                  2   (2)
+_Key_LongShortProcess              4   (4)
+_Key_Scan                         32   (4)
+_Key_Timer100ms                    4   (2)
+
+Debug\main.o:
+_main                         >   34   (2)
+
+Debug\stm8_interrupt_vector.o:
+_NonHandledInterrupt          >    5   (5)
+
+Debug\stm8s105_adc.o:
+_ADC1_ClearITPendingBit       >    5   (5)
+_ADC1_Cmd                     >    2   (2)
+_ADC1_ConversionConfig        >    5   (5)
+_ADC1_DataBufferCmd           >    2   (2)
+_ADC1_DeInit                       2   (2)
+_ADC1_ExternalTriggerConfig   >    4   (4)
+_ADC1_GetBufferValue          >    8   (8)
+_ADC1_IRQHandler              >    5   (5)
+_ADC1_ITConfig                >    5   (5)
+_ADC1_PrescalerConfig         >    3   (3)
+_ADC1_ScanModeCmd             >    2   (2)
+_ADC1_SchmittTriggerConfig    >    4   (4)
+_ADC_GetADValue                    5   (5)
+_MCU_ADC_Init                      2   (2)
+
+Debug\stm8s105_awu.o:
+_AWU_Config                   >    2   (2)
+_AWU_DeInit                   >    2   (2)
+_AWU_GetFlagStatus            >    2   (2)
+_AWU_IRQHandler               >    5   (5)
+
+Debug\stm8s105_exti.o:
+_EXTI_DeInit                       2   (2)
+_EXTI_INT_Disable                  5   (5)
+_EXTI_INT_Enable                   5   (5)
+_EXTI_PORTA_IRQHandler        >   16   (11)
+_EXTI_PORTB_IRQHandler        >   16   (11)
+_EXTI_PORTC_IRQHandler        >    5   (5)
+_EXTI_PORTD_IRQHandler        >    5   (5)
+_EXTI_PORTE_IRQHandler        >    5   (5)
+_EXTI_SetExtIntSensitivity         4   (4)
+_EXTI_SetTLISensitivity       >    2   (2)
+_MCU_EXTI_Init                     6   (2)
+
+Debug\stm8s105_global.o:
+_GPIO_Configuration               10   (2)
+_GPIO_Init                         6   (6)
+_GPIO_Reset                        8   (2)
+_MCU_CLK_Init                      2   (2)
+
+Debug\stm8s105_timer.o:
+_Beeper_SetPlay                    2   (2)
+_MCU_Timer_Init                    7   (2)
+_TIM2_ARRPreloadConfig        >    2   (2)
+_TIM2_CAP_COM_IRQHandler      >    5   (5)
+_TIM2_Cmd                          2   (2)
+_TIM2_OC1Init                 >    7   (7)
+_TIM2_OC1PreloadConfig        >    2   (2)
+_TIM2_PrescalerConfig         >    2   (2)
+_TIM2_TimeBaseInit                 5   (5)
+_TIM2_UPD_OVF_BRK_IRQHandler  >    5   (5)
+_TIM4_ClearFlag                    2   (2)
+_TIM4_ClearITPendingBit       >    2   (2)
+_TIM4_Cmd                          2   (2)
+_TIM4_ITConfig                     4   (4)
+_TIM4_TimeBaseInit                 2   (2)
+_TIM4_UPD_OVF_IRQHandler      >   15   (11)
+
+Stack size: 50
+
+
+                              ---------
+                              Call tree
+                              ---------
+   1 > _ADC1_ClearITPendingBit: (5)
+
+   2 > _ADC1_Cmd: (2)
+
+   3 > _ADC1_ConversionConfig: (5)
+
+   4 > _ADC1_DataBufferCmd: (2)
+
+   5 > _ADC1_ExternalTriggerConfig: (4)
+
+   6 > _ADC1_GetBufferValue: (8)
+
+   7 > _ADC1_IRQHandler: (5)
+
+   8 > _ADC1_ITConfig: (5)
+
+   9 > _ADC1_PrescalerConfig: (3)
+
+  10 > _ADC1_ScanModeCmd: (2)
+
+  11 > _ADC1_SchmittTriggerConfig: (4)
+
+  12 > _AWU_Config: (2)
+
+  13 > _AWU_DeInit: (2)
+
+  14 > _AWU_GetFlagStatus: (2)
+
+  15 > _AWU_IRQHandler: (5)
+
+  16 > _EXTI_PORTA_IRQHandler: (11)
+  17      + _EXTI_INT_Disable: (5)
+       
+  18 > _EXTI_PORTB_IRQHandler: (11)
+  19      + _EXTI_INT_Disable --> 17
+       
+  20 > _EXTI_PORTC_IRQHandler: (5)
+
+  21 > _EXTI_PORTD_IRQHandler: (5)
+
+  22 > _EXTI_PORTE_IRQHandler: (5)
+
+  23 > _EXTI_SetTLISensitivity: (2)
+
+  24 > _NonHandledInterrupt: (5)
+
+  25 > _TIM2_ARRPreloadConfig: (2)
+
+  26 > _TIM2_CAP_COM_IRQHandler: (5)
+
+  27 > _TIM2_OC1Init: (7)
+
+  28 > _TIM2_OC1PreloadConfig: (2)
+
+  29 > _TIM2_PrescalerConfig: (2)
+
+  30 > _TIM2_UPD_OVF_BRK_IRQHandler: (5)
+
+  31 > _TIM4_ClearITPendingBit: (2)
+
+  32 > _TIM4_UPD_OVF_IRQHandler: (11)
+  33      + _Key_Timer100ms: (2)
+       
+  34 > __stext: (0)
+
+  35 > _main: (2)
+  36      + _BT_BTSingalHandle: (5)
+  37      |    + _Audio_SetAudioSource: (2)
+  38      |    |    + _IDT_InputChannel: (2)
+  39      |    |    |    + _p_dr11_I2cSendB: (4)
+  40      |    |    |    |    + _p_dr11_CheckAck: (3)
+  41      |    |    |    |    |    + _p_dr11_nop: (3)
+          |    |    |    |    | 
+  42      |    |    |    |    + _p_dr11_I2cStart: (3)
+  43      |    |    |    |    |    + _p_dr11_nop --> 41
+          |    |    |    |    | 
+  44      |    |    |    |    + _p_dr11_I2cStop: (2)
+  45      |    |    |    |    |    + _p_dr11_nop --> 41
+          |    |    |    |    | 
+  46      |    |    |    |    + _p_dr11_SendB: (4)
+  47      |    |    |    |    |    + _p_dr11_Send_0: (2)
+  48      |    |    |    |    |    |    + _p_dr11_nop --> 41
+          |    |    |    |    |    | 
+  49      |    |    |    |    |    + _p_dr11_Send_1: (2)
+  50      |    |    |    |    |    |    + _p_dr11_nop --> 41
+          |    |    |    |    |    | 
+  51      |    |    |    |    |    + _p_dr11_nop --> 41
+          |    |    |    |    | 
+          |    |    |    | 
+          |    |    | 
+          |    | 
+  52      |    + _Key_SetBTLedMode: (2)
+          | 
+  53      + _ChargeSingalHandle: (2)
+  54      |    + _ChargeLedBlink: (6)
+  55      |    + _GetBatteryADValue: (22)
+  56      |    |    + _ADC_GetADValue: (5)
+          |    | 
+          | 
+  57      + _Charging_PowerOFF_Handle: (2)
+  58      |    + _MCU_ADC_Init: (2)
+  59      |    + _TIM4_Cmd: (2)
+          | 
+  60      + _Global_AllKey_Prcoess: (3)
+  61      |    + _AudioHandler: (3)
+  62      |    |    + _Beeper_SetPlay: (2)
+  63      |    |    + _IDT_SetVolume: (2)
+  64      |    |    |    + _IDT_MuteOn: (2)
+  65      |    |    |    |    + _p_dr11_I2cSendB --> 39
+          |    |    |    | 
+  66      |    |    |    + _p_dr11_I2cSendB --> 39
+          |    |    | 
+  67      |    |    + _Key_GetCode: (2)
+  68      |    |    + _Key_IsRepeatStep: (2)
+          |    | 
+  69      |    + _BluetoothHandle: (3)
+  70      |    |    + _Key_GetCode --> 67
+          |    | 
+  71      |    + _Key_GetCode --> 67
+  72      |    + _MenuHandler: (3)
+  73      |    |    + _Audio_SetAudioSource --> 37
+  74      |    |    + _DelayNms: (8)
+  75      |    |    + _EXTI_INT_Enable: (5)
+  76      |    |    + _Golobal_Reset: (2)
+  77      |    |    + _Key_GetCode --> 67
+          |    | 
+          | 
+  78      + _Global_GetADIOValueTask: (2)
+  79      |    + _Audio_AudioSleepCheck: (2)
+  80      |    + _BT_GetBluetoothSignal: (2)
+          | 
+  81      + _Key_LedBlinkTask: (2)
+  82      |    + _BTLedBlink: (5)
+          | 
+  83      + _Key_Scan: (4)
+  84      |    + _Key_GetADKey: (22)
+  85      |    |    + _ADC_GetADValue --> 56
+  86      |    |    + _Key_GetKeyCode: (6)
+          |    | 
+  87      |    + _Key_LongShortProcess: (4)
+          | 
+  88      + _PowerOFF_Handle: (2)
+  89      |    + _ADC1_DeInit: (2)
+  90      |    + _AllLed_OFF: (2)
+  91      |    + _DelayNms --> 74
+  92      |    + _EXTI_INT_Enable --> 75
+  93      |    + _IDT_MuteOn --> 64
+  94      |    + _TIM2_Cmd: (2)
+  95      |    + _TIM4_Cmd --> 59
+          | 
+  96      + _PowerON_Handle: (2)
+  97      |    + _IDT_Init: (2)
+  98      |    |    + _Audio_SetAudioSource --> 37
+  99      |    |    + _IDT_EQ: (7)
+ 100      |    |    |    + _p_dr11_I2cRecB: (5)
+ 101      |    |    |    |    + _p_dr11_CheckAck --> 40
+ 102      |    |    |    |    + _p_dr11_I2cAck: (2)
+ 103      |    |    |    |    |    + _p_dr11_Send_0 --> 47
+ 104      |    |    |    |    |    + _p_dr11_Send_1 --> 49
+          |    |    |    |    | 
+ 105      |    |    |    |    + _p_dr11_I2cStart --> 42
+ 106      |    |    |    |    + _p_dr11_I2cStop --> 44
+ 107      |    |    |    |    + _p_dr11_RcvB: (4)
+ 108      |    |    |    |    |    + _p_dr11_nop --> 41
+          |    |    |    |    | 
+ 109      |    |    |    |    + _p_dr11_SendB --> 46
+          |    |    |    | 
+ 110      |    |    |    + _p_dr11_I2cSendB --> 39
+          |    |    | 
+ 111      |    |    + _p_dr11_I2cSendB --> 39
+          |    | 
+ 112      |    + _MCU_ADC_Init --> 58
+ 113      |    + _TIM2_Cmd --> 94
+ 114      |    + _TIM4_Cmd --> 59
+          | 
+ 115      + _SystemInitial: (2)
+ 116      |    + _GPIO_Configuration: (2)
+ 117      |    |    + _GPIO_Reset: (2)
+ 118      |    |    |    + _GPIO_Init: (6)
+          |    |    | 
+          |    | 
+ 119      |    + _MCU_CLK_Init: (2)
+ 120      |    + _MCU_EXTI_Init: (2)
+ 121      |    |    + _EXTI_DeInit: (2)
+ 122      |    |    + _EXTI_SetExtIntSensitivity: (4)
+          |    | 
+ 123      |    + _MCU_Timer_Init: (2)
+ 124      |    |    + _TIM2_Cmd --> 94
+ 125      |    |    + _TIM2_TimeBaseInit: (5)
+ 126      |    |    + _TIM4_ClearFlag: (2)
+ 127      |    |    + _TIM4_Cmd --> 59
+ 128      |    |    + _TIM4_ITConfig: (4)
+ 129      |    |    + _TIM4_TimeBaseInit: (2)
+          |    | 
+ 130      |    + _ParameterInit: (2)
+          | 
+       
+ 131 > _p_dr11_I2cRecStr: (7)
+ 132      + _p_dr11_CheckAck --> 40
+ 133      + _p_dr11_I2cAck --> 102
+ 134      + _p_dr11_I2cStart --> 42
+ 135      + _p_dr11_I2cStop --> 44
+ 136      + _p_dr11_RcvB --> 107
+ 137      + _p_dr11_SendB --> 46
+       
+ 138 > _p_dr11_I2cRecStrWithoutStop: (7)
+ 139      + _p_dr11_CheckAck --> 40
+ 140      + _p_dr11_I2cAck --> 102
+ 141      + _p_dr11_I2cStart --> 42
+ 142      + _p_dr11_I2cStop --> 44
+ 143      + _p_dr11_RcvB --> 107
+ 144      + _p_dr11_SendB --> 46
+       
+ 145 > _p_dr11_I2cSendStr: (7)
+ 146      + _p_dr11_CheckAck --> 40
+ 147      + _p_dr11_I2cStart --> 42
+ 148      + _p_dr11_I2cStop --> 44
+ 149      + _p_dr11_SendB --> 46
+       
+ 150 > _p_dr11_InitI2cBus: (2)
+
+ 151   _ADC1_DeInit --> 89
+
+ 152   _ADC_GetADValue --> 56
+
+ 153   _AllLed_OFF --> 90
+
+ 154   _AudioHandler --> 61
+
+ 155   _Audio_AudioSleepCheck --> 79
+
+ 156   _Audio_SetAudioSource --> 37
+
+ 157   _BTLedBlink --> 82
+
+ 158   _BT_BTSingalHandle --> 36
+
+ 159   _BT_GetBluetoothSignal --> 80
+
+ 160   _Beeper_SetPlay --> 62
+
+ 161   _BluetoothHandle --> 69
+
+ 162   _ChargeLedBlink --> 54
+
+ 163   _ChargeSingalHandle --> 53
+
+ 164   _Charging_PowerOFF_Handle --> 57
+
+ 165   _DelayNms --> 74
+
+ 166   _EXTI_DeInit --> 121
+
+ 167   _EXTI_INT_Disable --> 17
+
+ 168   _EXTI_INT_Enable --> 75
+
+ 169   _EXTI_SetExtIntSensitivity --> 122
+
+ 170   _GPIO_Configuration --> 116
+
+ 171   _GPIO_Init --> 118
+
+ 172   _GPIO_Reset --> 117
+
+ 173   _GetBatteryADValue --> 55
+
+ 174   _Global_AllKey_Prcoess --> 60
+
+ 175   _Global_GetADIOValueTask --> 78
+
+ 176   _Golobal_Reset --> 76
+
+ 177   _IDT_EQ --> 99
+
+ 178   _IDT_Init --> 97
+
+ 179   _IDT_InputChannel --> 38
+
+ 180   _IDT_MuteOn --> 64
+
+ 181   _IDT_SetVolume --> 63
+
+ 182   _Key_GetADKey --> 84
+
+ 183   _Key_GetCode --> 67
+
+ 184   _Key_GetKeyCode --> 86
+
+ 185   _Key_IsRepeatStep --> 68
+
+ 186   _Key_LedBlinkTask --> 81
+
+ 187   _Key_LongShortProcess --> 87
+
+ 188   _Key_Scan --> 83
+
+ 189   _Key_SetBTLedMode --> 52
+
+ 190   _Key_Timer100ms --> 33
+
+ 191   _MCU_ADC_Init --> 58
+
+ 192   _MCU_CLK_Init --> 119
+
+ 193   _MCU_EXTI_Init --> 120
+
+ 194   _MCU_Timer_Init --> 123
+
+ 195   _MenuHandler --> 72
+
+ 196   _ParameterInit --> 130
+
+ 197   _PowerOFF_Handle --> 88
+
+ 198   _PowerON_Handle --> 96
+
+ 199   _SystemInitial --> 115
+
+ 200   _TIM2_Cmd --> 94
+
+ 201   _TIM2_TimeBaseInit --> 125
+
+ 202   _TIM4_ClearFlag --> 126
+
+ 203   _TIM4_Cmd --> 59
+
+ 204   _TIM4_ITConfig --> 128
+
+ 205   _TIM4_TimeBaseInit --> 129
+
+ 206   _p_dr11_CheckAck --> 40
+
+ 207   _p_dr11_I2cAck --> 102
+
+ 208   _p_dr11_I2cRecB --> 100
+
+ 209   _p_dr11_I2cSendB --> 39
+
+ 210   _p_dr11_I2cStart --> 42
+
+ 211   _p_dr11_I2cStop --> 44
+
+ 212   _p_dr11_RcvB --> 107
+
+ 213   _p_dr11_SendB --> 46
+
+ 214   _p_dr11_Send_0 --> 47
+
+ 215   _p_dr11_Send_1 --> 49
+
+ 216   _p_dr11_nop --> 41
+
+
+
+                               -------
+                               Symbols
+                               -------
+
+_ADC1_ClearITPendingBit        000094ac   defined in Debug\stm8s105_adc.o section .text
+_ADC1_Cmd                      00009415   defined in Debug\stm8s105_adc.o section .text
+_ADC1_ConversionConfig         00009317   defined in Debug\stm8s105_adc.o section .text
+_ADC1_DataBufferCmd            00009407   defined in Debug\stm8s105_adc.o section .text
+_ADC1_DeInit                   000092e6   defined in Debug\stm8s105_adc.o section .text
+                                          used in Debug\global.o
+_ADC1_ExternalTriggerConfig    00009358   defined in Debug\stm8s105_adc.o section .text
+_ADC1_GetBufferValue           00009431   defined in Debug\stm8s105_adc.o section .text
+_ADC1_IRQHandler               000092e5   defined in Debug\stm8s105_adc.o section .text
+_ADC1_ITConfig                 00009493   defined in Debug\stm8s105_adc.o section .text
+_ADC1_PrescalerConfig          00009345   defined in Debug\stm8s105_adc.o section .text
+_ADC1_ScanModeCmd              00009423   defined in Debug\stm8s105_adc.o section .text
+_ADC1_SchmittTriggerConfig     00009379   defined in Debug\stm8s105_adc.o section .text
+_ADC_GetADValue                000092a4   defined in Debug\stm8s105_adc.o section .text
+                                          used in Debug\bluetooth.o Debug\key.o
+_ADChannel                     00000001   defined in Debug\key.o section .bsct, initialized
+_AD_Value                      0000001a   defined in Debug\key.o section .ubsct
+_AWU_Config                    0000950e   defined in Debug\stm8s105_awu.o section .text
+_AWU_DeInit                    0000951f   defined in Debug\stm8s105_awu.o section .text
+_AWU_GetFlagStatus             00009501   defined in Debug\stm8s105_awu.o section .text
+_AWU_IRQHandler                00009500   defined in Debug\stm8s105_awu.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_AllLed_OFF                    00008ceb   defined in Debug\global.o section .text
+_AudioHandler                  00008420   defined in Debug\audio.o section .text
+                                          used in Debug\global.o
+_Audio_AudioSleepCheck         000083fa   defined in Debug\audio.o section .text
+                                          used in Debug\global.o
+_Audio_SetAudioSource          000083ea   defined in Debug\audio.o section .text
+                                          used in Debug\bluetooth.o
+                                                  Debug\global.o
+                                                  Debug\idt_acs422a67.o
+_BTLedBlink                    00008666   defined in Debug\bluetooth.o section .text
+_BTLedMode                     00000015   defined in Debug\bluetooth.o section .ubsct
+_BTLedOn                       0000000e   defined in Debug\bluetooth.o section .ubsct
+_BT_BTSingalHandle             0000855c   defined in Debug\bluetooth.o section .text
+                                          used in Debug\main.o
+_BT_GetBluetoothSignal         000084f9   defined in Debug\bluetooth.o section .text
+                                          used in Debug\global.o
+_BT_PairedTimes                00000013   defined in Debug\bluetooth.o section .ubsct
+_BT_PairingTimes               00000014   defined in Debug\bluetooth.o section .ubsct
+_BT_PhoneTimes                 00000012   defined in Debug\bluetooth.o section .ubsct
+                                          used in Debug\global.o
+_BatteryNTC_Value              0000000b   defined in Debug\bluetooth.o section .ubsct
+_Battery_Value                 00000009   defined in Debug\bluetooth.o section .ubsct
+_Beeper_SetPlay                00009834   defined in Debug\stm8s105_timer.o section .text
+                                          used in Debug\audio.o
+_BluetoothHandle               000084b9   defined in Debug\bluetooth.o section .text
+                                          used in Debug\global.o
+_ChargeLedBlink                000087aa   defined in Debug\bluetooth.o section .text
+_ChargeSingalHandle            00008718   defined in Debug\bluetooth.o section .text
+                                          used in Debug\main.o
+_Charging_PowerOFF_Handle      00008cd7   defined in Debug\global.o section .text
+                                          used in Debug\main.o
+_Clock                         0000002e   defined in Debug\stm8s105_timer.o section .ubsct
+                                          used in Debug\audio.o Debug\bluetooth.o
+                                                  Debug\global.o Debug\key.o
+_Coeff                         00008080   defined in Debug\idt_acs422a67.o section .const
+_DELAY_025_025                 00008374   defined in Debug\key.o section .const
+                                          used in Debug\bluetooth.o
+_DELAY_02_02                   00008370   defined in Debug\key.o section .const
+                                          used in Debug\bluetooth.o
+_DELAY_02_3                    00008378   defined in Debug\key.o section .const
+                                          used in Debug\bluetooth.o
+_DELAY_05_05                   00008364   defined in Debug\key.o section .const
+                                          used in Debug\bluetooth.o
+_DELAY_0_0                     00008360   defined in Debug\key.o section .const
+_DELAY_15_15                   0000837c   defined in Debug\key.o section .const
+                                          used in Debug\bluetooth.o
+_DELAY_1_1                     00008368   defined in Debug\key.o section .const
+                                          used in Debug\bluetooth.o
+_DELAY_1_3                     0000836c   defined in Debug\key.o section .const
+                                          used in Debug\bluetooth.o
+_DelayNms                      00008d4c   defined in Debug\global.o section .text
+_EXTI_DeInit                   000095c9   defined in Debug\stm8s105_exti.o section .text
+_EXTI_INT_Disable              000095b6   defined in Debug\stm8s105_exti.o section .text
+_EXTI_INT_Enable               000095c0   defined in Debug\stm8s105_exti.o section .text
+                                          used in Debug\global.o
+_EXTI_PORTA_IRQHandler         00009541   defined in Debug\stm8s105_exti.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_EXTI_PORTB_IRQHandler         0000957a   defined in Debug\stm8s105_exti.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_EXTI_PORTC_IRQHandler         000095b3   defined in Debug\stm8s105_exti.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_EXTI_PORTD_IRQHandler         000095b4   defined in Debug\stm8s105_exti.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_EXTI_PORTE_IRQHandler         000095b5   defined in Debug\stm8s105_exti.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_EXTI_SetExtIntSensitivity     000095d2   defined in Debug\stm8s105_exti.o section .text
+_EXTI_SetTLISensitivity        0000964b   defined in Debug\stm8s105_exti.o section .text
+_FLASH_ProgramByte             ********   *** removed from Debug\stm8s105_flash.o ***
+_FLASH_ReadByte                ********   *** removed from Debug\stm8s105_flash.o ***
+_FLASH_SetProgrammingTime      ********   *** removed from Debug\stm8s105_flash.o ***
+_FLASH_Unlock                  ********   *** removed from Debug\stm8s105_flash.o ***
+_GPIO_Configuration            000096d0   defined in Debug\stm8s105_global.o section .text
+                                          used in Debug\global.o
+_GPIO_Init                     0000966f   defined in Debug\stm8s105_global.o section .text
+_GPIO_Reset                    0000979c   defined in Debug\stm8s105_global.o section .text
+_G_dr01_I2cError               00000016   defined in Debug\cdr11iic.o section .ubsct
+_GetBatteryADValue             00008800   defined in Debug\bluetooth.o section .text
+_Global_AllKey_Prcoess         00008b77   defined in Debug\global.o section .text
+                                          used in Debug\main.o
+_Global_GetADIOValueTask       00008cf8   defined in Debug\global.o section .text
+                                          used in Debug\main.o
+_Golobal_Reset                 00008d0f   defined in Debug\global.o section .text
+_IDT_EQ                        00008f3f   defined in Debug\idt_acs422a67.o section .text
+_IDT_Init                      00008d75   defined in Debug\idt_acs422a67.o section .text
+                                          used in Debug\global.o
+_IDT_InputChannel              00008f14   defined in Debug\idt_acs422a67.o section .text
+                                          used in Debug\audio.o
+_IDT_MuteOn                    00008f05   defined in Debug\idt_acs422a67.o section .text
+                                          used in Debug\global.o
+_IDT_SetVolume                 00008edf   defined in Debug\idt_acs422a67.o section .text
+                                          used in Debug\audio.o
+_IsPowerOn                     00000019   defined in Debug\global.o section .ubsct
+                                          used in Debug\audio.o Debug\bluetooth.o
+                                                  Debug\stm8s105_exti.o
+                                                  Debug\stm8s105_timer.o
+_KEY_AD_TAB                    0000838a   defined in Debug\key.o section .const
+_KEY_MAP_TAB                   00008380   defined in Debug\key.o section .const
+_KeyTimes                      00000000   defined in Debug\bluetooth.o section .bsct, initialized
+_Key_GetADKey                  0000915e   defined in Debug\key.o section .text
+_Key_GetCode                   00008fd4   defined in Debug\key.o section .text
+                                          used in Debug\audio.o Debug\bluetooth.o
+                                                  Debug\global.o
+_Key_GetKeyCode                00009227   defined in Debug\key.o section .text
+_Key_IsRepeatStep              00009151   defined in Debug\key.o section .text
+                                          used in Debug\audio.o
+_Key_LedBlinkTask              0000863f   defined in Debug\bluetooth.o section .text
+                                          used in Debug\main.o
+_Key_LongShortProcess          00009003   defined in Debug\key.o section .text
+_Key_Scan                      00008fd7   defined in Debug\key.o section .text
+                                          used in Debug\main.o
+_Key_SetBTLedMode              00008657   defined in Debug\bluetooth.o section .text
+_Key_Timer100ms                00009143   defined in Debug\key.o section .text
+                                          used in Debug\stm8s105_timer.o
+_LineInLedMode                 00000028   defined in Debug\key.o section .ubsct
+_MCU_ADC_Init                  0000929f   defined in Debug\stm8s105_adc.o section .text
+                                          used in Debug\global.o
+_MCU_CLK_Init                  00009656   defined in Debug\stm8s105_global.o section .text
+                                          used in Debug\global.o
+_MCU_EXTI_Init                 0000952c   defined in Debug\stm8s105_exti.o section .text
+                                          used in Debug\global.o
+_MCU_Flash_Init                ********   *** removed from Debug\stm8s105_flash.o ***
+_MCU_Timer_Init                000097df   defined in Debug\stm8s105_timer.o section .text
+                                          used in Debug\global.o
+_MainTask                      00000029   defined in Debug\main.o section .ubsct
+                                          used in Debug\audio.o Debug\bluetooth.o
+                                                  Debug\global.o Debug\key.o
+                                                  Debug\stm8s105_exti.o
+                                                  Debug\stm8s105_timer.o
+_MenuHandler                   00008bab   defined in Debug\global.o section .text
+_NonHandledInterrupt           00009a6e   defined in Debug\stm8_interrupt_vector.o section .text
+_ParameterInit                 00008d24   defined in Debug\global.o section .text
+_PowerOFF_Handle               00008c42   defined in Debug\global.o section .text
+                                          used in Debug\main.o
+_PowerON_Handle                00008c98   defined in Debug\global.o section .text
+                                          used in Debug\main.o
+_SourceSelect                  00000006   defined in Debug\audio.o section .ubsct
+                                          used in Debug\bluetooth.o
+                                                  Debug\global.o
+                                                  Debug\idt_acs422a67.o
+_SysTickMSec                   0000004c   defined in Debug\stm8s105_timer.o section .ubsct
+_SysTickMinute                 0000004a   defined in Debug\stm8s105_timer.o section .ubsct
+_SysTickSecond                 0000004b   defined in Debug\stm8s105_timer.o section .ubsct
+_SysTickTimer                  0000004e   defined in Debug\stm8s105_timer.o section .ubsct
+_SystemInitial                 00008d14   defined in Debug\global.o section .text
+                                          used in Debug\main.o
+_TIM2_ARRPreloadConfig         000099cc   defined in Debug\stm8s105_timer.o section .text
+_TIM2_CAP_COM_IRQHandler       00009833   defined in Debug\stm8s105_timer.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_TIM2_Cmd                      000099da   defined in Debug\stm8s105_timer.o section .text
+                                          used in Debug\global.o
+_TIM2_OC1Init                  0000998d   defined in Debug\stm8s105_timer.o section .text
+_TIM2_OC1PreloadConfig         000099be   defined in Debug\stm8s105_timer.o section .text
+_TIM2_PrescalerConfig          00009984   defined in Debug\stm8s105_timer.o section .text
+_TIM2_TimeBaseInit             00009974   defined in Debug\stm8s105_timer.o section .text
+_TIM2_UPD_OVF_BRK_IRQHandler   0000980f   defined in Debug\stm8s105_timer.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_TIM4_ClearFlag                000099f1   defined in Debug\stm8s105_timer.o section .text
+_TIM4_ClearITPendingBit        00009a1d   defined in Debug\stm8s105_timer.o section .text
+_TIM4_Cmd                      00009a0f   defined in Debug\stm8s105_timer.o section .text
+                                          used in Debug\global.o
+_TIM4_ITConfig                 000099f6   defined in Debug\stm8s105_timer.o section .text
+_TIM4_TimeBaseInit             000099e8   defined in Debug\stm8s105_timer.o section .text
+_TIM4_UPD_OVF_IRQHandler       00009837   defined in Debug\stm8s105_timer.o section .text
+                                          used in Debug\stm8_interrupt_vector.o
+_VolTable                      00008340   defined in Debug\idt_acs422a67.o section .const
+__endmem                       000001ff   defined in command file
+                                          *** not used ***
+__endzp                        0000005a   defined in command file section .ubsct
+                                          used in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8
+__idesc__                      00008394   defined in linker section .init
+                                          used in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8
+__memory                       00000100   defined in command file section .bss
+                                          used in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8
+__stack                        000003ff   defined in command file
+                                          used in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8
+__startmem                     00000100   defined in command file section .bss
+                                          *** not used ***
+__stext                        0000839f   defined in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8 section .text
+                                          used in Debug\stm8_interrupt_vector.o
+__vectab                       00008000   defined in Debug\stm8_interrupt_vector.o section .const
+_bBeepEnabled                  0000002d   defined in Debug\stm8s105_timer.o section .ubsct
+_bCharging                     00000010   defined in Debug\bluetooth.o section .ubsct
+                                          used in Debug\global.o
+_bKeyActive                    00000020   defined in Debug\key.o section .ubsct
+_bLowBattery                   0000000f   defined in Debug\bluetooth.o section .ubsct
+                                          used in Debug\global.o
+_bMaxVolume                    00000007   defined in Debug\audio.o section .ubsct
+                                          used in Debug\key.o
+_bRedLedOn                     0000000d   defined in Debug\bluetooth.o section .ubsct
+_bSleepStau                    00000005   defined in Debug\audio.o section .ubsct
+_exit                          000083e8   defined in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8 section .text
+_main                          00009255   defined in Debug\main.o section .text
+                                          used in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8
+_p_dr11_CheckAck               000088f7   defined in Debug\cdr11iic.o section .text
+_p_dr11_I2cAck                 000089cd   defined in Debug\cdr11iic.o section .text
+_p_dr11_I2cRecB                00008a6f   defined in Debug\cdr11iic.o section .text
+                                          used in Debug\idt_acs422a67.o
+_p_dr11_I2cRecStr              00008ad3   defined in Debug\cdr11iic.o section .text
+_p_dr11_I2cRecStrWithoutStop   00008b31   defined in Debug\cdr11iic.o section .text
+_p_dr11_I2cSendB               000089d9   defined in Debug\cdr11iic.o section .text
+                                          used in Debug\idt_acs422a67.o
+_p_dr11_I2cSendStr             00008a22   defined in Debug\cdr11iic.o section .text
+_p_dr11_I2cStart               000088b8   defined in Debug\cdr11iic.o section .text
+_p_dr11_I2cStop                000088e2   defined in Debug\cdr11iic.o section .text
+_p_dr11_InitI2cBus             00008b74   defined in Debug\cdr11iic.o section .text
+_p_dr11_RcvB                   00008987   defined in Debug\cdr11iic.o section .text
+_p_dr11_SendB                  0000895a   defined in Debug\cdr11iic.o section .text
+_p_dr11_Send_0                 00008928   defined in Debug\cdr11iic.o section .text
+_p_dr11_Send_1                 00008941   defined in Debug\cdr11iic.o section .text
+_p_dr11_nop                    000088ab   defined in Debug\cdr11iic.o section .text
+_scnCnt                        00000026   defined in Debug\key.o section .ubsct
+_u16BeepTimer                  0000002b   defined in Debug\stm8s105_timer.o section .ubsct
+_u16KeyScanCount               00000022   defined in Debug\key.o section .ubsct
+_u16PowerHoldTime              00000017   defined in Debug\global.o section .ubsct
+_u8ChargeTimes                 00000011   defined in Debug\bluetooth.o section .ubsct
+                                          used in Debug\global.o
+_u8KeyCode                     0000001c   defined in Debug\key.o section .ubsct
+_u8KeyRepeatTimer100ms         0000001d   defined in Debug\key.o section .ubsct
+_u8NoChargeTime                00000008   defined in Debug\bluetooth.o section .ubsct
+_u8PerVolume                   00000003   defined in Debug\audio.o section .ubsct
+_u8TempKeyCode                 0000001e   defined in Debug\key.o section .ubsct
+_u8Volume                      00000004   defined in Debug\audio.o section .ubsct
+                                          used in Debug\global.o
+                                                  Debug\idt_acs422a67.o
+c_lreg                         00000050   defined in (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)lreg.o section .ubsct
+                                          used in Debug\idt_acs422a67.o
+                                                  (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)ltor.o
+                                                  (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)lursh.o
+c_ltor                         00009a22   defined in (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)ltor.o section .text
+                                          used in Debug\idt_acs422a67.o
+c_lursh                        00009a34   defined in (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)lursh.o section .text
+                                          used in Debug\idt_acs422a67.o
+c_sdivx                        00009a49   defined in (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)sdivx.o section .text
+                                          *** not used ***
+c_smodx                        00009a43   defined in (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)sdivx.o section .text
+                                          used in Debug\key.o
+c_x                            00000054   defined in (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)xreg.o section .ubsct
+                                          used in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8
+                                                  Debug\stm8s105_exti.o
+                                                  Debug\stm8s105_flash.o
+                                                  Debug\stm8s105_timer.o
+                                                  (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)sdivx.o
+c_y                            00000057   defined in (C:\STMicroelectronics\st_toolset\CXSTM8\Lib\libm0.sm8)yreg.o section .ubsct
+                                          used in C:\STMicroelectronics\st_toolset\CXSTM8\Lib\crtsi0.sm8
+                                                  Debug\cdr11iic.o
+                                                  Debug\stm8s105_exti.o
+                                                  Debug\stm8s105_timer.o

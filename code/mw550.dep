@@ -1,0 +1,47 @@
+;	STMicroelectronics dependencies file
+
+[Version]
+Keyword=ST7Project
+Number=1.3
+
+[Root.Source Files.audio.c.Config.0]
+ExternDep= audio.c C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h  include.h stm8s.h stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h  STM8S105_EXTI.h STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h  Global.h Key.h Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.bluetooth.c.Config.0]
+ExternDep= bluetooth.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.cdr11iic.c.Config.0]
+ExternDep= cdr11iic.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h cdr01iic.h
+
+[Root.Source Files.global.c.Config.0]
+ExternDep= global.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.idt_acs422a67.c.Config.0]
+ExternDep= idt_acs422a67.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h cdr01iic.h
+
+[Root.Source Files.key.c.Config.0]
+ExternDep= key.c C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h  include.h stm8s.h stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h  STM8S105_EXTI.h STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h  Global.h Key.h Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.main.c.Config.0]
+ExternDep= main.c C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h  include.h stm8s.h stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h  STM8S105_EXTI.h STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h  Global.h Key.h Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.stm8_interrupt_vector.c.Config.0]
+ExternDep= stm8_interrupt_vector.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.stm8s105_adc.c.Config.0]
+ExternDep= stm8s105_adc.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.stm8s105_awu.c.Config.0]
+ExternDep= stm8s105_awu.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.stm8s105_exti.c.Config.0]
+ExternDep= stm8s105_exti.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.stm8s105_flash.c.Config.0]
+ExternDep= stm8s105_flash.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.stm8s105_global.c.Config.0]
+ExternDep= stm8s105_global.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
+
+[Root.Source Files.stm8s105_timer.c.Config.0]
+ExternDep= stm8s105_timer.c  C:\STMicroelectronics\st_toolset\CXSTM8\Hstm8\mods0.h include.h stm8s.h  stm8s_type.h stm8s_conf.h STM8S105_Global.h STM8S105_AWU.h STM8S105_EXTI.h  STM8S105_Timer.h STM8S105_ADC.h STM8S105_Flash.h main.h Global.h Key.h  Bluetooth.h Audio.h IDT_ACS422A67.h
