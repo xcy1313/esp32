@@ -13,6 +13,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_gap_ble_api.h"
+#include "esp_gatts_api.h"
+#include "esp_bt_main.h"
+#include "esp_gatt_common_api.h"
+
+#include "etekcity_comm.h"
+
 #define BLE_MAX_MTU     500
 /* Attributes State Machine */
 enum
@@ -30,7 +37,20 @@ enum
 
     HRS_IDX_NB,
 };
-
 #endif
 
-void vesync_bt_init(void);
+/**
+ * [uart_recv_cb_t 蓝牙数据接收回调函数指针]
+ * @param  char* 	[蓝牙数据]
+ * @param  int  	[蓝牙接收数据长度]
+ * @return       	[无]
+ */
+typedef void (*bt_recv_cb_t)(const void*, unsigned short);
+
+typedef struct{
+    bt_recv_cb_t        m_bt_handler;
+}BTSTRUCT;
+
+void vesync_bt_init(bt_recv_cb_t cb);
+void vesync_bt_notify(void *notify_data ,unsigned short len);
+void vesync_bt_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);

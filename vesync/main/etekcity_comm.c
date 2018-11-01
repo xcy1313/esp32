@@ -70,7 +70,7 @@ unsigned char Comm_frame_parse(unsigned char byteData, unsigned char channel_sel
 	}
 	
 	step = &(channel[channel_sel]);
-	
+
 	switch(*step)
 	{
 		case STEP_FRAME_HEAD:

@@ -5,12 +5,14 @@
 #include "driver/uart.h"
 #include "etekcity_comm.h"
 
+#define VESYNC_SDK_VESION		"0.0.01"
+
 #define WDT_UART_TIMEOUT_S		2
 #define EX_UART_NUM UART_NUM_1			//打印输出使用 UART_NUM_0
 #define PATTERN_CHR_NUM    (3)         /*!< Set the number of consecutive and identical characters received by receiver which defines a UART pattern*/
 
 #define MAX_ITEM		0x8
-#define BUF_SIZE (2048)
+#define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
 
 #define UART_TX_PIN		(16)
@@ -61,7 +63,7 @@ typedef struct{
 	uint32_t per_len;	//单条长度;
 	uint32_t start_time;//单条时间;
 	uint32_t flash_addr;
-	uint32_t compar_len;	//单条长度;
+	uint32_t compar_len;//单条长度;
 	uint32_t rest_len;	//单条长度;
 	uint32_t fs_len;	//sd文件长度;
 	uint8_t  total_item;
@@ -128,28 +130,45 @@ typedef struct{
 }response_encodeing_data_t;
 #pragma pack()			//
 
+typedef struct{
+	user_config_data_t        config_data;
+	user_fat_data_t           fat_data;
+	//response_weight_data_t    response_weight_data;
+}user_item_t;
+
+typedef struct{
+	//uint8_t 				  amount；
+	user_item_t 			  user_item[8];		//最多创建8个账户
+}user_info_t;
+
 typedef struct {
-	bool  		 			  devie_status;
 	response_weight_data_t    response_weight_data;
 	response_version_data_t   response_version_data;
 	response_encodeing_data_t response_encodeing_data;
 	response_hardstate_t 	  response_hardstate;
+	user_config_data_t        user_config_data;
+	user_fat_data_t           user_fat_data;
+	user_info_t				  user_info;
 	update_reg_t	 		  updateReg;
 	uint8_t 	 			  macaddr[2][6];	//蓝牙地址0 wifi地址1;
 }hw_info;
 extern hw_info info_str;
 
+typedef void (*uart_recv_cb_t)(const void*, unsigned short);
+
 typedef struct{
     uart_config_t 							uart_config;			//uart句柄;
 	uni_frame_t 							rec_frame;
-	void  (*uart_recv_cb_t)(const void*, unsigned short);
+	uart_recv_cb_t							m_uart_handler;
 }UARTSTRUCT;
 extern UARTSTRUCT vesync_uart;
 
-
-
-void vesync_uart_int(void);
-extern void Vesync_Bt_Notify(uint8_t *notify_data ,uint16_t len);
-
+typedef struct{
+    uint8_t command;
+    bool    record;
+    void    (*transfer_callback)(const void*, unsigned short);
+}command_types;
+extern command_types command_type[15];
+void vesync_uart_int(uart_recv_cb_t cb);
 
 #endif

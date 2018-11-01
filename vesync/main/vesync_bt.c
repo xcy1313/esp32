@@ -26,13 +26,7 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "nvs_flash.h"
 #include "esp_bt.h"
-
-#include "esp_gap_ble_api.h"
-#include "esp_gatts_api.h"
-#include "esp_bt_main.h"
-#include "esp_gatt_common_api.h"
 
 #define GATTS_TABLE_TAG "Vesync_BT"
 
@@ -58,6 +52,7 @@ uint16_t heart_rate_handle_table[HRS_IDX_NB];
 
 uint16_t ble_conn_id = 0xffff;
 esp_gatt_if_t ble_gatts_if;
+static BTSTRUCT vesync_bt;
 
 typedef struct {
     uint8_t                 *prepare_buf;
@@ -206,7 +201,7 @@ static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] =
       GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(char_value), (uint8_t *)char_value}},
 };
 
-static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
+void vesync_bt_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
     switch (event) {
     #ifdef CONFIG_SET_RAW_ADV_DATA
@@ -325,15 +320,32 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble
     prepare_write_env->prepare_len = 0;
 }
 
-void Vesync_Bt_Notify(uint8_t *notify_data ,uint16_t len){
-    char sendbuf[20] ={0xA5};
+static unsigned char sum_verify(void *notify_data ,unsigned short len)
+{
+	unsigned char sum = 0;
+
+	for (unsigned char i = 0; i < len; i++){
+		sum += (uint8_t *)&notify_data[i];
+	}
+
+	return sum;
+}
+
+void vesync_bt_notify(void *notify_data ,unsigned short len)
+{
+    uint8_t sendbuf[20] ={0xA5};
     uint8_t sendlen =0;
-    memcpy(&sendbuf[1],notify_data,len);
-    
-    sendlen = 1+len+1+1;
+    sendbuf[1] = *(uint8_t *)&notify_data[0];
+    sendbuf[2] = len-1; //传送过来的数据包含命令；
+    memcpy((uint8_t *)&sendbuf[3],(uint8_t *)&notify_data[1],len-1);
+
+    sendlen = 1+len+1+1+1;    //包头+命令+载荷长度+载荷+checksum+包尾；
+
+    sendbuf[sendlen-2] = sum_verify(&sendbuf[3] ,len-1);
+    sendbuf[sendlen-1] = 0xA5;
 
     esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
-                                        len, notify_data, false);
+                                        (uint16_t)sendlen, (uint8_t *)sendbuf, false);
 }
 
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
@@ -384,7 +396,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 // the data length of gattc write  must be less than GATTS_DEMO_CHAR_VAL_LEN_MAX.
                 ESP_LOGI(GATTS_TABLE_TAG, "GATT_WRITE_EVT, handle = %d, value len = %d, value :", param->write.handle, param->write.len);
                 //esp_log_buffer_hex(GATTS_TABLE_TAG, param->write.value, param->write.len);
-                WriteCoreQueue((char *)param->write.value, param->write.len);
+                
                 if (heart_rate_handle_table[IDX_CHAR_CFG_A] == param->write.handle && param->write.len == 2){
                     uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
                     if (descr_value == 0x0001){
@@ -419,6 +431,10 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                         esp_log_buffer_hex(GATTS_TABLE_TAG, param->write.value, param->write.len);
                     }
 
+                }else{
+                    if(vesync_bt.m_bt_handler != NULL){
+                        vesync_bt.m_bt_handler((char *)param->write.value, param->write.len);
+                    }
                 }
                 /* send response when param->write.need_rsp is true*/
                 if (param->write.need_rsp){
@@ -519,17 +535,14 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
     } while (0);
 }
 
-void vesync_bt_init(void)
+/**
+ * @brief  初始化蓝牙硬件配置
+ * @param  用户接口回调
+ * @return 无
+ */
+void vesync_bt_init(bt_recv_cb_t cb)
 {
     esp_err_t ret;
-
-    /* Initialize NVS. */
-    ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( ret );
 
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 
@@ -564,7 +577,7 @@ void vesync_bt_init(void)
         return;
     }
 
-    ret = esp_ble_gap_register_callback(gap_event_handler);
+    ret = esp_ble_gap_register_callback(vesync_bt_gap_event_handler);
     if (ret){
         ESP_LOGE(GATTS_TABLE_TAG, "gap register error, error code = %x", ret);
         return;
@@ -580,4 +593,6 @@ void vesync_bt_init(void)
     if (local_mtu_ret){
         ESP_LOGE(GATTS_TABLE_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
+
+    vesync_bt.m_bt_handler = cb;
 }

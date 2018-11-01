@@ -16,21 +16,23 @@ static QueueHandle_t uart0_queue;
 hw_info         info_str;
 UARTSTRUCT      vesync_uart;
 
-typedef struct{
-    uint8_t command;
-    bool    record;
-    void    (*transfer_callback)(const void*, unsigned short);
-}command_types;
-command_types command_type[] ={
-    {CMD_HW_VN	        ,true  ,Vesync_Bt_Notify},  //硬件需要记录称体
-    {CMD_ID	            ,true  ,Vesync_Bt_Notify},  //硬件需要记录称体      
-    {CMD_BODY_WEIGHT	,true  ,Vesync_Bt_Notify}, 	//硬件需要记录称体        
-    {CMD_HADRWARE_ERROR	,false ,Vesync_Bt_Notify},
-    {CMD_BODY_FAT	    ,false ,Vesync_Bt_Notify},        
-    {CMD_POWER_BATTERY	,true  ,Vesync_Bt_Notify},  //硬件需要记录称体
-    {CMD_MEASURE_UNIT	,false ,Vesync_Bt_Notify},  //硬件需要记录称体
-    {CMD_BACKLIGHT_TIME	,false ,Vesync_Bt_Notify}
-};
+command_types command_type[15] ={
+    {CMD_HW_VN	            ,true  ,vesync_bt_notify},  //查询硬件版本
+    {CMD_ID	                ,true  ,vesync_bt_notify},  //查询产品ID     
+    {CMD_BODY_WEIGHT	    ,true  ,vesync_bt_notify}, 	//查询用户体重        
+    {CMD_HADRWARE_ERROR	    ,false ,vesync_bt_notify},  //硬件出错通知
+    {CMD_BODY_FAT	        ,false ,vesync_bt_notify},  //计算后的体脂参数      
+    {CMD_POWER_BATTERY	    ,true  ,vesync_bt_notify},  //硬件状态
+    {CMD_MEASURE_UNIT	    ,false ,vesync_bt_notify},  //切换硬件计算单位
+    {CMD_BACKLIGHT_TIME	    ,false ,vesync_bt_notify},
+    {CMD_CREATE_USER        ,true  ,vesync_bt_notify},  //创建用户
+    {CMD_HISTORY_TOTALLEN   ,true  ,vesync_bt_notify},  //当前历史数据总长度
+    {CMD_USER_AMOUT         ,true  ,vesync_bt_notify},  //查询当前所有用户数量
+    {CMD_DELETE_USER        ,true  ,vesync_bt_notify},  //删除用户
+    {CMD_DELETE_HIS_ITEM    ,true  ,vesync_bt_notify},  //删除某条历史测量记录
+    {CMD_SYNC_UTC           ,true  ,vesync_bt_notify},  //同步utc时间
+    {CMD_MODIFY_USER        ,true  ,vesync_bt_notify}   //修改用户
+    };
 
 static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t channel,uni_frame_t *frame){
 #if 1
@@ -70,13 +72,13 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                                                                                                  res->response_weight_data.if_stabil,\
                                                                                                  res->response_weight_data.measu_unit,\
                                                                                                  res->response_weight_data.imped_value);
+                                        //添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
                                     break;
                                 case CMD_HW_VN:
                                         memcpy((uint8_t *)&res->response_version_data.hardware,opt,frame->frame_data_len-1);
                                         printf("\r\n hardware =0x%02x ,firmware =0x%02x ,protocol =0x%02x\r\n",res->response_version_data.hardware,\
                                                                                                 res->response_version_data.firmware,\
                                                                                                 res->response_version_data.protocol);
-                                                                                               
                                     break;
                                 case CMD_ID:
                                         memcpy((uint8_t *)&res->response_encodeing_data.type,opt,frame->frame_data_len-1);
@@ -178,9 +180,10 @@ static void uart_task_handler(void *pvParameters){
 
 /**
  * @brief  初始化串口硬件配置
+ * @param  用户接口回调
  * @return 无
  */
-void vesync_uart_int(void)
+void vesync_uart_int(uart_recv_cb_t cb)
 {
     esp_log_level_set(TAG, ESP_LOG_INFO);
 
@@ -200,7 +203,7 @@ void vesync_uart_int(void)
     //Set UART pins (using UART0 default pins ie no changes.)
     uart_set_pin(EX_UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     //Install UART driver, and get the queue.
-    uart_driver_install(EX_UART_NUM, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0);
+    uart_driver_install(EX_UART_NUM, BUF_SIZE, BUF_SIZE, 20, &uart0_queue, 0);
 
     uart_enable_pattern_det_intr(EX_UART_NUM, '+', PATTERN_CHR_NUM, 10000, 10, 10);
     //Reset the pattern queue length to record at most 20 pattern positions.
@@ -209,4 +212,6 @@ void vesync_uart_int(void)
        //Create a task to handler UART event from ISR
     xTaskCreate(uart_task_handler, "uart_task_handler_loop", 4096, NULL, 13, NULL);
     ESP_LOGI(TAG, "uart_event_int init success");
+
+    vesync_uart.m_uart_handler = cb;
 }
