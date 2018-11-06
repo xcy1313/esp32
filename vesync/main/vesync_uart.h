@@ -131,6 +131,13 @@ typedef struct{
 #pragma pack()			//
 
 typedef struct{
+	union{
+		uint32_t para;
+		uint8_t  type[4];
+	}error;
+}response_error_notice_t;
+
+typedef struct{
 	user_config_data_t        config_data;
 	user_fat_data_t           fat_data;
 	//response_weight_data_t    response_weight_data;
@@ -146,6 +153,7 @@ typedef struct {
 	response_version_data_t   response_version_data;
 	response_encodeing_data_t response_encodeing_data;
 	response_hardstate_t 	  response_hardstate;
+	response_error_notice_t   response_error_notice;
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
 	user_info_t				  user_info;

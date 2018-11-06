@@ -14,6 +14,7 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 
+
 #include "vesync_ota.h"
 #include "vesync_uart.h"
 #include "vesync_bt.h"
@@ -21,6 +22,7 @@
 #include "vesync_blufi.h"
 #include "vesync_button.h"
 #include "vesync_unixtime.h"
+#include "vesync_flash.h"
 
 #include "esp_log.h"
 
@@ -37,7 +39,8 @@ void ui_event_handler(void *p_event_data){
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:
-							
+
+				vesync_flash_write("userdata","store","112233445566778899",20);	
 			return;
         case Double_key:
 							
@@ -62,8 +65,10 @@ static void ota_event_handler(vesync_ota_status_t status)
     ESP_LOGI(TAG, "ota status: %02x", status);
     switch(status){
         case OTA_TIME_OUT:
+
             break;
         case OTA_BUSY:
+            
             break;
         case OTA_SUCCESS:
             xEventGroupClearBits(user_event_group, OTA_BIT);
@@ -174,7 +179,9 @@ void app_main()
     vesync_blufi_init();
     vesync_button_init(ui_event_handler);
     vesync_uart_int(uart_event_handler);
-    printf("silicon revision %d, ", chip_info.revision);
+    printf("silicon revision %d \n", chip_info.revision);
+
+    vesync_flash_init("userdata");
 #if 0
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");

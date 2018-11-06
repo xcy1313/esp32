@@ -204,7 +204,7 @@ void vesync_button_init(vesync_button_cb_t cb)
 	//esp_deep_sleep_start();
 
 	m_button_handler = cb;
-	xTaskCreate(&vesync_button_task_handler, "vesync_button_task_handler", 1024, NULL, 2, NULL);
+	xTaskCreate(&vesync_button_task_handler, "vesync_button_task_handler", 4096, NULL, 2, NULL);
 }
 
 	

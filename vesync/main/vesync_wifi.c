@@ -11,6 +11,7 @@ EventGroupHandle_t user_event_group;
 
 const int WIFI_CONNECTED_BIT = BIT0;
 const int OTA_BIT = BIT1;
+const int FLASH_WRITE_BIT = BIT2;
 
 static bool gl_sta_connected = false;
 static uint8_t gl_sta_bssid[6];

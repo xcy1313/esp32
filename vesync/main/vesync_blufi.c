@@ -90,8 +90,8 @@ static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb
     switch (event) {
         case ESP_BLUFI_EVENT_INIT_FINISH:
             BLUFI_INFO("BLUFI init finish\n");
-            esp_ble_gap_set_device_name(BLUFI_DEVICE_NAME);   //受app限制 需使用此广播名用来调试blufi 
-            esp_ble_gap_config_adv_data(&vesync_blufi_adv_data);
+            //esp_ble_gap_set_device_name(BLUFI_DEVICE_NAME);   //受app限制 需使用此广播名用来调试blufi 
+            //esp_ble_gap_config_adv_data(&vesync_blufi_adv_data);
             break;
         case ESP_BLUFI_EVENT_DEINIT_FINISH:
             BLUFI_INFO("BLUFI deinit finish\n");
@@ -220,9 +220,10 @@ static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb
             ESP_ERROR_CHECK(esp_wifi_scan_start(&scanConf, true));
             break;
         }
-        case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
+        case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:  //手机下发custom data 
             BLUFI_INFO("Recv Custom Data %d\n", param->custom_data.data_len);
             esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
+            esp_blufi_send_custom_data(param->custom_data.data, param->custom_data.data_len);   //设备转发数据表示应答
             break;
         case ESP_BLUFI_EVENT_RECV_USERNAME:
             /* Not handle currently */

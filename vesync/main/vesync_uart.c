@@ -1,6 +1,7 @@
 #include "vesync_uart.h"
 #include "vesync_bt.h"
 #include "user_common.h"
+#include "body_fat_calc.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -73,6 +74,9 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                                                                                                  res->response_weight_data.measu_unit,\
                                                                                                  res->response_weight_data.imped_value);
                                         //添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
+                                        // if(body_fat_person(&res->response_weight_data)){
+                                        //     ESP_LOGI(TAG, "------>the same person! \r\n");
+                                        // }
                                     break;
                                 case CMD_HW_VN:
                                         memcpy((uint8_t *)&res->response_version_data.hardware,opt,frame->frame_data_len-1);
@@ -87,6 +91,10 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                                 case CMD_POWER_BATTERY:
                                         memcpy((uint8_t *)&res->response_hardstate.battery_level,opt,frame->frame_data_len-1);
                                         printf("\r\n type =0x%02x ,item =0x%02x\r\n",res->response_hardstate.battery_level,res->response_hardstate.power);
+                                    break;
+                                case CMD_HADRWARE_ERROR:
+                                        res->response_error_notice.error.para = *(uint32_t *)&opt[0];
+                                        printf("\r\n error type =0x%04x\r\n",res->response_error_notice.error.para);
                                     break;
                                 default:
                                     break;
