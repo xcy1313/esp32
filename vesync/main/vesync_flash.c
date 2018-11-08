@@ -1,5 +1,6 @@
 
 #include "vesync_flash.h"
+#include "vesync_crc8.h"
 #include "esp_err.h"
 
 #include "esp_system.h"
@@ -164,6 +165,15 @@ void vesync_flash_init(const char *part_name)
     esp_err_t ret;
     /* Initialize Special NVS. */
     ret = nvs_flash_init_partition(part_name);
+    ESP_ERROR_CHECK( ret );
+
+}
+
+void vesync_flash_deinit(const char *part_name)
+{
+    esp_err_t ret;
+    /* Initialize Special NVS. */
+    ret = nvs_flash_deinit_partition(part_name);
     ESP_ERROR_CHECK( ret );
 
 }

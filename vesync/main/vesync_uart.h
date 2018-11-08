@@ -24,6 +24,13 @@
 #define WriteCoreQueue(a ,b)	uart_write_bytes(EX_UART_NUM, a, b)
 #define ReadCoreQueue(a)		uart_read_bytes(EX_UART_NUM, a, 1, portMAX_DELAY)
 
+#define MASTER_SET		0x10
+#define MASTER_INQUIRY	0x20
+#define SLAVE_SET		0x30
+#define SLAVE_INQUIRY	0x40
+#define SLAVE_SEND		0x50
+
+
 #define CMD_HW_VN	            1
 #define CMD_ID	                7
 #define CMD_UNUSED1	            9
@@ -77,22 +84,24 @@ typedef struct{
 	uint8_t  gender;	//性别;
 	uint8_t  height;	//身高
 	uint8_t  age;		//年龄;
-	uint8_t  weight[2];	//体重;
+	uint16_t weight;	//体重;
 	uint8_t  measu_unit;//测量单位
 	uint8_t  user_mode;	//用户模式 1为普通人 0为运动员;
-	uint8_t  unused[8];
+	uint8_t  unused[6];
+	uint8_t  length;	//长度
+	uint8_t  crc8;		//crc
 }user_config_data_t;
 #pragma pack()			//
 
 //预留12个字节备用,凑齐4的整数倍字节,共12+28字节;
 #pragma pack(1)
 typedef struct{
-	uint16_t fat;		//脂肪
-	uint16_t muscle;	//肌肉
-	uint16_t water;		//水分;
-	uint16_t bone;		//骨重
-	uint16_t bmr;		//基础代谢;
-	uint16_t bmi;		//身体质量指数;
+	int16_t fat;		//脂肪
+	int16_t muscle;		//肌肉
+	int16_t water;		//水分;
+	int16_t bone;		//骨重
+	int16_t bmr;		//基础代谢;
+	int16_t bmi;		//身体质量指数;
 	uint8_t  unused[28];//预留12
 }user_fat_data_t;		//用户体脂数据
 #pragma pack()			//
@@ -178,5 +187,6 @@ typedef struct{
 }command_types;
 extern command_types command_type[15];
 void vesync_uart_int(uart_recv_cb_t cb);
+void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len);
 
 #endif

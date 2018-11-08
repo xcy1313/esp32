@@ -68,15 +68,18 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                             opt = &frame->frame_data[1];    //过滤命令id字节
                             switch(command_type[j].command){
                                 case CMD_BODY_WEIGHT:
-                                        memcpy((uint8_t *)&res->response_weight_data.weight,opt,frame->frame_data_len-1);
+                                        res->response_weight_data.weight = *(uint32_t *)&opt[0];
+                                        res->response_weight_data.if_stabil = *(uint8_t *)&opt[4];
+                                        res->response_weight_data.measu_unit = *(uint8_t *)&opt[5];
+                                        res->response_weight_data.imped_value = *(uint16_t *)&opt[6];
                                         printf("\r\n weight =0x%04x ,if =0x%x ,unit =0x%x,imped =0x%02x\r\n",res->response_weight_data.weight,\
                                                                                                  res->response_weight_data.if_stabil,\
                                                                                                  res->response_weight_data.measu_unit,\
                                                                                                  res->response_weight_data.imped_value);
-                                        //添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
-                                        // if(body_fat_person(&res->response_weight_data)){
-                                        //     ESP_LOGI(TAG, "------>the same person! \r\n");
-                                        // }
+                                        // 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
+                                        if(body_fat_person(res,&res->response_weight_data)){
+                                            ESP_LOGI(TAG, "------>the same person! \r\n");
+                                        }
                                     break;
                                 case CMD_HW_VN:
                                         memcpy((uint8_t *)&res->response_version_data.hardware,opt,frame->frame_data_len-1);
@@ -186,6 +189,25 @@ static void uart_task_handler(void *pvParameters){
     vTaskDelete(NULL);
 }
 
+/**
+ * @brief 
+ * @param channel 
+ * @param data 
+ * @param len 
+ */
+void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len)
+{
+    char sendbuf[200] ={0xA5};
+	uint8_t sendlen =0;
+
+	if(len >sizeof(sendbuf)-len)	return;
+
+    sendlen = Comm_frame_pack(ctl,cmd,data,len+1,&sendbuf); //数据内容包含1个字节cmd 所以加一
+
+    if(sendlen != 0){
+        WriteCoreQueue(sendbuf,sendlen);
+    }
+}
 /**
  * @brief  初始化串口硬件配置
  * @param  用户接口回调

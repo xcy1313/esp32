@@ -335,18 +335,17 @@ void vesync_bt_notify(void *notify_data ,unsigned short len)
 {
     uint8_t sendbuf[20] ={0xA5};
     uint8_t sendlen =0;
-    sendbuf[1] = *(uint8_t *)&notify_data[0];
-    sendbuf[2] = len-1; //传送过来的数据包含命令；
-    memcpy((uint8_t *)&sendbuf[3],(uint8_t *)&notify_data[1],len-1);
+    memcpy((uint8_t *)&sendbuf[1],(uint8_t *)&notify_data[0],len);
 
-    sendlen = 1+len+1+1+1;    //包头+命令+载荷长度+载荷+checksum+包尾；
+    sendlen = 1+len+1+1;    //包头+命令+载荷长度+载荷+checksum+包尾；
 
-    sendbuf[sendlen-2] = sum_verify(&sendbuf[3] ,len-1);
-    sendbuf[sendlen-1] = 0xA5;
+    sendbuf[sendlen-2] = sum_verify(notify_data ,len);
+    sendbuf[sendlen-1] = 0x5A;
 
     esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
                                         (uint16_t)sendlen, (uint8_t *)sendbuf, false);
 }
+
 
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
@@ -593,6 +592,10 @@ void vesync_bt_init(bt_recv_cb_t cb)
     if (local_mtu_ret){
         ESP_LOGE(GATTS_TABLE_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
+
+    ret = esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,ESP_PWR_LVL_P7);
+
+    ESP_ERROR_CHECK(ret);
 
     vesync_bt.m_bt_handler = cb;
 }

@@ -23,6 +23,7 @@
 #include "vesync_button.h"
 #include "vesync_unixtime.h"
 #include "vesync_flash.h"
+#include "vesync_crc8.h"
 
 #include "esp_log.h"
 
@@ -30,6 +31,7 @@ static const char *TAG = "main";
 
 uni_frame_t bt_frame;
 
+#define ENABLE_DEBUG    1
 /**
  * @brief 
  * @param p_event_data 
@@ -84,26 +86,53 @@ static void ota_event_handler(vesync_ota_status_t status)
  * @param length 
  */
 void bt_event_handler(const void*bt_buf, int length){
-    esp_log_buffer_hex(TAG, (char *)bt_buf, length);
-    WriteCoreQueue((char *)bt_buf, length);
+    esp_log_buffer_hex(TAG, (char *)bt_buf, length);    
+//    WriteCoreQueue((char *)bt_buf, length);
 
     for(int i=0;i<length;i++){
         if(Comm_frame_parse(*(unsigned char *)&bt_buf[i],1,&bt_frame) == 1){
+            uint8_t res_data[20]={0};
+            uint8_t sendlen =0;
+
             ESP_LOGI(TAG, "frame_data_len %d\r\n", bt_frame.frame_data_len);
 
             for(uint8_t i=0;i< bt_frame.frame_data_len;i++){
                 printf("%02x ",bt_frame.frame_data[i]);
             }
-            printf("\r\n ctl =%d ,len =%d\r\n ",bt_frame.frame_ctrl,bt_frame.frame_data_len);
+            printf("\r\n ctl =0x%02x[%d] ,len =%d\r\n ",bt_frame.frame_ctrl,bt_frame.frame_ctrl,bt_frame.frame_data_len);
 
             for(uint8_t j=0;j<sizeof(command_type)/sizeof(command_type[0]);j++){
                 if(bt_frame.frame_ctrl == command_type[j].command){    // 蓝牙协议控制码即为指令;
                     uint8_t *opt = NULL;
-                    opt = &bt_frame.frame_data[1];    //过滤命令id字节
+                    opt = &bt_frame.frame_data[0];    //过滤命令id字节
                     switch(command_type[j].command){
-                        case CMD_CREATE_USER:
-                             memcpy((uint8_t *)&info_str.response_weight_data.weight,opt,bt_frame.frame_data_len-1);
-                             ESP_LOGI(TAG, "CMD_CREATE_USER \r\n");
+                            case CMD_CREATE_USER:{
+                                    uint8_t crc8;
+                                    crc8 = vesync_crc8(0,opt,bt_frame.frame_data_len); //过滤crc字段
+                                    ESP_LOGI(TAG, "crc8= %d config_crc8:%d\r\n", crc8,info_str.user_config_data.crc8);
+                                    
+                                    res_data[0] = command_type[j].command;
+                                    res_data[1] = 0x7;
+                                    res_data[2] = 1;
+                                    res_data[3] = 8;
+                                    if(crc8 != info_str.user_config_data.crc8){ //crc8不同表示用户数据有改变
+                                        info_str.user_config_data.crc8 = crc8;
+                                        info_str.user_config_data.length = bt_frame.frame_data_len;
+                                        memcpy((uint8_t *)&info_str.user_config_data.account,opt,bt_frame.frame_data_len);
+                                        //if(vesync_flash_write("userconfig","config",(uint8_t *)&info_str.user_config_data.account,sizeof(user_config_data_t)-1)){  //保存用户配置信息
+                                        if(vesync_flash_write("userdata","store","112233445566778899",20)){
+                                            ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info_str.user_config_data.crc8 ,info_str.user_config_data.length);
+                                        }else{
+                                            res_data[2] = 0;
+                                        }
+                                    }
+                                    *(uint32_t *)&res_data[4] = info_str.user_config_data.account;
+                                    res_data[8] = info_str.user_config_data.ueser_id;
+                                    sendlen += 9;
+                                    ESP_LOGI(TAG, "CMD_CREATE_USER account:0x%04x ,ueser_id:%02x ,gender:%d,height:%d,age:%d ,weight:%d,measu_unit:%d,user_mode:%d\r\n",
+                                                            info_str.user_config_data.account,info_str.user_config_data.ueser_id,info_str.user_config_data.gender,info_str.user_config_data.height,
+                                                            info_str.user_config_data.age,info_str.user_config_data.weight,info_str.user_config_data.measu_unit,info_str.user_config_data.user_mode);
+                            }
                             break;
                         case CMD_DELETE_USER:
                              ESP_LOGI(TAG, "CMD_CREATE_USER \r\n");
@@ -129,7 +158,7 @@ void bt_event_handler(const void*bt_buf, int length){
                     }
                     if(command_type[j].record){
                         if(command_type[j].transfer_callback != NULL){
-                            command_type[j].transfer_callback((uint8_t *)&bt_frame.frame_data[0] ,bt_frame.frame_data_len);  //应答app
+                            command_type[j].transfer_callback(res_data ,sendlen);  //应答app
                         }
                     }
                 }

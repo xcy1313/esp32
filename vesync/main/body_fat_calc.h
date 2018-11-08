@@ -16,7 +16,7 @@ enum{
 
 
 
-bool body_fat_person(response_weight_data_t *p_weitht);
+bool body_fat_person(hw_info *res,response_weight_data_t *p_weitht);
 
 
 
