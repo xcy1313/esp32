@@ -24,11 +24,11 @@
 #define WriteCoreQueue(a ,b)	uart_write_bytes(EX_UART_NUM, a, b)
 #define ReadCoreQueue(a)		uart_read_bytes(EX_UART_NUM, a, 1, portMAX_DELAY)
 
-#define MASTER_SET		0x10
-#define MASTER_INQUIRY	0x20
-#define SLAVE_SET		0x30
-#define SLAVE_INQUIRY	0x40
-#define SLAVE_SEND		0x50
+#define MASTER_SET		0x10	//主设备对从设备进行参数或功能设置
+#define MASTER_INQUIRY	0x20	//主设备对从设备状态查询操作
+#define SLAVE_SET		0x30	//从设备对主设备进行需要的设置
+#define SLAVE_INQUIRY	0x40	//从设备对主设备进行必要的查询操作
+#define SLAVE_SEND		0x50	//从设备主动上数据给主设备
 
 
 #define CMD_HW_VN	            1
@@ -57,6 +57,20 @@
 
 #define FRAME_HEAD          0xA5    //帧起始符
 #define FRAME_END           0x5A    //帧结束符
+
+typedef enum {
+    RET_MSG_ID_NONE = 0,
+    RET_MSG_ID_OK = 1,
+    RET_MSG_ID_IDLE,
+    RET_MSG_ID_ERROR,
+    RET_MSG_ID_TIMEOUT,
+	RET_MSG_ACK_ERROR,
+	RET_MSG_ACK_OK,
+	RET_MSG_DATA_OVER,
+	RET_MSG_DATA_NULL,
+	RET_MSG_DATA_ERROR,
+    RET_MSG_ID_BUSY
+} RET_MSG_ID_E;
 
 typedef enum{
 	SYNC_HEAD,
@@ -87,7 +101,6 @@ typedef struct{
 	uint16_t weight;	//体重;
 	uint8_t  measu_unit;//测量单位
 	uint8_t  user_mode;	//用户模式 1为普通人 0为运动员;
-	uint8_t  unused[6];
 	uint8_t  length;	//长度
 	uint8_t  crc8;		//crc
 }user_config_data_t;
@@ -183,7 +196,7 @@ extern UARTSTRUCT vesync_uart;
 typedef struct{
     uint8_t command;
     bool    record;
-    void    (*transfer_callback)(const void*, unsigned short);
+    void    (*transfer_callback)(uint8_t,uint8_t cmd,const void*, unsigned short);
 }command_types;
 extern command_types command_type[15];
 void vesync_uart_int(uart_recv_cb_t cb);

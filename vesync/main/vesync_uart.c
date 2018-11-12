@@ -18,14 +18,14 @@ hw_info         info_str;
 UARTSTRUCT      vesync_uart;
 
 command_types command_type[15] ={
-    {CMD_HW_VN	            ,true  ,vesync_bt_notify},  //查询硬件版本
-    {CMD_ID	                ,true  ,vesync_bt_notify},  //查询产品ID     
-    {CMD_BODY_WEIGHT	    ,true  ,vesync_bt_notify}, 	//查询用户体重        
-    {CMD_HADRWARE_ERROR	    ,false ,vesync_bt_notify},  //硬件出错通知
-    {CMD_BODY_FAT	        ,false ,vesync_bt_notify},  //计算后的体脂参数      
-    {CMD_POWER_BATTERY	    ,true  ,vesync_bt_notify},  //硬件状态
-    {CMD_MEASURE_UNIT	    ,false ,vesync_bt_notify},  //切换硬件计算单位
-    {CMD_BACKLIGHT_TIME	    ,false ,vesync_bt_notify},
+    {CMD_HW_VN	            ,true  ,NULL},  //查询硬件版本
+    {CMD_ID	                ,true  ,NULL},  //查询产品ID     
+    {CMD_BODY_WEIGHT	    ,true  ,NULL}, 	//查询用户体重        
+    {CMD_HADRWARE_ERROR	    ,true  ,NULL},  //硬件出错通知
+    {CMD_BODY_FAT	        ,false ,NULL},  //计算后的体脂参数      
+    {CMD_POWER_BATTERY	    ,true  ,NULL},  //硬件状态
+    {CMD_MEASURE_UNIT	    ,false ,NULL},  //切换硬件计算单位
+    {CMD_BACKLIGHT_TIME	    ,false ,NULL},
     {CMD_CREATE_USER        ,true  ,vesync_bt_notify},  //创建用户
     {CMD_HISTORY_TOTALLEN   ,true  ,vesync_bt_notify},  //当前历史数据总长度
     {CMD_USER_AMOUT         ,true  ,vesync_bt_notify},  //查询当前所有用户数量
@@ -58,9 +58,9 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
             }
             printf("\r\n ctl =%d ,len =%d ,cmd = %d\r\n ",frame->frame_ctrl,frame->frame_data_len,frame->frame_cmd);
             
-            for(uint8_t j=0;j<sizeof(command_type)/sizeof(command_type[0]);j++){
+             for(uint8_t j=0;j<sizeof(command_type)/sizeof(command_type[0]);j++){
                 if(frame->frame_cmd == command_type[j].command){    //
-                    if(frame->frame_data_len >1){  //主机请求效应设备返回的数据或设备主动上传的数据
+                    if(frame->frame_data_len >2){  //主机请求效应设备返回的数据或设备主动上传的数据
                         ESP_LOGI(TAG, "----->\r\n");
                         if(command_type[j].record){
                             uint8_t *opt = NULL;
@@ -75,8 +75,10 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                                         printf("\r\n weight =0x%04x ,if =0x%x ,unit =0x%x,imped =0x%02x\r\n",res->response_weight_data.weight,\
                                                                                                  res->response_weight_data.if_stabil,\
                                                                                                  res->response_weight_data.measu_unit,\
-                                                                                                 res->response_weight_data.imped_value);
+                                                                                                 res->response_weight_data.imped_value);                                  
                                         // 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
+                                        command_type[j].transfer_callback = vesync_bt_notify;
+                                        
                                         if(body_fat_person(res,&res->response_weight_data)){
                                             ESP_LOGI(TAG, "------>the same person! \r\n");
                                         }
@@ -86,27 +88,34 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                                         printf("\r\n hardware =0x%02x ,firmware =0x%02x ,protocol =0x%02x\r\n",res->response_version_data.hardware,\
                                                                                                 res->response_version_data.firmware,\
                                                                                                 res->response_version_data.protocol);
+                                        command_type[j].transfer_callback = vesync_bt_notify;
                                     break;
                                 case CMD_ID:
                                         memcpy((uint8_t *)&res->response_encodeing_data.type,opt,frame->frame_data_len-1);
                                         printf("\r\n type =0x%02x ,item =0x%02x\r\n",res->response_encodeing_data.type,res->response_encodeing_data.item);
+                                        command_type[j].transfer_callback = vesync_bt_notify;
                                     break;
                                 case CMD_POWER_BATTERY:
                                         memcpy((uint8_t *)&res->response_hardstate.battery_level,opt,frame->frame_data_len-1);
-                                        printf("\r\n type =0x%02x ,item =0x%02x\r\n",res->response_hardstate.battery_level,res->response_hardstate.power);
+                                        printf("\r\n power =0x%02x ,battery_per =0x%02x\r\n",res->response_hardstate.battery_level,res->response_hardstate.power);
+                                        command_type[j].transfer_callback = vesync_bt_notify;
                                     break;
                                 case CMD_HADRWARE_ERROR:
                                         res->response_error_notice.error.para = *(uint32_t *)&opt[0];
                                         printf("\r\n error type =0x%04x\r\n",res->response_error_notice.error.para);
+                                        command_type[j].transfer_callback = vesync_bt_notify;
                                     break;
                                 default:
+                                        ESP_LOGI(TAG, "other command %d\r\n" ,command_type[j].record);
                                     break;
                             }
                         }
-                        command_type[j].transfer_callback((uint8_t *)&frame->frame_data[0] ,frame->frame_data_len);  //透传控制码
-                    }else if(frame->frame_data_len == 1){//设备返回的应答
+                        if(command_type[j].transfer_callback != NULL){
+                            command_type[j].transfer_callback(0,0,(uint8_t *)&frame->frame_data[0] ,frame->frame_data_len-1);  //透传控制码
+                        }
+                    }else{//设备返回的应答
                         ESP_LOGI(TAG, "----ack \r\n");
-                        command_type[j].transfer_callback(&frame->frame_cmd ,1);  //应答
+                        command_type[j].transfer_callback(0,0,&frame->frame_cmd ,1);  //应答
                     }
                     break;
                 }   

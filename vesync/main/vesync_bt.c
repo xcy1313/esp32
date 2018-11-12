@@ -331,13 +331,22 @@ static unsigned char sum_verify(void *notify_data ,unsigned short len)
 	return sum;
 }
 
-void vesync_bt_notify(void *notify_data ,unsigned short len)
+/**
+ * @brief 
+ * @param notify_data 
+ * @param len 为了跟串口统一 len包含命令+载荷长度 
+ */
+void vesync_bt_notify(uint8_t ctl,uint8_t cmd,const void *notify_data ,unsigned short len)
 {
     uint8_t sendbuf[20] ={0xA5};
     uint8_t sendlen =0;
-    memcpy((uint8_t *)&sendbuf[1],(uint8_t *)&notify_data[0],len);
 
-    sendlen = 1+len+1+1;    //包头+命令+载荷长度+载荷+checksum+包尾；
+    sendbuf[1] = *(uint8_t *)&notify_data[0];    //命令码
+    sendbuf[2] = len;               //载荷长度
+
+    memcpy((uint8_t *)&sendbuf[3],(uint8_t *)&notify_data[1],len);
+
+    sendlen = 1+1+1+len+1+1;    //包头+命令+载荷长度+载荷+checksum+包尾；
 
     sendbuf[sendlen-2] = sum_verify(notify_data ,len);
     sendbuf[sendlen-1] = 0x5A;

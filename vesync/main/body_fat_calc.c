@@ -167,6 +167,13 @@ bool body_fat_calc(bool bt_status,uint16_t mask ,hw_info *res,response_weight_da
     return true;
 }
 
+/**
+ * @brief 将采样的体重值保存 并计算体脂参数 单位不一需要统一内部换算成kg作比较
+ * @param res 
+ * @param p_weitht 
+ * @return true 
+ * @return false 
+ */
 bool body_fat_person(hw_info *res ,response_weight_data_t *p_weitht)
 {
     bool ret = false;
@@ -214,10 +221,11 @@ bool body_fat_person(hw_info *res ,response_weight_data_t *p_weitht)
             default:
                 return false;
         }
-        ESP_LOGI(TAG, "oweight=%d,nweight=%d\n" ,oweight ,nweight);
+        ESP_LOGI(TAG, "oweight=%d,nweight=%d,userweight =%d\n",oweight,nweight,res->user_config_data.weight);
 
-        if((abs(oweight - nweight) < MAX_WEIGHT) &&
-            (abs(o_imped_value - n_imped_value) < MAX_IMPED)){
+        //此处需要遍历固件端保存用户数据总数作比较来决定是否为绑定数据
+        if((abs(o_imped_value - n_imped_value) <= MAX_IMPED) &&              //前后两次阻抗小于30 ohm
+            (abs(nweight - res->user_config_data.weight) <= MAX_WEIGHT)){    //当前实际值与设置值误差小于三公斤
             ret = true;
         }else if((oweight == 0) && (res->user_config_data.length !=0)){  //上电第一次使用
             ret = true;

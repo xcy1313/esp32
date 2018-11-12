@@ -30,6 +30,12 @@
 static const char *TAG = "main";
 
 uni_frame_t bt_frame;
+static TaskHandle_t user_task;
+typedef enum{
+	REC_HARD_VERSION,
+	REC_PROJECT_ITEM,
+}gUserAction;
+gUserAction gUserConfig;
 
 #define ENABLE_DEBUG    1
 /**
@@ -81,7 +87,7 @@ static void ota_event_handler(vesync_ota_status_t status)
 }
 
 /**
- * @brief 
+ * @brief app下发控制指令 称体指令作透传，用户数据固件本地处理，不做透传;
  * @param bt_buf 
  * @param length 
  */
@@ -92,8 +98,6 @@ void bt_event_handler(const void*bt_buf, int length){
     for(int i=0;i<length;i++){
         if(Comm_frame_parse(*(unsigned char *)&bt_buf[i],1,&bt_frame) == 1){
             uint8_t res_data[20]={0};
-            uint8_t sendlen =0;
-
             ESP_LOGI(TAG, "frame_data_len %d\r\n", bt_frame.frame_data_len);
 
             for(uint8_t i=0;i< bt_frame.frame_data_len;i++){
@@ -103,64 +107,102 @@ void bt_event_handler(const void*bt_buf, int length){
 
             for(uint8_t j=0;j<sizeof(command_type)/sizeof(command_type[0]);j++){
                 if(bt_frame.frame_ctrl == command_type[j].command){    // 蓝牙协议控制码即为指令;
-                    uint8_t *opt = NULL;
-                    opt = &bt_frame.frame_data[0];    //过滤命令id字节
+                    uint8_t sendlen =0;
+                    uint8_t *opt = &bt_frame.frame_data[0];
                     switch(command_type[j].command){
-                            case CMD_CREATE_USER:{
-                                    uint8_t crc8;
-                                    crc8 = vesync_crc8(0,opt,bt_frame.frame_data_len); //过滤crc字段
-                                    ESP_LOGI(TAG, "crc8= %d config_crc8:%d\r\n", crc8,info_str.user_config_data.crc8);
-                                    
-                                    res_data[0] = command_type[j].command;
-                                    res_data[1] = 0x7;
-                                    res_data[2] = 1;
-                                    res_data[3] = 8;
-                                    if(crc8 != info_str.user_config_data.crc8){ //crc8不同表示用户数据有改变
-                                        info_str.user_config_data.crc8 = crc8;
-                                        info_str.user_config_data.length = bt_frame.frame_data_len;
-                                        memcpy((uint8_t *)&info_str.user_config_data.account,opt,bt_frame.frame_data_len);
-                                        //if(vesync_flash_write("userconfig","config",(uint8_t *)&info_str.user_config_data.account,sizeof(user_config_data_t)-1)){  //保存用户配置信息
-                                        if(vesync_flash_write("userdata","store","112233445566778899",20)){
-                                            ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info_str.user_config_data.crc8 ,info_str.user_config_data.length);
-                                        }else{
-                                            res_data[2] = 0;
-                                        }
+                        case CMD_HW_VN:         //app主动获取版本号
+                                ESP_LOGI(TAG, "app get CMD_HW_VN\r\n");
+                                command_type[j].transfer_callback = uart_encode_send;
+                                res_data[0] = MASTER_INQUIRY;
+                                res_data[1] = command_type[j].command;
+                                sendlen = 0;
+                            break;
+                        case CMD_ID:           //app主动获取产品编码
+                                ESP_LOGI(TAG, "app get CMD_ID\r\n");
+                                command_type[j].transfer_callback = uart_encode_send;
+                                res_data[0] = MASTER_INQUIRY;
+                                res_data[1] = command_type[j].command;
+                                sendlen = 0;
+                            break;
+                        case CMD_MEASURE_UNIT: //app切换计量单位
+                                ESP_LOGI(TAG, "app set CMD_MEASURE_UNIT\r\n");
+                                command_type[j].transfer_callback = uart_encode_send;
+                                res_data[0] = MASTER_SET;
+                                res_data[1] = command_type[j].command;
+                                *(uint8_t *)&res_data[2] = info_str.user_config_data.measu_unit;
+                                sendlen = sizeof(uint8_t);
+                            break;
+                        case CMD_BACKLIGHT_TIME://app切换背光时间
+                                ESP_LOGI(TAG, "app set CMD_BACKLIGHT_TIME\r\n");
+                            break;
+                        case CMD_POWER_BATTERY:
+                                ESP_LOGI(TAG, "app get CMD_POWER_BATTERY\r\n");
+                                command_type[j].transfer_callback = uart_encode_send;
+                                res_data[0] = MASTER_INQUIRY;
+                                res_data[1] = command_type[j].command;
+                                sendlen = 0;    
+                            break;
+                        case CMD_CREATE_USER:{
+                                uint8_t crc8;
+                                ESP_LOGI(TAG, "app CMD_CREATE_USER\r\n");
+                                crc8 = vesync_crc8(0,opt,bt_frame.frame_data_len); //过滤crc字段
+                                ESP_LOGI(TAG, "crc8= %d config_crc8:%d\r\n", crc8,info_str.user_config_data.crc8);
+                                
+                                res_data[0] = command_type[j].command;
+                                res_data[1] = 1;
+                                res_data[2] = 8;
+                                if(crc8 != info_str.user_config_data.crc8){ //crc8不同表示用户数据有改变
+                                    info_str.user_config_data.crc8 = crc8;
+                                    info_str.user_config_data.length = bt_frame.frame_data_len;
+                                    memcpy((uint8_t *)&info_str.user_config_data.account,opt,bt_frame.frame_data_len);
+                                    //if(vesync_flash_write("userconfig","config",(uint8_t *)&info_str.user_config_data.account,sizeof(user_config_data_t)-1)){  //保存用户配置信息
+                                    if(vesync_flash_write("userdata","store","112233445566778899",20)){
+                                        ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info_str.user_config_data.crc8 ,info_str.user_config_data.length);
+                                    }else{
+                                        res_data[1] = 0;
                                     }
-                                    *(uint32_t *)&res_data[4] = info_str.user_config_data.account;
-                                    res_data[8] = info_str.user_config_data.ueser_id;
-                                    sendlen += 9;
-                                    ESP_LOGI(TAG, "CMD_CREATE_USER account:0x%04x ,ueser_id:%02x ,gender:%d,height:%d,age:%d ,weight:%d,measu_unit:%d,user_mode:%d\r\n",
-                                                            info_str.user_config_data.account,info_str.user_config_data.ueser_id,info_str.user_config_data.gender,info_str.user_config_data.height,
-                                                            info_str.user_config_data.age,info_str.user_config_data.weight,info_str.user_config_data.measu_unit,info_str.user_config_data.user_mode);
+                                }
+                                *(uint32_t *)&res_data[3] = info_str.user_config_data.account;
+                                res_data[7] = info_str.user_config_data.ueser_id;
+                                sendlen = 7;    //不包含command id
+                                ESP_LOGI(TAG, "CMD_CREATE_USER account:0x%04x ,ueser_id:%02x ,gender:%d,height:%d,age:%d ,weight:%d,measu_unit:%d,user_mode:%d\r\n",
+                                                        info_str.user_config_data.account,info_str.user_config_data.ueser_id,info_str.user_config_data.gender,info_str.user_config_data.height,
+                                                        info_str.user_config_data.age,info_str.user_config_data.weight,info_str.user_config_data.measu_unit,info_str.user_config_data.user_mode);
                             }
                             break;
                         case CMD_DELETE_USER:
-                             ESP_LOGI(TAG, "CMD_CREATE_USER \r\n");
+                             ESP_LOGI(TAG, "app CMD_CREATE_USER \r\n");
                             break;
                         case CMD_DELETE_HIS_ITEM:
-                              ESP_LOGI(TAG, "CMD_DELETE_HIS_ITEM \r\n");
+                              ESP_LOGI(TAG, "app CMD_DELETE_HIS_ITEM \r\n");
                             break;
                         case CMD_SYNC_UTC:
-                              ESP_LOGI(TAG, "CMD_SYNC_UTC \r\n");
+                              ESP_LOGI(TAG, "app CMD_SYNC_UTC \r\n");
                             break;
-                        case CMD_MODIFY_USER:
-                              ESP_LOGI(TAG, "CMD_MODIFY_USER \r\n");
+                        case CMD_MODIFY_USER:   //app修改账户信息
+                              ESP_LOGI(TAG, "app CMD_MODIFY_USER \r\n");
                             break;
-                        case CMD_HISTORY_TOTALLEN:
-                              ESP_LOGI(TAG, "CMD_HISTORY_TOTALLEN \r\n");
+                        case CMD_HISTORY_TOTALLEN://app获取当前历史数据总量
+                              ESP_LOGI(TAG, "app CMD_HISTORY_TOTALLEN \r\n");
                             break;
-                        case CMD_USER_AMOUT:
-                              ESP_LOGI(TAG, "CMD_USER_AMOUT \r\n");
+                        case CMD_USER_AMOUT:    //app获取当前用户数量
+                              ESP_LOGI(TAG, "app CMD_USER_AMOUT \r\n");
                             break;
                         default:
                               ESP_LOGI(TAG, "error cmd! \r\n");
                             break; 
                     }
-                    if(command_type[j].record){
-                        if(command_type[j].transfer_callback != NULL){
-                            command_type[j].transfer_callback(res_data ,sendlen);  //应答app
+                    if(command_type[j].transfer_callback != NULL){
+                        if(command_type[j].transfer_callback == uart_encode_send){
+                            ESP_LOGI(TAG, "send len =%d \r\n" ,res_data[1]);
+                            command_type[j].transfer_callback(res_data[0],res_data[1],&res_data ,sendlen);  //串口下发
+                        }
+                        else if(command_type[j].transfer_callback == vesync_bt_notify){
+                            ESP_LOGI(TAG, "send len =%d \r\n" ,res_data[1]);
+                            command_type[j].transfer_callback(0,0,res_data ,sendlen);  //应答app
                         }
                     }
+                    break;
                 }
             }
         }
@@ -177,6 +219,51 @@ void  uart_event_handler(const void*uart_buf, int length){
 
 }
 
+RET_MSG_ID_E DEVICE_PUBLIC_COMMUITCT(hw_info *res ,uint8_t cmd)
+{
+    RET_MSG_ID_E gRet=RET_MSG_ID_NONE;
+    static uint8_t step=0;
+    static int gWaitRespone =0;
+
+    uint16_t len =0;
+#if 0
+	if(step==0){
+        if(uart_encode_send())
+		//if(packetdataSend(cmd ,encodecommand) == RET_MSG_ID_OK)
+        {
+			step++;
+		}else{
+			ESP_LOGI(TAG, "Public command Error! -->[0x%0x4x]:",cmd);
+		}
+	}else if(step==1){
+		//step=0;
+	}
+#endif
+    return gRet;
+}
+/**
+ * @brief 
+ * @param pvParameters 
+ */
+static void user_task_handler_loop(void *pvParameters)
+{
+    RET_MSG_ID_E gRet=RET_MSG_ID_NONE;
+    while(1) { 
+        switch(gUserConfig){
+			case REC_HARD_VERSION:
+                    if(DEVICE_PUBLIC_COMMUITCT(&info_str ,CMD_HW_VN) == RET_MSG_ID_OK)
+						gUserConfig = REC_PROJECT_ITEM;
+                break;
+            case REC_PROJECT_ITEM:
+                    if(DEVICE_PUBLIC_COMMUITCT(&info_str ,CMD_ID) == RET_MSG_ID_OK)
+						gUserConfig = REC_HARD_VERSION;
+                break;    
+            default:
+                break;
+        }
+        vTaskDelay(500 / portTICK_PERIOD_MS);	//正常使用500ms；
+    }
+}
 /**
  * @brief 
  */
@@ -211,6 +298,7 @@ void app_main()
     printf("silicon revision %d \n", chip_info.revision);
 
     vesync_flash_init("userdata");
+    xTaskCreate(&user_task_handler_loop, "user_task_handler_loop", 8192, NULL, 10, &user_task);
 #if 0
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");

@@ -52,5 +52,5 @@ typedef struct{
 }BTSTRUCT;
 
 void vesync_bt_init(bt_recv_cb_t cb);
-void vesync_bt_notify(void *notify_data ,unsigned short len);
+void vesync_bt_notify(uint8_t ctl,uint8_t cmd,const void *notify_data ,unsigned short len);
 void vesync_bt_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
