@@ -1,5 +1,7 @@
 #include "vesync_wifi.h"
+#include "vesync_flash.h"
 #include "esp_log.h"
+#include "cJSON.h"
 
 #include "esp_bt.h"
 #include "esp_blufi_api.h"
@@ -17,11 +19,64 @@ static bool gl_sta_connected = false;
 static uint8_t gl_sta_bssid[6];
 static uint8_t gl_sta_ssid[32];
 static int gl_sta_ssid_len;
+device_info_t device_info;
 
+/**
+ * @brief 扫描AP热点的回调函数
+ * @param arg 		[扫描获取到的AP信息指针]
+ * @param status 	[扫描结果]
+ */
+static void  blufi_wifi_list_packet(uint16_t ap_count,void  *arg)
+{
+	if(ap_count != 0){
+		wifi_ap_record_t  *bss_link = (wifi_ap_record_t *)arg;
+		int cnt = 0;
+    
+		cJSON *root = NULL;
+		cJSON *wifiList = NULL;
+		root = cJSON_CreateObject();
+        
+		if(NULL != root){
+			cJSON_AddStringToObject(root, "uri", "/replyWifiList");
+			cJSON_AddNumberToObject(root, "result", 0);
+			cJSON_AddItemToObject(root, "wifiList", wifiList =  cJSON_CreateArray());
+
+			if(NULL != wifiList){
+				do{
+					cJSON *wifiList_root = cJSON_CreateObject();
+					if(NULL != wifiList_root){
+						cJSON_AddStringToObject(wifiList_root, "SSID", (char *)(bss_link[cnt].ssid));
+						cJSON_AddNumberToObject(wifiList_root, "AUTH", bss_link[cnt].authmode);
+						cJSON_AddNumberToObject(wifiList_root, "RSSI", bss_link[cnt].rssi);
+						cJSON_AddItemToArray(wifiList, wifiList_root);
+					}
+					cnt++;
+				}while(cnt < ap_count);
+			}
+		}
+        
+		char* out = cJSON_PrintUnformatted(root);	//不带缩进格式
+		ESP_LOGI(TAG, "Send to app : %s\r\n", out);
+
+		cJSON_Delete(root);
+
+		ESP_LOGI(TAG, "There are %d ap.\n", ap_count);
+
+        esp_blufi_send_custom_data((uint8_t *)out, strlen(out));
+
+        free(out);
+	}
+}
+
+/**
+ * @brief 
+ * @param ctx 
+ * @param event 
+ * @return esp_err_t 
+ */
 static esp_err_t vesync_wifi_event_handler(void *ctx, system_event_t *event)
 {
     wifi_mode_t mode;
-
 #if 1
     switch (event->event_id) {
         case SYSTEM_EVENT_STA_START:
@@ -81,21 +136,20 @@ static esp_err_t vesync_wifi_event_handler(void *ctx, system_event_t *event)
                 ESP_LOGI(TAG,"malloc error, ap_list is NULL");
                 break;
             }
-            ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
-            esp_blufi_ap_record_t * blufi_ap_list = (esp_blufi_ap_record_t *)malloc(apCount * sizeof(esp_blufi_ap_record_t));
+            wifi_ap_record_t *blufi_ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
             if (!blufi_ap_list) {
-                if (ap_list) {
-                    free(ap_list);
-                }
-                ESP_LOGI(TAG, "malloc error, blufi_ap_list is NULL");
+                ESP_LOGI(TAG,"malloc error, blufi_ap_list is NULL");
                 break;
             }
-            for (int i = 0; i < apCount; ++i)
-            {
+            ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
+
+            for (int i = 0; i < apCount; ++i){
+                blufi_ap_list[i].authmode = ap_list[i].authmode; 
                 blufi_ap_list[i].rssi = ap_list[i].rssi;
                 memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
             }
             esp_blufi_send_wifi_list(apCount, blufi_ap_list);
+            blufi_wifi_list_packet(apCount,blufi_ap_list);
             esp_wifi_scan_stop();
             free(ap_list);
             free(blufi_ap_list);
@@ -108,8 +162,8 @@ static esp_err_t vesync_wifi_event_handler(void *ctx, system_event_t *event)
     return ESP_OK;
 }
 
-#define TEST_SSID "R6100-2.4G"
-#define TEST_PWD  "12345678"
+#define TEST_SSID "R6100"
+#define TEST_PWD  "123451231987"
 
 void vesync_wifi_init(void)
 {
@@ -123,13 +177,26 @@ void vesync_wifi_init(void)
             .password = TEST_PWD,
         },
     };
-    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
+
+    //device_info = vesync_flash_read_info();
+
+    //printf("\r\n");
+    //for(uint8_t i=0;i<sizeof(device_info.station_config.wifiPassword);i++){
+    //    printf("%d",device_info.station_config.wifiPassword[i]);
+    //}
+    //printf("\r\n");
+
+    //strcpy((char *)wifi_config.sta.ssid,(char *)device_info.station_config.wifiSSID);
+    //strcpy((char *)wifi_config.sta.password,(char *)device_info.station_config.wifiPassword);
+    //ESP_LOGI(TAG, "Setting WiFi configuration SSID %s,pwd %s",device_info.station_config.wifiSSID,wifi_config.sta.password);
+
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
     ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
     //ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
     ESP_ERROR_CHECK( esp_wifi_start() );
 
+    //xEventGroupWaitBits(user_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
     //ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MODEM));			//开启wifi省电模式;
     ESP_LOGI(TAG, "wifi init success");
 }

@@ -11,6 +11,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "esp_bt.h"
+#include "cJSON.h"
 
 #include "esp_blufi_api.h"
 #include "esp_bt_defs.h"
@@ -19,6 +20,8 @@
 #include "esp_bt_device.h"
 #include "vesync_blufi.h"
 #include "vesync_bt.h"
+#include "vesync_wifi.h"
+#include "vesync_flash.h"
 
 static const char *TAG = "Vesync_BLUFI";
 
@@ -85,13 +88,186 @@ static esp_blufi_callbacks_t vesync_blufi_callbacks = {
     .checksum_func = blufi_crc_checksum,
 };
 
+
+/**
+ * [Handle_ConfigNetJson  解析处理APP通过ble发来的配网json数据]
+ * @param  json [配网json数据]
+ * @return    	[无]
+ */
+static void Handle_ConfigNetJson(device_info_t *info,cJSON *json)
+{
+	cJSON *root = json;
+
+	cJSON *pid = cJSON_GetObjectItemCaseSensitive(root, "pid");
+	if(true == cJSON_IsString(pid)){
+		strcpy((char*)info->mqtt_config.pid, pid->valuestring);
+		BLUFI_INFO("pid : %s\r\n", info->mqtt_config.pid);
+	}
+
+	cJSON *configKey = cJSON_GetObjectItemCaseSensitive(root, "configKey");
+	if(true == cJSON_IsString(configKey)){
+        strcpy((char*)info->mqtt_config.configKey, configKey->valuestring);
+		BLUFI_INFO("configKey : %s\r\n", info->mqtt_config.configKey);
+	}
+
+	cJSON *serverDN = cJSON_GetObjectItemCaseSensitive(root, "serverDN");
+	if(true == cJSON_IsString(serverDN)){
+		char *str = strstr(serverDN->valuestring, ":");
+		if(NULL != str){
+			strncpy((char*)info->mqtt_config.serverDN, serverDN->valuestring, str - serverDN->valuestring);
+			info->mqtt_config.serverDN[str - serverDN->valuestring] = '\0';
+
+			int port = atoi(str + 1);   
+			info->mqtt_config.mqtt_port = port;
+			BLUFI_INFO("mqtt port : %d\r\n", info->mqtt_config.mqtt_port);
+		}else{
+			strcpy((char*)info->mqtt_config.serverDN, serverDN->valuestring);
+		}
+		BLUFI_INFO("serverDN : %s\r\n", info->mqtt_config.serverDN);
+	}
+
+	cJSON *serverIP = cJSON_GetObjectItemCaseSensitive(root, "serverIP");
+	if(true == cJSON_IsString(serverIP)){
+		char *str = strstr(serverIP->valuestring, ":");
+		if(NULL != str){
+			strncpy((char*)info->mqtt_config.serverIP, serverIP->valuestring, str - serverIP->valuestring);
+		}else{
+			strcpy((char*)info->mqtt_config.serverIP, serverIP->valuestring);
+		}
+		BLUFI_INFO("serverIP : %s\r\n", (char*)info->mqtt_config.serverIP);
+	}
+
+	cJSON *wifiSSID = cJSON_GetObjectItemCaseSensitive(root, "wifiSSID");
+	if(true == cJSON_IsString(wifiSSID)){
+		strcpy((char*)info->station_config.wifiSSID, wifiSSID->valuestring);
+		BLUFI_INFO("wifiSSID : %s\r\n", (char*)info->station_config.wifiSSID);
+	}
+
+	cJSON *wifiPassword = cJSON_GetObjectItemCaseSensitive(root, "wifiPassword");
+	if(true == cJSON_IsString(wifiPassword)){
+		strcpy((char*)info->station_config.wifiPassword, wifiPassword->valuestring);
+		BLUFI_INFO("wifiPassword : %s\r\n", (char*)info->station_config.wifiPassword);
+	}
+
+	cJSON *wifiStaticIP = cJSON_GetObjectItemCaseSensitive(root, "wifiStaticIP");
+	if(true == cJSON_IsString(wifiStaticIP)){
+		strcpy((char*)info->station_config.wifiStaticIP, wifiStaticIP->valuestring);
+		BLUFI_INFO("wifiStaticIP : %s\r\n", (char*)info->station_config.wifiStaticIP);
+	}
+
+	cJSON *wifiGateway = cJSON_GetObjectItemCaseSensitive(root, "wifiGateway");
+	if(true == cJSON_IsString(wifiGateway)){
+		strcpy((char*)info->station_config.wifiGateway, wifiGateway->valuestring);
+		BLUFI_INFO("wifiGateway : %s\r\n", (char*)info->station_config.wifiGateway);
+	}
+
+	cJSON *wifiDNS = cJSON_GetObjectItemCaseSensitive(root, "wifiDNS");
+	if(true == cJSON_IsString(wifiDNS)){
+		strcpy((char*)info->station_config.wifiDNS, wifiDNS->valuestring);
+		BLUFI_INFO("wifiDNS : %s\r\n", (char*)info->station_config.wifiDNS);
+	}
+
+    vesync_flash_write_info(info); 
+    vesync_flash_read_info();
+}
+
+#define DEVICE_TYPE     "1"
+#define FIRM_VERSION    "2"
+/**
+ * @brief 回复APP设备的固件信息
+ */
+static void vesync_reply_firmware_information(void)
+{
+	uint8_t buffer[128];
+	uint8_t buflen = 0;
+	buflen = sprintf((char *)buffer, "{\"uri\":\"/replyFirmware\",\"deviceType\":\"%s\",\"firmVersion\":\"%s\"}", DEVICE_TYPE, FIRM_VERSION);
+
+	if(esp_blufi_send_custom_data(buffer, buflen) != ESP_OK){
+		BLUFI_INFO("Send wifi list to app failed !\n");
+	}
+	BLUFI_INFO("TCP send to APP : %s \r\n", buffer);
+}
+
+
+/**
+ * @brief 启动扫描WiFi列表
+ * @return int [扫描结果]
+ */
+static void vesync_scan_wifi_list(void)
+{
+
+    wifi_scan_config_t scanConf = {
+                .ssid = NULL,
+                .bssid = NULL,
+                .channel = 0,
+                .show_hidden = false
+            };
+    BLUFI_INFO("blufi wifi scan start\n");
+
+    ESP_ERROR_CHECK(esp_wifi_scan_start(&scanConf, true));
+
+    uint8_t buffer[64];
+    sprintf((char *)buffer, "{\"uri\":\"/replyWifiList\",\"result\":-1}");
+    if(esp_blufi_send_custom_data(buffer, sizeof(buffer)-1) != ESP_OK){
+        BLUFI_INFO("Send wifi list reply to app failed !\n");
+    }
+}
+
+static void vesync_scan_stop(void)
+{
+    BLUFI_INFO("blufi wifi scan stop\n");
+    ESP_ERROR_CHECK(esp_wifi_scan_stop());
+}
+
+/**
+ * [handle_tcp_message  解析APP端通过本地网络接口直接发送过来的数据]
+ * @param  data   [网络数据]
+ * @param  length [数据长度]
+ * @return        [无]
+ */
+void handle_blufi_custom_message(device_info_t *info, const char *data, int length)
+{
+	cJSON *root = cJSON_Parse(data);
+	if(NULL == root){
+		BLUFI_INFO("Parse cjson error !\r\n");
+		return;
+	}
+
+	//vesync_printf_cjson(root);				//json标准格式，带缩进
+	BLUFI_INFO("Handler custom message !\r\n");
+
+	//获取uri，判断是否为配网的json数据
+	cJSON *uri = cJSON_GetObjectItemCaseSensitive(root, "uri");
+
+	if(true == cJSON_IsString(uri)){
+		BLUFI_INFO("Found uri !");
+		if(!strcmp(uri->valuestring, "/beginConfigRequest")){		//开始配网
+			//确认是配网信息
+			Handle_ConfigNetJson(info,root); 								//解析处理json数据
+		}else if(!strcmp(uri->valuestring, "/cancelConfig")){			//取消配网
+			vesync_scan_stop();
+		}else if(!strcmp(uri->valuestring, "/queryFirmware")){
+			vesync_reply_firmware_information();
+		}else if(!strcmp(uri->valuestring, "/queryWifiList")){
+			vesync_scan_wifi_list();
+		}else{
+			//VESYNC_LOG(USER_LOG_ERROR, "Config parameter error !\r\n");
+			//confignet_upload_realtime_log(ERR_CONFIG_URI_ERROR, "CONFIG_URI_ERROR");
+		}
+	}
+
+	cJSON_Delete(root);									//务必记得释放资源！
+}
+
 static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param)
 {
-    switch (event) {
+    switch (event){
         case ESP_BLUFI_EVENT_INIT_FINISH:
             BLUFI_INFO("BLUFI init finish\n");
-            //esp_ble_gap_set_device_name(BLUFI_DEVICE_NAME);   //受app限制 需使用此广播名用来调试blufi 
-            //esp_ble_gap_config_adv_data(&vesync_blufi_adv_data);
+        #ifdef ENABLE_BLUFI_ADVERTISE
+            esp_ble_gap_set_device_name(BLUFI_DEVICE_NAME);   //受app限制 需使用此广播名用来调试blufi 
+            esp_ble_gap_config_adv_data(&vesync_blufi_adv_data);
+        #endif
             break;
         case ESP_BLUFI_EVENT_DEINIT_FINISH:
             BLUFI_INFO("BLUFI deinit finish\n");
@@ -106,7 +282,9 @@ static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb
         case ESP_BLUFI_EVENT_BLE_DISCONNECT:
             BLUFI_INFO("BLUFI ble disconnect\n");
             blufi_security_deinit();
+        #ifdef ENABLE_BLUFI_ADVERTISE
             esp_ble_gap_start_advertising(&vesync_blufi_adv_data_adv_params);
+        #endif
             break;
         case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:
             BLUFI_INFO("BLUFI Set WIFI opmode %d\n", param->wifi_mode.op_mode);
@@ -217,12 +395,14 @@ static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb
                 .channel = 0,
                 .show_hidden = false
             };
+            BLUFI_INFO("blufi wifi scan start\n");
             ESP_ERROR_CHECK(esp_wifi_scan_start(&scanConf, true));
             break;
         }
         case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:  //手机下发custom data 
+            handle_blufi_custom_message(&device_info,(char *)param->custom_data.data, param->custom_data.data_len);
             BLUFI_INFO("Recv Custom Data %d\n", param->custom_data.data_len);
-            esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
+            //esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
             esp_blufi_send_custom_data(param->custom_data.data, param->custom_data.data_len);   //设备转发数据表示应答
             break;
         case ESP_BLUFI_EVENT_RECV_USERNAME:

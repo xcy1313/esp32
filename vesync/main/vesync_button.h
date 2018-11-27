@@ -20,7 +20,7 @@
 #define Reapet_key    	3            //长键 
 #define Very_Long_key   4            //长长键 
 
-#define GPIO_KEY  		12
+#define GPIO_KEY  		19
 
 #define KEY_NULL                    0x00  
 #define KEY_BUTTON0                 0x01

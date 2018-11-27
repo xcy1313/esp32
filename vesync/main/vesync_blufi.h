@@ -2,6 +2,8 @@
 
 #include "blufi_security.h"
 
+#define ENABLE_BLUFI_ADVERTISE
+
 typedef struct{
     uint8_t       sta_bssid[6];
     uint8_t       sta_ssid[32];

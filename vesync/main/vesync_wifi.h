@@ -15,6 +15,8 @@
 #include "tcpip_adapter.h"
 #include "esp_smartconfig.h"
 
+#define CONFIGKEY_BUF_LEN				        16+4	//configKey缓存区大小
+
 #define ERR_CONFIG_NET_SUCCESS 					0 		//配网时设备连接MQTT服务器成功
 #define ERR_CONFIG_WIFI_SSID_MISSED				50		//配网数据的“wifiSSID”字段缺失
 #define ERR_CONFIG_CONFIGKEY_MISSED 			51		//配网数据的“configKey”字段缺失
@@ -31,12 +33,45 @@
 #define ERR_CONFIG_LINK_SERVER_FAILED			62		//配网时设备连接MQTT服务器失败
 #define ERR_CONFIG_TIMEOUT						63		//配网超时，全程共5分钟
 
+//设备WiFi参数配置
+#pragma pack(1)
+typedef struct{
+	uint8_t wifiSSID[32 + 4];
+	uint8_t wifiPassword[64 + 4];
+	uint8_t wifiStaticIP[16 + 4];
+	uint8_t wifiGateway[16 + 4];
+	uint8_t wifiDNS[16 + 4];
+}station_config_t;
+#pragma pack()			//
 
+//设备MQTT参数配置
+#pragma pack(1)
+typedef struct{
+	uint32_t mqtt_port;
+	uint32_t mqtt_keepalive;
+	uint32_t security;
+	uint8_t  configKey[CONFIGKEY_BUF_LEN];
+	uint8_t  serverDN[128 + 4];
+	uint8_t  serverIP[16 + 4];
+	uint8_t  pid[16 + 4];
+	uint32_t ip_link_error_count;
+} mqtt_config_t;
+#pragma pack()
 
+typedef struct{
+    station_config_t station_config;
+    mqtt_config_t    mqtt_config;
+}device_info_t;
+extern device_info_t device_info;
 
-void vesync_wifi_init(void);
 extern const int WIFI_CONNECTED_BIT;
 extern const int OTA_BIT;
 extern EventGroupHandle_t user_event_group;
+
+void vesync_wifi_init(void);
+
+
+
+
 
 #endif

@@ -1,4 +1,9 @@
-
+/**
+ * @file vesync_ota.c
+ * @brief 
+ * @author Jiven 
+ * @date 2018-11-19
+ */
 #include "vesync_ota.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

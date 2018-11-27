@@ -13,8 +13,11 @@
 #include "esp_spi_flash.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
+#include "esp_blufi_api.h"
+#include "body_fat_calc.h"
 
 
+#include "vesync_mqtt_client.h"
 #include "vesync_ota.h"
 #include "vesync_uart.h"
 #include "vesync_bt.h"
@@ -43,18 +46,44 @@ gUserAction gUserConfig;
  * @param p_event_data 
  */
 void ui_event_handler(void *p_event_data){
-
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
-        case Short_key:
-
-				vesync_flash_write("userdata","store","112233445566778899",20);	
+        case Short_key:{
+                uint8_t backup_unix = info_str.user_config_data.measu_unit;
+                uint8_t data[3] ={1,2,3};
+                // vesync_flash_write("userconfig","user_datda","112233445566778899",20);
+                //vesync_flash_write("userdata","weight_data","112233445566778899",20);	
+                esp_blufi_send_custom_data(data, 3);   //设备转发数据表示应答
+                if(backup_unix == UNIT_LB){
+                    backup_unix = UNIT_KG;
+                }else if(backup_unix == UNIT_KG){
+                    backup_unix = UNIT_ST;
+                }else if(backup_unix == UNIT_ST){
+                    backup_unix = UNIT_LB;
+                }
+                info_str.user_config_data.measu_unit = backup_unix;
+                ESP_LOGI(TAG, "unit is %d\r\n" ,info_str.user_config_data.measu_unit);
+                uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t));
+            }
 			return;
         case Double_key:
-							
+                info_str.user_fat_data.fat = 0x101;
+                info_str.user_fat_data.muscle = 0x101;
+                info_str.user_fat_data.water = 0x101;
+                info_str.user_fat_data.bone = 0x101;
+                info_str.user_fat_data.bmr = 0x101;
+                info_str.user_fat_data.bmi = 0x101;
+                uart_encode_send(MASTER_SET,CMD_BODY_FAT,(char *)&info_str.user_fat_data,12);
 			return;
-        case Reapet_key:
-						
+        case Reapet_key:{
+                static uint8_t status = 2;
+                if(status == 2){
+                    status = 3;
+                }else{
+                    status = 2;
+                }
+                uart_encode_send(MASTER_SET,CMD_BT_STATUS,(char *)&status,1);		
+            }
 			return;
         case Very_Long_key:
 
@@ -91,7 +120,8 @@ static void ota_event_handler(vesync_ota_status_t status)
  * @param bt_buf 
  * @param length 
  */
-void bt_event_handler(const void*bt_buf, int length){
+void bt_event_handler(const void*bt_buf, unsigned short length)
+{
     esp_log_buffer_hex(TAG, (char *)bt_buf, length);    
 //    WriteCoreQueue((char *)bt_buf, length);
 
@@ -165,9 +195,9 @@ void bt_event_handler(const void*bt_buf, int length){
                                 *(uint32_t *)&res_data[3] = info_str.user_config_data.account;
                                 res_data[7] = info_str.user_config_data.ueser_id;
                                 sendlen = 7;    //不包含command id
-                                ESP_LOGI(TAG, "CMD_CREATE_USER account:0x%04x ,ueser_id:%02x ,gender:%d,height:%d,age:%d ,weight:%d,measu_unit:%d,user_mode:%d\r\n",
-                                                        info_str.user_config_data.account,info_str.user_config_data.ueser_id,info_str.user_config_data.gender,info_str.user_config_data.height,
-                                                        info_str.user_config_data.age,info_str.user_config_data.weight,info_str.user_config_data.measu_unit,info_str.user_config_data.user_mode);
+                                ESP_LOGI(TAG, "CMD_CREATE_USER account:0x%04x ,ueser_id:%02x ,gender:%d,age:%d ,weight:%d,measu_unit:%d,user_mode:%d\r\n",
+                                                        info_str.user_config_data.account,info_str.user_config_data.ueser_id,info_str.user_config_data.gender,info_str.user_config_data.age,info_str.user_config_data.height,
+                                                        info_str.user_config_data.measu_unit,info_str.user_config_data.user_mode);
                             }
                             break;
                         case CMD_DELETE_USER:
@@ -196,8 +226,7 @@ void bt_event_handler(const void*bt_buf, int length){
                         if(command_type[j].transfer_callback == uart_encode_send){
                             ESP_LOGI(TAG, "send len =%d \r\n" ,res_data[1]);
                             command_type[j].transfer_callback(res_data[0],res_data[1],&res_data ,sendlen);  //串口下发
-                        }
-                        else if(command_type[j].transfer_callback == vesync_bt_notify){
+                        }else if(command_type[j].transfer_callback == vesync_bt_notify){
                             ESP_LOGI(TAG, "send len =%d \r\n" ,res_data[1]);
                             command_type[j].transfer_callback(0,0,res_data ,sendlen);  //应答app
                         }
@@ -214,7 +243,8 @@ void bt_event_handler(const void*bt_buf, int length){
  * @param uart_buf 
  * @param length 
  */
-void  uart_event_handler(const void*uart_buf, int length){
+void  uart_event_handler(const void*uart_buf, unsigned short length)
+{
 
 
 }
@@ -264,6 +294,32 @@ static void user_task_handler_loop(void *pvParameters)
         vTaskDelay(500 / portTICK_PERIOD_MS);	//正常使用500ms；
     }
 }
+
+void printf_nvs(void)
+{
+    const esp_partition_t* nvs_partition = esp_partition_find_first(
+                ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
+
+    ESP_LOGI(TAG, "NVS0 addr:0x%04x,size:%d,if_encry:%d",nvs_partition->address,nvs_partition->size,nvs_partition->encrypted);  
+
+    nvs_stats_t nvs_stats;
+    nvs_get_stats(NULL, &nvs_stats); 
+    ESP_LOGI(TAG,"NVS0: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\n",
+          nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
+
+    nvs_handle handle;
+    nvs_open("dhcp_state", NVS_READWRITE, &handle);
+
+    size_t used_entries;
+    size_t total_entries_namespace =0;
+
+    if(nvs_get_used_entry_count(handle, &used_entries) == ESP_OK){
+        // the total number of records occupied by the namespace
+        total_entries_namespace = used_entries + 1;
+    }
+    ESP_LOGI(TAG,"NVS0:UsedEntries = (%d), total_entries = (%d)\n",
+          used_entries ,total_entries_namespace);
+}
 /**
  * @brief 
  */
@@ -274,8 +330,10 @@ void app_main()
     /* Initialize NVS. */
     ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_LOGW(TAG, "nvs_flash_init failed (0x%x), erasing partition and retrying", ret);
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
+
     }
     ESP_ERROR_CHECK( ret );
 
@@ -289,26 +347,18 @@ void app_main()
     esp_read_mac(&info_str.macaddr[1], ESP_MAC_WIFI_STA);
     ESP_LOGI(TAG, "STATION mac:%02x%02x%02x%02x%02x%02x", info_str.macaddr[1][0],info_str.macaddr[1][1],info_str.macaddr[1][2],info_str.macaddr[1][3],info_str.macaddr[1][4],info_str.macaddr[1][5]);
     
-    vesync_ota_init(ota_event_handler);
+    //vesync_ota_init(ota_event_handler);
     vesync_wifi_init();
     vesync_bt_init(bt_event_handler);
     vesync_blufi_init();
     vesync_button_init(ui_event_handler);
     vesync_uart_int(uart_event_handler);
+    //vesync_mqtt_client_init();
     printf("silicon revision %d \n", chip_info.revision);
 
-    vesync_flash_init("userdata");
-    xTaskCreate(&user_task_handler_loop, "user_task_handler_loop", 8192, NULL, 10, &user_task);
-#if 0
-    printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+    //vesync_flash_init("userdata");
+    //vesync_flash_init("userconfig");
+    //xTaskCreate(&user_task_handler_loop, "user_task_handler_loop", 8192, NULL, 10, &user_task);
 
-    for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-    printf("Restarting now.\n");
-    fflush(stdout);
-    esp_restart();
-#endif    
+    printf_nvs();
 }

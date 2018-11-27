@@ -10,12 +10,16 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_task_wdt.h"
+#include "freertos/timers.h"
 
 static const char *TAG = "Vesync_UART";
 static QueueHandle_t uart0_queue;
 
+static TimerHandle_t uart_resend_timer;
+
 hw_info         info_str;
 UARTSTRUCT      vesync_uart;
+uint8_t rec_command;
 
 command_types command_type[15] ={
     {CMD_HW_VN	            ,true  ,NULL},  //查询硬件版本
@@ -33,7 +37,53 @@ command_types command_type[15] ={
     {CMD_DELETE_HIS_ITEM    ,true  ,vesync_bt_notify},  //删除某条历史测量记录
     {CMD_SYNC_UTC           ,true  ,vesync_bt_notify},  //同步utc时间
     {CMD_MODIFY_USER        ,true  ,vesync_bt_notify}   //修改用户
-    };
+};
+
+static bool uart_resend_timer_stop(void)
+{
+    bool status = false;
+
+    if (xTimerStop(uart_resend_timer, portMAX_DELAY) != pdPASS) {
+        status = false;
+    } else {
+        status = true;
+    }
+
+    return status;
+}
+
+static bool uart_resend_timer_start(void)
+{
+    bool status = false;
+
+    if (xTimerStart(uart_resend_timer, portMAX_DELAY) != pdPASS) {
+        status = false;
+    } else {
+        status =  true;
+    }
+
+    return status;
+}
+
+static void vesynv_uart_resend_timerout_callback(TimerHandle_t timer){
+    ESP_LOGI(TAG, "---------------------->vesynv_uart_resend_timerout_callback");
+}
+
+/**
+ * @brief uart创建重传定时器
+ * @return true 
+ * @return false 
+ */
+static bool uart_resend_timer_init(void)
+{
+    uart_resend_timer = xTimerCreate("uart_resend_timer_timer", 200 / portTICK_PERIOD_MS, pdTRUE,
+                                         NULL, vesynv_uart_resend_timerout_callback);
+    if (uart_resend_timer == NULL){
+        return false;
+    }else{
+        return true;
+    }
+}
 
 static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t channel,uni_frame_t *frame){
 #if 1
@@ -52,33 +102,23 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
     esp_task_wdt_reset();
 
     for(int i=0;i<len;i++){
-        if(Comm_frame_parse(data[i],channel,frame) == 1){
-            for(uint8_t i=0;i<frame->frame_data_len;i++){
-                printf("%02x ",frame->frame_data[i]);
-            }
-            printf("\r\n ctl =%d ,len =%d ,cmd = %d\r\n ",frame->frame_ctrl,frame->frame_data_len,frame->frame_cmd);
-            
+        if(Comm_frame_parse(data[i],channel,frame) == 1){            
              for(uint8_t j=0;j<sizeof(command_type)/sizeof(command_type[0]);j++){
                 if(frame->frame_cmd == command_type[j].command){    //
                     if(frame->frame_data_len >2){  //主机请求效应设备返回的数据或设备主动上传的数据
-                        ESP_LOGI(TAG, "----->\r\n");
                         if(command_type[j].record){
                             uint8_t *opt = NULL;
-                            ESP_LOGI(TAG, "record \r\n");
                             opt = &frame->frame_data[1];    //过滤命令id字节
                             switch(command_type[j].command){
                                 case CMD_BODY_WEIGHT:
-                                        res->response_weight_data.weight = *(uint32_t *)&opt[0];
-                                        res->response_weight_data.if_stabil = *(uint8_t *)&opt[4];
-                                        res->response_weight_data.measu_unit = *(uint8_t *)&opt[5];
-                                        res->response_weight_data.imped_value = *(uint16_t *)&opt[6];
-                                        printf("\r\n weight =0x%04x ,if =0x%x ,unit =0x%x,imped =0x%02x\r\n",res->response_weight_data.weight,\
+                                        memcpy((uint8_t *)&res->response_weight_data.weight,opt,frame->frame_data_len-1);
+                                        printf("\r\n weight =%d ,lb = %d,if =0x%x ,unit =0x%x,imped =0x%04x\r\n",res->response_weight_data.weight,\
+                                                                                                 res->response_weight_data.lb,\
                                                                                                  res->response_weight_data.if_stabil,\
                                                                                                  res->response_weight_data.measu_unit,\
                                                                                                  res->response_weight_data.imped_value);                                  
                                         // 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
                                         command_type[j].transfer_callback = vesync_bt_notify;
-                                        
                                         if(body_fat_person(res,&res->response_weight_data)){
                                             ESP_LOGI(TAG, "------>the same person! \r\n");
                                         }
@@ -114,8 +154,21 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                             command_type[j].transfer_callback(0,0,(uint8_t *)&frame->frame_data[0] ,frame->frame_data_len-1);  //透传控制码
                         }
                     }else{//设备返回的应答
-                        ESP_LOGI(TAG, "----ack \r\n");
-                        command_type[j].transfer_callback(0,0,&frame->frame_cmd ,1);  //应答
+                        ESP_LOGI(TAG, ",----------------ack %d\r\n",command_type[j].command);
+                        switch(command_type[j].command){
+                            case CMD_MEASURE_UNIT:
+                                ESP_LOGI(TAG, "----ack \r\n");
+                                command_type[j].transfer_callback = vesync_bt_notify;
+                                if(command_type[j].transfer_callback != NULL){
+                                    command_type[j].transfer_callback(0,0,&res->response_weight_data.measu_unit ,sizeof(uint8_t));  //透传app
+                                }
+                                break;
+                            case CMD_BT_STATUS:
+                                    rec_command = CMD_BT_STATUS;
+                                break;
+                            default:
+                                break;
+                        }
                     }
                     break;
                 }   
@@ -124,7 +177,8 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
     }
 }
 
-static void uart_task_handler(void *pvParameters){
+static void uart_task_handler(void *pvParameters)
+{
     uart_event_t event;
     while(1){
         if(xQueueReceive(uart0_queue, (void * )&event, (portTickType)portMAX_DELAY)) {
@@ -132,8 +186,6 @@ static void uart_task_handler(void *pvParameters){
                 case UART_DATA:
                 	if(event.size){
                         char *temp = (char*) malloc(RD_BUF_SIZE);
-
-                        ESP_LOGI(TAG, "[UART DATA]: %d", event.size);
                         int32_t ret_len = uart_read_bytes(EX_UART_NUM, (uint8_t *)temp, event.size, portMAX_DELAY);
 
                         if(ret_len == event.size && ret_len > 0){
@@ -210,6 +262,7 @@ void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len)
 	uint8_t sendlen =0;
 
 	if(len >sizeof(sendbuf)-len)	return;
+    if(len ==0)	return;
 
     sendlen = Comm_frame_pack(ctl,cmd,data,len+1,&sendbuf); //数据内容包含1个字节cmd 所以加一
 
@@ -217,6 +270,7 @@ void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len)
         WriteCoreQueue(sendbuf,sendlen);
     }
 }
+
 /**
  * @brief  初始化串口硬件配置
  * @param  用户接口回调
@@ -252,5 +306,8 @@ void vesync_uart_int(uart_recv_cb_t cb)
     xTaskCreate(uart_task_handler, "uart_task_handler_loop", 4096, NULL, 13, NULL);
     ESP_LOGI(TAG, "uart_event_int init success");
 
+    if(uart_resend_timer_init() == false){
+        ESP_LOGE(TAG, "uart_resend_timer_init fail");
+    }
     vesync_uart.m_uart_handler = cb;
 }
