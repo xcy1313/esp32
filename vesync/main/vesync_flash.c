@@ -1,6 +1,7 @@
 
 #include "vesync_flash.h"
 #include "vesync_crc8.h"
+#include "body_fat_calc.h"
 #include "esp_err.h"
 
 #include "esp_system.h"
@@ -21,8 +22,8 @@ static const char *TAG = "vesync_FLASH";
 #define INFO_NAMESPACE "vesync"
 #define INFO_pid_KEY "vesync_pids"
 #define INFO_config_KEY  "vesync_config"
-#define INFO_server_DN_KEY  "vesync_server"
-#define INFO_server_IP_KEY  "vesync_ip"
+#define INFO_DN_KEY  "vesync_server"
+#define INFO_IP_KEY  "vesync_ip"
 #define INFO_SSID_KEY  "vesync_ssid"
 #define INFO_PWD_KEY  "vesync_pwd"
 #define INFO_static_IP_KEY  "vesync_ip"
@@ -30,8 +31,8 @@ static const char *TAG = "vesync_FLASH";
 #define INFO_DNS_KEY "vesync_dns"
 
 
-//esp_err_t esp_phy_store_cal_data_to_nvs(const esp_phy_calibration_data_t* cal_data)
-//esp_err_t esp_phy_load_cal_data_from_nvs(esp_phy_calibration_data_t* out_cal_data)
+#define CONFIG_NAMESPACE "para_config"
+#define config_unit    "config_unit"
 
 /**
  * @brief 
@@ -116,7 +117,7 @@ bool vesync_flash_write(const char *label_name,const char *key_name,const void *
     printf("read nvc------------------------>\n");
     if (err == ESP_OK) {
         for(int i=0;i<required_size;i++){
-            printf("%d " ,r_buf[i]);
+            printf("0x%02x " ,r_buf[i]);
         }
     }
     printf("\r\n");
@@ -135,6 +136,105 @@ error:
     return false;
 }
 
+/**
+ * @brief 读取key_name对应的flash存储内容
+ * @param label_name 
+ * @param key_name 
+ * @param data 
+ * @param len 
+ * @return uint32_t 返回当前读取成功的数据长度
+ */
+void vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len)
+{
+    esp_err_t err =0;
+    nvs_handle fp;
+    size_t required_size = 0;
+
+    err = nvs_open_from_partition(label_name,key_name, NVS_READONLY, &fp);
+    ESP_LOGI(TAG, "NVS read err:%d",err);
+
+    err = nvs_get_blob(fp, key_name, NULL, &required_size);     //获取当前键值对存储的数据总长度 
+    ESP_ERROR_CHECK(err);
+
+    ESP_LOGI(TAG, "vesync flash read len %s,%s,%d",label_name,key_name,required_size);
+
+    if(required_size == 0){      
+        *len = 0;
+    }else{
+        *len = required_size;
+        err = nvs_get_blob(fp, key_name, (char *)data, &required_size); //获取当前键值对存储的数据内容
+        ESP_ERROR_CHECK(err);
+    }
+    
+    nvs_close(fp);
+}
+
+/**
+ * @brief 擦除当前key_name对应的flash区域
+ * @param label_name 
+ * @param key_name 
+ */
+void vesync_flash_erase(const char *label_name,const char *key_name)
+{
+    esp_err_t err =0;
+    nvs_handle fp;
+    size_t required_size = 0;
+
+    err = nvs_open_from_partition(label_name,key_name, NVS_READWRITE, &fp);
+    ESP_LOGI(TAG, "NVS read err:%d",err);
+    ESP_ERROR_CHECK(err);
+    ESP_ERROR_CHECK(nvs_erase_all(fp));
+    nvs_close(fp);
+}
+
+uint32_t vesync_flash_write_i8(uint8_t value)
+{
+    uint32_t err = ESP_OK;
+    nvs_handle handle;
+
+    err = nvs_open(CONFIG_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
+        return err;
+    }
+    err = nvs_set_u8(handle, config_unit, value);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: store pid failed(0x%x)\n", __func__, err);
+        return err;
+    }
+
+    nvs_close(handle);
+    return err;
+}
+
+uint32_t vesync_flash_read_i8(uint8_t *value)
+{
+    nvs_handle handle;
+    uint32_t err = ESP_OK;
+
+    err = nvs_open(CONFIG_NAMESPACE, NVS_READONLY, &handle);
+    if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
+        ESP_LOGE(TAG, "%s: NVS has not been initialized. "
+                "Call nvs_flash_init before starting WiFi/BT.", __func__);
+        return err;        
+    } else if(err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
+        return err;
+    }
+
+    err = nvs_get_u8(handle, config_unit, value);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: read failed(0x%x)\n", __func__, err);
+        return err;
+    }
+    nvs_close(handle);
+    return err;
+}
+/**
+ * @brief 写配网参数flash
+ * @param info 
+ * @return esp_err_t 
+ */
 esp_err_t vesync_flash_write_info(device_info_t *info)
 {
     esp_err_t err;
@@ -157,12 +257,12 @@ esp_err_t vesync_flash_write_info(device_info_t *info)
         ESP_LOGE(TAG, "%s: store configkey failed(0x%x)\n", __func__, err);
         return err;
     }
-    err = nvs_set_blob(handle, INFO_server_DN_KEY, info->mqtt_config.serverDN, sizeof(info->mqtt_config.serverDN));
+    err = nvs_set_blob(handle, INFO_DN_KEY, info->mqtt_config.serverDN, sizeof(info->mqtt_config.serverDN));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: store server_dn failed(0x%x)\n", __func__, err);
         return err;
     }
-    err = nvs_set_blob(handle, INFO_server_IP_KEY, info->mqtt_config.serverIP, sizeof(info->mqtt_config.serverIP));
+    err = nvs_set_blob(handle, INFO_IP_KEY, info->mqtt_config.serverIP, sizeof(info->mqtt_config.serverIP));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: store server_IP failed(0x%x)\n", __func__, err);
         return err;
@@ -208,13 +308,14 @@ esp_err_t vesync_flash_write_info(device_info_t *info)
  * @brief 读取info 设备信息
  * @return device_info_t 
  */
-device_info_t vesync_flash_read_info(void)
+ bool vesync_flash_read_info(device_info_t *x_info)
 {
     nvs_handle handle;
-    device_info_t info;
+    device_info_t *info = x_info;
     nvs_stats_t nvs_stats;
-    nvs_get_stats(NULL, &nvs_stats);
     
+    nvs_get_stats(NULL, &nvs_stats);
+
     ESP_LOGI(TAG,"Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\n",
        nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
@@ -222,155 +323,119 @@ device_info_t vesync_flash_read_info(void)
     if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
         ESP_LOGE(TAG, "%s: NVS has not been initialized. "
                 "Call nvs_flash_init before starting WiFi/BT.", __func__);
+        return false;        
     } else if(err != ESP_OK) {
         ESP_LOGE(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
-        return ;
+        return false;
     }
 
-    size_t length = 200;
-    char buf[200] = {0};
+    size_t length = 0;
+    char *buf = NULL;
 
-    err = nvs_get_blob(handle, INFO_pid_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_pid_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_pid_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "pid len is %d",length);
-        memcpy(info.mqtt_config.pid,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "pid len[%d]",length);
+        memcpy(info->mqtt_config.pid,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->mqtt_config.pid,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
 
-    err = nvs_get_blob(handle, INFO_config_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_config_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_config_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "config_key len is %d",length);
-        memcpy(info.mqtt_config.configKey,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "config_key len[[%d]",length);
+        memcpy(info->mqtt_config.configKey,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->mqtt_config.configKey,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
 
-    err = nvs_get_blob(handle, INFO_server_DN_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_DN_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_DN_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_server_DN_KEY len is %d",length);
-        memcpy(info.mqtt_config.serverDN,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "INFO_server_DN_KEY len[%d]",length);
+        memcpy(info->mqtt_config.serverDN,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->mqtt_config.serverDN,length);
     }
-    ESP_LOGI(TAG, "INFO_server_DN_KEY error 0x%04d %d",err,length);
-
-    err = nvs_get_blob(handle, INFO_server_IP_KEY, buf, &length);
+    free(buf);
+    ESP_ERROR_CHECK(err);
+    
+    err = nvs_get_blob(handle, INFO_IP_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_IP_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_server_IP_KEY len is %d",length);
-        memcpy(info.mqtt_config.serverIP,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "INFO_server_IP_KEY len[%d]",length);
+        memcpy(info->mqtt_config.serverIP,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->mqtt_config.serverIP,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
 
-    err = nvs_get_blob(handle, INFO_SSID_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_SSID_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_SSID_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_SSID_KEY len is %d",length);
-        memcpy(info.station_config.wifiSSID,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "INFO_SSID_KEY len[%d]",length);
+        memcpy(info->station_config.wifiSSID,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->station_config.wifiSSID,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
 
-    err = nvs_get_blob(handle, INFO_PWD_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_PWD_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_PWD_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_PWD_KEY len is %d",length);
-        memcpy(info.station_config.wifiPassword,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "INFO_PWD_KEY len[%d]",length);
+        memcpy(info->station_config.wifiPassword,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->station_config.wifiPassword,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
 
-    err = nvs_get_blob(handle, INFO_static_IP_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_static_IP_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_static_IP_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_static_IP_KEY len is %d",length);
-        memcpy(info.station_config.wifiStaticIP,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "INFO_static_IP_KEY len[%d]",length);
+        memcpy(info->station_config.wifiStaticIP,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->station_config.wifiStaticIP,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
 
-    err = nvs_get_blob(handle, INFO_gateWay_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_gateWay_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_gateWay_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_gateWay_KEY len is %d",length);
-        memcpy(info.station_config.wifiGateway,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "INFO_gateWay_KEY len[%d]",length);
+        memcpy(info->station_config.wifiGateway,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->station_config.wifiGateway,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
 
-    err = nvs_get_blob(handle, INFO_DNS_KEY, buf, &length);
+    err = nvs_get_blob(handle, INFO_DNS_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_DNS_KEY, buf, &length);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_DNS_KEY len is %d",length);
-        memcpy(info.station_config.wifiDNS,buf,length);
-        for(int i=0;i<length;i++){
-            printf("%c",buf[i]);
-        }
-        printf("\r\n");
+        ESP_LOGI(TAG, "INFO_DNS_KEY len[%d]",length);
+        memcpy(info->station_config.wifiDNS,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->station_config.wifiDNS,length);
     }
+    free(buf);
     ESP_ERROR_CHECK(err);
     
     nvs_close(handle);
-    return info;
+
+    return true;
 }
 
-
-
-#if 0
-static esp_err_t vesync_flash_net_data_to_nvs_handle(const char *filename,const char *item,
-        const esp_phy_calibration_data_t* cal_data)
-{
-    esp_err_t err;
-
-    err = nvs_set_blob(handle, PHY_CAL_DATA_KEY, cal_data, sizeof(*cal_data));
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration data failed(0x%x)\n", __func__, err);
-        return err;
-    }
-
-    uint8_t sta_mac[6];
-    esp_efuse_mac_get_default(sta_mac);
-    err = nvs_set_blob(handle, PHY_CAL_MAC_KEY, sta_mac, sizeof(sta_mac));
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration mac failed(0x%x)\n", __func__, err);
-        return err;
-    }
-
-    uint32_t cal_format_version = phy_get_rf_cal_version() & (~BIT(16));
-    ESP_LOGV(TAG, "phy_get_rf_cal_version: %d\n", cal_format_version);
-    err = nvs_set_u32(handle, PHY_CAL_VERSION_KEY, cal_format_version);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration version failed(0x%x)\n", __func__, err);
-        return err;
-    }
-
-    err = nvs_commit(handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration nvs commit failed(0x%x)\n", __func__, err);
-    }
-    
-    return err;
-}
-#endif
 
 /**
  * @brief 
@@ -395,4 +460,29 @@ void vesync_flash_deinit(const char *part_name)
     ESP_LOGI(TAG, "NVS deinit %s ,ret:%d",part_name,ret);
     ESP_ERROR_CHECK( ret );
 
+}
+
+/**
+ * @brief 
+ */
+void vesync_flash_user(void)
+{
+    uint8_t unit;
+    vesync_flash_init("userdata");
+    vesync_flash_init("userconfig");
+    
+    if(ESP_OK == vesync_flash_read_i8(&unit)){
+        switch(unit){
+            case UNIT_KG:
+            case UNIT_LB:
+            case UNIT_ST:
+                info_str.user_config_data.measu_unit = unit;
+                ESP_LOGI(TAG, "read flash unit %d",info_str.user_config_data.measu_unit);
+            break;
+            default:
+                info_str.user_config_data.measu_unit = UNIT_KG;
+                ESP_LOGI(TAG, "read unit error");
+                break;
+        }
+    }
 }

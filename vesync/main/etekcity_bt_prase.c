@@ -9,6 +9,9 @@
 #include <string.h>
 #include <stdio.h>
 #include "etekcity_bt_prase.h"
+#include "esp_log.h"
+
+#define BT_TAG "BT_FRAME"
 
 //使用默认的初始化值0，且必须为0
 static unsigned char channel[8] = {0};
@@ -23,14 +26,13 @@ static unsigned char sum_verify(bt_frame_t *frame)
 	unsigned char sum = 0;
 	unsigned char i = 0;
 
- 	sum += FRAME_HEAD;
-	sum += frame->frame_ctrl;
+ 	sum += BT_HEAD;
+	sum += frame->frame_ctrl.data;
 	sum += frame->frame_cnt;    
 	sum += frame->frame_data_len;
 	sum += frame->frame_cmd;
 
-	for (i = 0; i < frame->frame_data_len-1; i++)	//去掉cmd
-	{
+	for (i = 0; i < frame->frame_data_len-1; i++){	//去掉cmd
 		sum += frame->frame_data[i];
 	}
 
@@ -53,94 +55,99 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 	static unsigned char back_buf[2] = {0};
 
 	if (NULL == frame){
+		ESP_LOGE(BT_TAG, "BT Prase NULL!");
 		return 0;
 	}
 	
 	step = &channel[channel_sel];
 
 	switch(*step){
-		case FRAME_HEAD:
-			if( byteData == BT_FRAME_HEAD ){
-				*step = FRAME_CTRL;
+		case BT_FRAME_HEAD:
+			if( byteData == BT_HEAD ){
+				*step = BT_FRAME_CTRL;
+				ESP_LOGI(BT_TAG, "BT_FRAME_HEAD :%02x",byteData);
 	        }
 			break;
 
-		case FRAME_CTRL:
-			frame->frame_ctrl = byteData;
-			*step = FRAME_SEQ;
+		case BT_FRAME_CTRL:
+			frame->frame_ctrl.data = byteData;
+			*step = BT_FRAME_SEQ;
+			ESP_LOGI(BT_TAG, "BT_FRAME_CTRL :%02x",byteData);
 			break;
 
-		case FRAME_SEQ:
+		case BT_FRAME_SEQ:
 			frame->frame_cnt = byteData;
-			*step = FRAME_LEN;
+			*step = BT_FRAME_LEN;
+			ESP_LOGI(BT_TAG, "BT_FRAME_SEQ :%02x",byteData);
 			break;
 
-		case FRAME_LEN:
+		case BT_FRAME_LEN:
 			if(cnt == 0){
 				back_buf[0] = byteData;		//低字节在前
 				cnt++;
 			}else{
 				back_buf[1] = byteData;		//高字节在后
-				*step = FRAME_CMD;
+				*step = BT_FRAME_CMD;
 				frame->frame_data_len = *(unsigned short *)&back_buf[0];
 				cnt =0;
-
+				ESP_LOGI(BT_TAG, "BT_FRAME_LEN :%02x",back_buf[0]);
 				//帧数据长度有效性判断
 				if (BT_DATA_BUFF_MAX < frame->frame_data_len){
-					*step = FRAME_HEAD;
-					return RESP_INVALID_LEN_ERROR;
+					*step = BT_FRAME_HEAD;
 				}else{
 					frame->frame_data_pos = 0;
-					*step = FRAME_CMD;
+					*step = BT_FRAME_CMD;
 				}
 			}
 			
 			break;
 
-		case FRAME_CMD:
+		case BT_FRAME_CMD:
 			if(cnt == 0){
 				back_buf[0] = byteData;		//低字节在前
 				cnt++;
 			}else{
 				back_buf[1] = byteData;		//高字节在后
-				*step = FRAME_DATA;
+				*step = BT_FRAME_DATA;
 				frame->frame_cmd = *(unsigned short *)&back_buf[0];
-				frame->frame_data_pos =0;
+				frame->frame_data_pos =0;	
+				ESP_LOGI(BT_TAG, "BT_FRAME_CMD %02x",back_buf[0]);
 				cnt =0;
 			}			
 			break;
 
-		case FRAME_DATA:
+		case BT_FRAME_DATA:
 			frame->frame_data[frame->frame_data_pos++] = byteData;
-			if(frame->frame_data_pos >= frame->frame_data_len-sizeof(frame->frame_cmd)){
-				*step = FRAME_SUM;
+			if(frame->frame_data_pos >= (frame->frame_data_len-sizeof(frame->frame_cmd))){
+				esp_log_buffer_hex(BT_TAG,frame->frame_data,frame->frame_data_pos);
+				frame->frame_data_pos = 0;
+				*step = BT_FRAME_SUM;
+				ESP_LOGI(BT_TAG, "BT_FRAME_DATA over!");
 			}	
 			break;
 
-		case FRAME_SUM:
+		case BT_FRAME_SUM:
 			frame->frame_sum = byteData;
 			calc_sum = sum_verify(frame);	 //计算校验和
-			//frame->frame_sum = calc_sum;
-			
+			frame->frame_sum = calc_sum;
+			ESP_LOGI(BT_TAG, "BT_FRAME_SUM %02x",byteData);
     		if(frame->frame_sum != calc_sum){
-				*step = FRAME_HEAD;
-				return RESP_INVALID_CRC_ERROR;
+				*step = BT_FRAME_HEAD;
     		}else{
-				*step = FRAME_END;				
+				*step = BT_FRAME_END;				
 			}
 			break;
 
-		case FRAME_END:
-		    *step = FRAME_HEAD;
-			if( byteData == BT_FRAME_END ){
+		case BT_FRAME_END:
+		    *step = BT_FRAME_HEAD;
+			if( byteData == BT_END ){
+				ESP_LOGI(BT_TAG, "BT_FRAME_END");
 				ret = 1;				
-			}else{
-				return RESP_INVALID_PDT_ERROR;
 			}
 			break;
 
 		default:
-			*step = FRAME_HEAD;
+			*step = BT_FRAME_HEAD;
 			break;
 	}
 
@@ -156,10 +163,10 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
  * @param	outbuf 			[封装好的协议帧缓存区指针]
  * @return	unsigned char	[协议封包结果，0 - 封包失败；大于0 - 封装好的协议帧缓存区数据长度]
  */
-unsigned short bt_data_frame_encode(unsigned char ctrl, 
-								unsigned char cnt,
+unsigned short bt_data_frame_encode(frame_ctrl_t ctrl, 
+								unsigned char *cnt,
 								unsigned short cmd, 
-								unsigned char *data, 
+								const unsigned char *data, 
 								unsigned short datalen, 
 								unsigned char *outbuf)
 {
@@ -167,24 +174,25 @@ unsigned short bt_data_frame_encode(unsigned char ctrl,
 	unsigned sum = 0;
 	unsigned short sendlen =0;    //包头+命令+载荷长度+载荷+checksum+包尾；
 
-    outbuf[0] = FRAME_HEAD; 										//帧头
-    outbuf[1] = ctrl;                  								//控制码
-	outbuf[2] = cnt;                  							    //包计数
+    outbuf[0] = BT_HEAD; 											//帧头
+    outbuf[1] = ctrl.data;                  						//控制码
+	outbuf[2] = cnt[0];                  							//包计数
     *(unsigned short *)&outbuf[3] = datalen+sizeof(cmd);            //用户数据（命令码+参数）长度
     *(unsigned short *)&outbuf[5] = cmd;                   			//命令码
-
-	sendlen += 7;
- 	memcpy(&outbuf[7], data, datalen);							    //只包含参数
-	sendlen += datalen;
-
+	
+	sendlen += 7;													//包含包头|header|sequence|payload len|command|
+	if(datalen > 0){
+		memcpy(&outbuf[7], (char *)data, datalen);						    //只包含参数
+		sendlen += datalen;
+	}
 	for(i=0;i<sendlen;i++){
 		sum += outbuf[i];
 	}
 
 	sendlen +=2;
 	
-	outbuf[sendlen-2] = sum;					//校验和
-    outbuf[sendlen-1] = FRAME_END;       		//帧尾
+	outbuf[sendlen-2] = sum;										//校验和
+    outbuf[sendlen-1] = BT_END;       								//帧尾
 
-    return sendlen;								//返回数据总长
+    return sendlen;													//返回有效发送数据总长
 }

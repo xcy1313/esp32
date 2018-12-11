@@ -19,7 +19,7 @@
 #endif
 
 //使用默认的初始化值0，且必须为0
-static unsigned char channel[CHANNEL_MAX] = {STEP_FRAME_HEAD};
+static unsigned char channel[CHANNEL_MAX] = {UART_FRAME_HEAD};
 
 /**
  * @brief	计算和校验值
@@ -31,7 +31,7 @@ static unsigned char sum_verify(uni_frame_t *frame)
 	unsigned char sum = 0;
 	unsigned char i = 0;
 
- 	sum += FRAME_HEAD;   	
+ 	sum += UART_HEAD;   	
 	sum += frame->frame_ctrl;
 	sum += frame->frame_data_len;
 	sum += frame->frame_cmd;
@@ -73,79 +73,79 @@ unsigned char Comm_frame_parse(unsigned char byteData, unsigned char channel_sel
 
 	switch(*step)
 	{
-		case STEP_FRAME_HEAD:
-			if( byteData == FRAME_HEAD )
+		case UART_FRAME_HEAD:
+			if( byteData == UART_HEAD )
 			{
-				*step = STEP_FRAME_CTRL;
+				*step = UART_FRAME_CTRL;
 	        }
 			break;
 
-		case STEP_FRAME_CTRL:
+		case UART_FRAME_CTRL:
 			frame->frame_ctrl = byteData;
-			*step = STEP_FRAME_LEN;
+			*step = UART_FRAME_LEN;
 			break;
 
-		case STEP_FRAME_LEN:
+		case UART_FRAME_LEN:
 			frame->frame_data_len = byteData;
 			//帧数据长度有效性判断
     		if (DATA_BUFF_MAX < frame->frame_data_len)
 			{
 				DBG("[Comm_frame_parse]Err: frame length is greater than DATA_BUFF_MAX.\r\n");	
-				*step = STEP_FRAME_HEAD;
+				*step = UART_FRAME_HEAD;
 			}
 			else
 			{
 				frame->frame_data_pos = 0;
-				*step = STEP_FRAME_CMD;
+				*step = UART_FRAME_CMD;
 			}
 			break;
 
-		case STEP_FRAME_CMD:
+		case UART_FRAME_CMD:
 			frame->frame_cmd = byteData;
 			if(frame->frame_data_len == 1)			//只有命名码，不带命令参数
 			{
-				*step = STEP_FRAME_SUM;
+				*step = UART_FRAME_SUM;
 			}
 			else
 			{
-				*step = STEP_FRAME_DATA;
+				*step = UART_FRAME_DATA;
 				frame->frame_data[frame->frame_data_pos] = byteData;//包含命令一起打包；
 				frame->frame_data_pos++;
 			}				
 			break;
 
-		case STEP_FRAME_DATA:
+		case UART_FRAME_DATA:
 			frame->frame_data[frame->frame_data_pos++] = byteData;
 			if(frame->frame_data_pos >= frame->frame_data_len)
 			{
-				*step = STEP_FRAME_SUM;
+				*step = UART_FRAME_SUM;
 			}	
 			break;
-		case STEP_FRAME_SUM:
+		case UART_FRAME_SUM:
 			frame->frame_sum = byteData;
 			calc_sum = sum_verify(frame);	 //计算校验和
 			frame->frame_sum = calc_sum;
     		if(frame->frame_sum != calc_sum)
     		{
         		DBG("[Comm_frame_parse]Err: frame calcute sum error.\r\n");
-				*step = STEP_FRAME_HEAD;
+				*step = UART_FRAME_HEAD;
     		}
 			else
 			{
-				*step = STEP_FRAME_END;				
+				*step = UART_FRAME_END;				
 			}
 			break;
 
-		case STEP_FRAME_END:
-		    *step = STEP_FRAME_HEAD;
-			if( byteData == FRAME_END )
+		case UART_FRAME_END:
+		    *step = UART_FRAME_HEAD;
+			if( byteData == UART_END )
 			{
 				ret = 1;				
 			}
 			break;
 
 		default:
-			*step = STEP_FRAME_HEAD;
+			*step = UART_FRAME_HEAD;
 			break;
 	}
 
@@ -182,7 +182,7 @@ unsigned char Comm_frame_pack(	unsigned char ctrl,
 		return 0;
 	}
 
-    outbuf[0] = FRAME_HEAD; 					//帧头
+    outbuf[0] = UART_HEAD; 					//帧头
     outbuf[1] = ctrl;                  			//控制码
     outbuf[2] = datalen;             			//用户数据（命令码+参数）长度
     outbuf[3] = cmd;                   			//命令码
@@ -194,7 +194,7 @@ unsigned char Comm_frame_pack(	unsigned char ctrl,
 	}
 	outbuf[datalen+3] = sum;					//校验和
 
-    outbuf[datalen+4] = FRAME_END;       		//帧尾
+    outbuf[datalen+4] = UART_END;       		//帧尾
 
     return (datalen + 5);						//返回数据总长
 }

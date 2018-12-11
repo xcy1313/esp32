@@ -15,14 +15,14 @@
 
 
 
-
-void vesync_flash_init(const char *part_name);
-void vesync_flash_deinit(const char *part_name);
-
+void vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len);
 bool vesync_flash_write(const char *label_name,const char *key_name,const void *data,uint32_t len);
+void vesync_flash_erase(const char *label_name,const char *key_name);
 esp_err_t vesync_flash_write_info(device_info_t *info);
-device_info_t vesync_flash_read_info(void);
-
+bool vesync_flash_read_info(device_info_t *x_info);
+void vesync_flash_user(void);
+uint32_t vesync_flash_write_i8(uint8_t value);
+uint32_t vesync_flash_read_i8(uint8_t *value);
 
 
 

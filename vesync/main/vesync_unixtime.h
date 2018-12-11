@@ -18,7 +18,7 @@ extern char time_zone;
 
 void Rtc_SyncSet_Time(unsigned int *unix_time,char zone);
 unsigned int Rtc_SyncGet_Time(void);
-
+mytime_struct unix_2_localtime(unsigned int *unix_time,char zone);
 
 
 

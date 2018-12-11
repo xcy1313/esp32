@@ -4,6 +4,7 @@
 
 #include "driver/uart.h"
 #include "etekcity_comm.h"
+#include "vesync_unixtime.h"
 
 #define VESYNC_SDK_VESION		"0.0.01"
 
@@ -30,6 +31,16 @@
 #define SLAVE_INQUIRY	0x40	//从设备对主设备进行必要的查询操作
 #define SLAVE_SEND		0x50	//从设备主动上数据给主设备
 
+typedef enum{
+	RESEND_CMD_HW_VN_BIT	 	 = 0x0001,
+	RESEND_CMD_ID_BIT		 	 = 0x0002,
+	RESEND_CMD_BODY_FAT_BIT 	 = 0x0004,
+	RESEND_CMD_POWER_BATTERY_BIT = 0x0008,
+	RESEND_CMD_BT_STATUS_BIT	 = 0x0010,
+	RESEND_CMD_WIFI_STATUS_BIT	 = 0x0020,
+	RESEND_CMD_MEASURE_UNIT_BIT	 = 0x0040
+}RESEND_COMD_BIT;
+extern RESEND_COMD_BIT resend_cmd_bit;
 
 #define CMD_HW_VN	            1
 #define CMD_ID	                7
@@ -54,9 +65,30 @@
 #define CMD_DELETE_HIS_ITEM     206		
 #define CMD_SYNC_UTC			207		
 #define CMD_MODIFY_USER         208	
+//APP相关命令 用户接口操作
 
-#define FRAME_HEAD          0xA5    //帧起始符
-#define FRAME_END           0x5A    //帧结束符
+//REPORT为主动上报 RESP为设备返回
+#define PROJECT_FOR_SCALES_BASE_ADDR	0x0000
+#define CMD_REPORT_VESION       (PROJECT_FOR_SCALES_BASE_ADDR+0x0001)	
+#define CMD_RESP_VERSION        (PROJECT_FOR_SCALES_BASE_ADDR+0x0002)
+#define CMD_REPORT_CODING       (PROJECT_FOR_SCALES_BASE_ADDR+0x0003)
+#define CMD_RESP_CODING         (PROJECT_FOR_SCALES_BASE_ADDR+0x0004)
+#define CMD_REPORT_WEIGHT       (PROJECT_FOR_SCALES_BASE_ADDR+0x0005)
+#define CMD_REPORT_ERRPR        (PROJECT_FOR_SCALES_BASE_ADDR+0x0006)
+#define CMD_SET_BODY_FAT        (PROJECT_FOR_SCALES_BASE_ADDR+0x0008)
+#define CMD_REPORT_POWER        (PROJECT_FOR_SCALES_BASE_ADDR+0x0009)
+#define CMD_RESP_POWER          (PROJECT_FOR_SCALES_BASE_ADDR+0x000A)
+#define CMD_SET_BT_STATUS       (PROJECT_FOR_SCALES_BASE_ADDR+0x000B)
+#define CMD_SET_WIFI_STATUS     (PROJECT_FOR_SCALES_BASE_ADDR+0x000C)
+#define CMD_SET_HW_UNIT    	    (PROJECT_FOR_SCALES_BASE_ADDR+0x000D)
+#define CMD_SET_WEIGHT_UNIT		(PROJECT_FOR_SCALES_BASE_ADDR+0x001F)
+#define CMD_SYNC_TIME			(PROJECT_FOR_SCALES_BASE_ADDR+0x0020)
+#define CMD_CONFIG_ACCOUNT		(PROJECT_FOR_SCALES_BASE_ADDR+0x0021)
+#define CMD_DELETE_ACCOUNT		(PROJECT_FOR_SCALES_BASE_ADDR+0x0022)
+#define CMD_INQUIRY_HISTORY		(PROJECT_FOR_SCALES_BASE_ADDR+0x0023)
+#define CMD_SET_FAT_CONFIG		(PROJECT_FOR_SCALES_BASE_ADDR+0x0024)
+#define CMD_UPGRADE				(PROJECT_FOR_SCALES_BASE_ADDR+0x0025)
+
 
 typedef enum {
     RET_MSG_ID_NONE = 0,
@@ -90,20 +122,27 @@ typedef struct{
 	uint8_t  total_item;
 }update_reg_t;
 
-//预留9个字节备用,凑齐4的整数倍字节,共11+9字节;
+#define MAX_CONUT		16
+
+//20个字节，凑齐4的整数倍;
 #pragma pack(1)
 typedef struct{
+	uint8_t  action;	//操作类型，2为修改旧账户模型信息，1为删除旧账户模型信息，0为创建新账户模型信息
 	uint32_t account;	//账户
-	uint8_t  ueser_id;	//用户id
 	uint8_t  gender;	//性别;
+	uint8_t  height_unit;//身高单位 0表示ft ,1表示cm
 	uint8_t  height;	//身高
 	uint8_t  age;		//年龄;
 	uint8_t  measu_unit;//测量单位
-	uint8_t  user_mode;	//用户模式 1为普通人 0为运动员;
-	uint8_t  length;	//长度
-	uint8_t  crc8;		//crc
+	uint16_t weight_kg; //体重kg值；
+	uint16_t weight_st; //体重st值；
+	uint16_t imped_value; //阻抗值
+	uint8_t  ueser_id;	//用户id
+	uint8_t  user_mode; //用户模式;
+	uint8_t  crc8;		//crc8;
+	uint8_t  length;	//长度;
 }user_config_data_t;
-#pragma pack()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      //
+#pragma pack()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       //
 
 //预留12个字节备用,凑齐4的整数倍字节,共12+28字节;
 #pragma pack(1)
@@ -132,8 +171,8 @@ typedef struct{
 extern response_weight_data_t response_weight_data;
 
 typedef struct{
+	uint8_t	 power;			//开关机状态
 	uint8_t  battery_level;	//电池电量
-	uint8_t	 power;			//是否稳定
 }response_hardstate_t;
 
 //预留12个字节备用,凑齐4的整数倍字节,共8+12字节;
@@ -159,26 +198,26 @@ typedef struct{
 	}error;
 }response_error_notice_t;
 
+//用户沉淀数据
 typedef struct{
-	user_config_data_t        config_data;
-	user_fat_data_t           fat_data;
-	//response_weight_data_t    response_weight_data;
-}user_item_t;
-
-typedef struct{
-	//uint8_t 				  amount；
-	user_item_t 			  user_item[8];		//最多创建8个账户
-}user_info_t;
+	uint8_t 				  number;			//账户模型信息数组编号
+	uint32_t				  account;			//账户号
+	uint16_t 				  imped_value;		//阻抗值;
+	mytime_struct			  utc_time;			//测量时间戳
+	uint8_t 				  measu_unit;		//测量单位
+	uint16_t 				  weight_kg; 		//体重kg值；
+	uint16_t 				  weight_st; 		//体重st值；	  
+}user_account_t;
 
 typedef struct {
-	response_weight_data_t    response_weight_data;
+	response_weight_data_t    response_weight_data;			
 	response_version_data_t   response_version_data;
 	response_encodeing_data_t response_encodeing_data;
 	response_hardstate_t 	  response_hardstate;
 	response_error_notice_t   response_error_notice;
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
-	user_info_t				  user_info;
+	user_account_t			  *user_history;
 	update_reg_t	 		  updateReg;
 	uint8_t 	 			  macaddr[2][6];	//蓝牙地址0 wifi地址1;
 }hw_info;
@@ -196,10 +235,14 @@ extern UARTSTRUCT vesync_uart;
 typedef struct{
     uint8_t command;
     bool    record;
-    void    (*transfer_callback)(uint8_t,uint8_t cmd,const void*, unsigned short);
+    void    (*transfer_callback)(uint8_t,uint8_t,const void*, unsigned short,bool);
 }command_types;
 extern command_types command_type[15];
+
+
+
+void vesync_uart_deint(void);
 void vesync_uart_int(uart_recv_cb_t cb);
-void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len);
+void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len,bool resend);
 
 #endif

@@ -5,6 +5,8 @@
  * @date 2018-11-19
  */
 #include "vesync_ota.h"
+#include "vesync_public.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"

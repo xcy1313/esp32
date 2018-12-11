@@ -169,7 +169,7 @@ void ButtonsPatternsTranslate(void)
 static void vesync_button_task_handler(void *pvParameters){
 	while(1){
 		ButtonsPatternsTranslate();
-		vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
+		vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用20ms；
 	}
 	vTaskDelete(NULL);
 }

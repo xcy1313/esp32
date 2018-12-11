@@ -33,6 +33,16 @@
 #define ERR_CONFIG_LINK_SERVER_FAILED			62		//配网时设备连接MQTT服务器失败
 #define ERR_CONFIG_TIMEOUT						63		//配网超时，全程共5分钟
 
+//设备wifi状态
+typedef enum{
+	STATION_IDLE = 0,
+	STATION_CONNECTING,
+	STATION_WRONG_PASSWORD,
+	STATION_NO_AP_FOUND,
+	STATION_DIS_CONNECTED,
+	STATION_GOT_IP
+}wifi_status_t;
+
 //设备WiFi参数配置
 #pragma pack(1)
 typedef struct{
@@ -64,12 +74,10 @@ typedef struct{
 }device_info_t;
 extern device_info_t device_info;
 
-extern const int WIFI_CONNECTED_BIT;
-extern const int OTA_BIT;
-extern EventGroupHandle_t user_event_group;
-
+void vesync_wifi_deinit(void);
 void vesync_wifi_init(void);
-
+void vesync_refresh_wifi(device_info_t *info);
+wifi_status_t vesync_wifi_get_status(void);
 
 
 

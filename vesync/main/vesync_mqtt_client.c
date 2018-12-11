@@ -13,6 +13,7 @@
 #include "vesync_public.h"
 
 static const char *TAG = "VESYNC_MQTT";
+static bool init_mqtt = false;
 
 esp_mqtt_client_handle_t my_mqtt_client;
 static vesync_mqtt_client_state_t vesync_mqtt_client_state = MQTT_DISCONNECTED;
@@ -78,7 +79,7 @@ uint8_t vesync_mqtt_client_is_connected(void)
 }
 
 void vesync_mqtt_client_init(void)
-{
+{    
     const esp_mqtt_client_config_t mqtt_cfg = {
         .event_handle = vesync_mqtt_event_handler,
         .cert_pem = NULL,
@@ -88,7 +89,6 @@ void vesync_mqtt_client_init(void)
         .username = "etekcity",
         .password = "hardware",
     };
-
     my_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(my_mqtt_client);
 }

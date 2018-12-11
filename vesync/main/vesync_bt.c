@@ -17,6 +17,8 @@
 
 #include "vesync_bt.h"
 #include "vesync_uart.h"
+#include "vesync_wifi.h"
+#include "vesync_public.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -30,18 +32,23 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_bt.h"
+#include "esp_task_wdt.h"
 
 #define GATTS_TABLE_TAG "Vesync_BT"
+
+#define APP_ADV_INTERVAL_MIN            0x20                                                /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
+#define APP_ADV_INTERVAL_MAX            0x40                                                /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
+#define DEVICE_NAME                     "ESP32_BT"
+#define TX_POWER                        ESP_PWR_LVL_N0                                     /* +3dbm*/
+#define APP_ADV_TIMEOUT_IN_SECONDS      ADVER_TIME_OUT                                     /**< The advertising timeout (in units of seconds). */
+
 
 #define PROFILE_NUM                 1
 #define PROFILE_APP_IDX             0
 #define ESP_APP_ID                  0x55
-#define SAMPLE_DEVICE_NAME          "ESP32_BT"
 #define SVC_INST_ID                 0
 
-/* The max length of characteristic value. When the gatt client write or prepare write, 
-*  the data length must be less than GATTS_DEMO_CHAR_VAL_LEN_MAX. 
-*/
+#define RING_BUFF_LEN               400
 #define GATTS_DEMO_CHAR_VAL_LEN_MAX 500
 #define PREPARE_BUF_MAX_SIZE        1024
 #define CHAR_DECLARATION_SIZE       (sizeof(uint8_t))
@@ -50,18 +57,19 @@
 #define SCAN_RSP_CONFIG_FLAG        (1 << 1)
 
 static void vesync_set_bt_status(BT_STATUS_T new_status);
+bt_recv_cb_t m_bt_handler;
 
 uint16_t heart_rate_handle_table[HRS_IDX_NB];
 
-uint16_t ble_conn_id = 0xffff;
-esp_gatt_if_t ble_gatts_if;
-static BTSTRUCT vesync_bt;
+static uint16_t ble_conn_id = 0xffff;
+static esp_gatt_if_t ble_gatts_if;
 static BT_STATUS_T bt_status = BT_INIT;
 
-TimerHandle_t advertise_timer;
-//RingbufHandle_t vesync_bt_rx_handle;        /*!< rX ring buffer handler*/
+static TimerHandle_t advertise_timer;
+static RingbufHandle_t ringbuf_read;
+static RingbufHandle_t ringbuf_write;
 
-typedef struct {
+typedef struct{
     uint8_t                 *prepare_buf;
     int                     prepare_len;
 } prepare_type_env_t;
@@ -125,16 +133,16 @@ static esp_ble_adv_data_t scan_rsp_data = {
 };
 #endif /* CONFIG_SET_RAW_ADV_DATA */
 
-static const esp_ble_adv_params_t adv_params = {
-    .adv_int_min         = 0x20,
-    .adv_int_max         = 0x40,
+static esp_ble_adv_params_t adv_params = {
+    .adv_int_min         = APP_ADV_INTERVAL_MIN,
+    .adv_int_max         = APP_ADV_INTERVAL_MAX,
     .adv_type            = ADV_TYPE_IND,
     .own_addr_type       = BLE_ADDR_TYPE_PUBLIC,
     .channel_map         = ADV_CHNL_ALL,
     .adv_filter_policy   = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
 
-struct gatts_profile_inst {
+struct gatts_profile_inst{
     esp_gatts_cb_t gatts_cb;
     uint16_t gatts_if;
     uint16_t app_id;
@@ -149,6 +157,7 @@ struct gatts_profile_inst {
     esp_bt_uuid_t descr_uuid;
 };
 
+static bool advertise_timer_init(uint32_t time_out);
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
 					esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
@@ -189,11 +198,9 @@ static const uint8_t systemId_value[2]             = {0x01, 0x10};
 
 ///device Service
 static const uint16_t device_svc = ESP_GATT_UUID_DEVICE_INFO_SVC;
-
 static const uint16_t bat_lev_uuid = ESP_GATT_UUID_BATTERY_LEVEL;
 static const uint8_t   bat_lev_ccc[2] ={ 0x00, 0x00};
 static const uint16_t char_format_uuid = ESP_GATT_UUID_CHAR_PRESENT_FORMAT;
-
 static uint8_t fw_version[5] = {0x30,0x2e,0x30,0x2e,0x31};
 static uint8_t hw_version[5] = {0x30,0x2e,0x30,0x2e,0x31};
 static uint8_t sw_version[5] = {0x31,0x2e,0x31,0x2e,0x31};
@@ -358,49 +365,53 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble
     prepare_write_env->prepare_len = 0;
 }
 
-static unsigned char sum_verify(void *notify_data ,unsigned short len)
-{
-	unsigned char sum = 0;
-
-	for (unsigned char i = 0; i < len; i++){
-		sum += (uint8_t *)&notify_data[i];
-	}
-
-	return sum;
-}
-
 /**
  * @brief 
  * @param notify_data 
  * @param len 为了跟串口统一 len包含命令+载荷长度 
  */
-void vesync_bt_notify(uint8_t ctl,uint8_t cmd,const void *notify_data ,unsigned short len)
+uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const void *notify_data ,unsigned short len)
 {
-    uint8_t sendbuf[20] ={0xA5};
+    uint32_t ret = 0;
+    uint8_t sendbuf[200] ={0};
     uint8_t sendlen =0;
 
-    sendbuf[1] = *(uint8_t *)&notify_data[0];    //命令码
-    sendbuf[2] = len;               //载荷长度
+    if(vesync_get_bt_status() != BT_CONNTED)    return 1;
+    sendlen = bt_data_frame_encode(ctl,cnt,cmd,notify_data,len,sendbuf);
 
-    memcpy((uint8_t *)&sendbuf[3],(uint8_t *)&notify_data[1],len);
-
-    sendlen = 1+1+1+len+1+1;    //包头+命令+载荷长度+载荷+checksum+包尾；
-
-    sendbuf[sendlen-2] = sum_verify(notify_data ,len);
-    sendbuf[sendlen-1] = 0x5A;
-
-    ESP_LOGI(GATTS_TABLE_TAG, "ble notify send gatts_if=%d,conn_id=%d", ble_gatts_if,ble_conn_id);
-    esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
+    ESP_LOGI(GATTS_TABLE_TAG, "ble send notify gatts_if=%d,conn_id=%d len=%d", ble_gatts_if,ble_conn_id,len);
+    esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
+    ret = esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
                                         (uint16_t)sendlen, (uint8_t *)sendbuf, false);
+
+    return ret;                                 
 }
 
+/**
+ * @brief 查询当前uuid对应的char描述
+ * @param handle 
+ * @return uint8_t 
+ */
+static uint8_t find_char_and_desr_index(uint16_t handle)
+{
+    uint8_t error = 0xff;
+
+    for(int i = 0; i < HRS_IDX_NB ; i++){
+        if(handle == heart_rate_handle_table[i]){
+            return i;
+        }
+    }
+
+    return error;
+}
 
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
+    uint8_t res = 0xff;
     esp_ble_gatts_cb_param_t *p_data = (esp_ble_gatts_cb_param_t *) param;
     switch (event) {
         case ESP_GATTS_REG_EVT:{
-            esp_err_t set_dev_name_ret = esp_ble_gap_set_device_name(SAMPLE_DEVICE_NAME);
+            esp_err_t set_dev_name_ret = esp_ble_gap_set_device_name(DEVICE_NAME);
             if (set_dev_name_ret){
                 ESP_LOGE(GATTS_TABLE_TAG, "set device name failed, error code = %x", set_dev_name_ret);
             }
@@ -430,77 +441,72 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             if (create_attr_ret){
                 ESP_LOGE(GATTS_TABLE_TAG, "create attr table failed, error code = %x", create_attr_ret);
             }
+            vesync_set_bt_status(BT_CREATE_SERVICE);
         }
        	    break;
         case ESP_GATTS_READ_EVT:
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_READ_EVT");
        	    break;
-        case ESP_GATTS_WRITE_EVT:
-            if (!param->write.is_prep){
-                // the data length of gattc write  must be less than GATTS_DEMO_CHAR_VAL_LEN_MAX.
-                ESP_LOGI(GATTS_TABLE_TAG, "GATT_WRITE_EVT, handle = %d, value len = %d, desrc_handle =%d", param->write.handle, param->write.len,heart_rate_handle_table[IDX_CHAR_CFG_A] );
-                //esp_log_buffer_hex(GATTS_TABLE_TAG, param->write.value, param->write.len);
-                
-                if (heart_rate_handle_table[IDX_CHAR_CFG_A] == param->write.handle && param->write.len == 2){
-                    uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
-                    if (descr_value == 0x0001){
-                        ESP_LOGI(GATTS_TABLE_TAG, "notify enable");
+        case ESP_GATTS_WRITE_EVT:{          //写没有应答
+                res = find_char_and_desr_index(p_data->write.handle);
+                if (!param->write.is_prep){
+                    if(res == IDX_CHAR_VAL_B){
+                        BaseType_t done =0;
+                        xRingbufferPrintInfo(ringbuf_write);
+                        BaseType_t rst_len = xRingbufferGetCurFreeSize(ringbuf_write);
+                        if(rst_len >= param->write.len){
+                            xRingbufferSend(ringbuf_write, (char *)param->write.value, param->write.len,portMAX_DELAY);
+                        }else{
+                            ESP_LOGE(GATTS_TABLE_TAG, "rx fifo full and data lose!");
+                        }
+                        ESP_LOGI(GATTS_TABLE_TAG, "done %d ,rst_len len [%d]，write_len [%d]",done,rst_len,param->write.len);
+                        //esp_log_buffer_hex(GATTS_TABLE_TAG,(char *)(p_data->write.value),p_data->write.len);
+                    }else if(res == IDX_CHAR_CFG_A){
+                        if(param->write.len == 2){
+                            uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
+                            if (descr_value == 0x0001){
+                                ESP_LOGI(GATTS_TABLE_TAG, "notify enable");
 #if 0                       
-                        uint8_t notify_data[15];
-                        for (int i = 0; i < sizeof(notify_data); ++i){
-                            notify_data[i] = i % 0xff;
-                        }
-                        //the size of notify_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
-                                                sizeof(notify_data), notify_data, false);
-#endif                                                
-                    }else if (descr_value == 0x0002){
-                        ESP_LOGI(GATTS_TABLE_TAG, "indicate enable");
+                                uint8_t notify_data[15];
+                                for (int i = 0; i < sizeof(notify_data); ++i){
+                                    notify_data[i] = i % 0xff;
+                                }
+                                //the size of notify_data[] need less than MTU size
+                                esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
+                                                        sizeof(notify_data), notify_data, false);
+#endif 
+                            }else if (descr_value == 0x0002){
+                                ESP_LOGI(GATTS_TABLE_TAG, "indicate enable");
 #if 0                        
-                        uint8_t indicate_data[15];
-                        for (int i = 0; i < sizeof(indicate_data); ++i)
-                        {
-                            indicate_data[i] = i % 0xff;
-                        }
-                        //the size of indicate_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
-                                            sizeof(indicate_data), indicate_data, true);
+                                uint8_t indicate_data[15];
+                                for (int i = 0; i < sizeof(indicate_data); ++i)
+                                {
+                                    indicate_data[i] = i % 0xff;
+                                }
+                                //the size of indicate_data[] need less than MTU size
+                                esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
+                                                    sizeof(indicate_data), indicate_data, true);
 #endif                                            
+                            }else{
+                                ESP_LOGI(GATTS_TABLE_TAG, "notify disable");
+                            }
+                        }
                     }
-                    else if (descr_value == 0x0000){
-                        ESP_LOGI(GATTS_TABLE_TAG, "notify/indicate disable ");
-                    }else{
-                        ESP_LOGE(GATTS_TABLE_TAG, "unknown descr value");
-                        esp_log_buffer_hex(GATTS_TABLE_TAG, param->write.value, param->write.len);
-                    }
-
+    #if 0                               
+                        if(m_bt_handler != NULL){
+                            m_bt_handler((char *)param->write.value, param->write.len);
+                        }
+    #endif                    
                 }else{
-#if 0                    
-                    xRingbufferPrintInfo(vesync_bt_rx_handle);
-                    BaseType_t done = xRingbufferSend(vesync_bt_rx_handle, (void *)param->write.value, param->write.len, 0);
-                    BaseType_t len = xRingbufferGetMaxItemSize(vesync_bt_rx_handle);
-                    BaseType_t cnt = xRingbufferGetCurFreeSize(vesync_bt_rx_handle);
-                    ESP_LOGI(GATTS_TABLE_TAG, "done %d ,len %d ,cnt %d",done,len,cnt);
-                    if (!done) {
-						printf("Test: Timeout on send!\n");
-					}
-#endif              
-                    if(vesync_bt.m_bt_handler != NULL){
-                        vesync_bt.m_bt_handler((char *)param->write.value, param->write.len);
+                    /* send response when param->write.need_rsp is true*/
+                    if (param->write.need_rsp){
+                        ESP_LOGE(GATTS_TABLE_TAG, "need response");
+                        esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
                     }
                 }
-                /* send response when param->write.need_rsp is true*/
-                if (param->write.need_rsp){
-                    ESP_LOGE(GATTS_TABLE_TAG, "need response");
-                    esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
-                }
-            }else{
-                /* handle prepare write */
-                ESP_LOGE(GATTS_TABLE_TAG, "example_prepare_write_event_env");
-                example_prepare_write_event_env(gatts_if, &prepare_write_env, param);
             }
       	    break;
-        case ESP_GATTS_EXEC_WRITE_EVT: 
+        case ESP_GATTS_EXEC_WRITE_EVT: //写应答
             // the length of gattc prapare write data must be less than GATTS_DEMO_CHAR_VAL_LEN_MAX. 
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_EXEC_WRITE_EVT");
             example_exec_write_event_env(&prepare_write_env, param);
@@ -575,7 +581,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
         if (param->reg.status == ESP_GATT_OK) {
             heart_rate_profile_tab[PROFILE_APP_IDX].gatts_if = gatts_if;
         } else {
-            ESP_LOGE(GATTS_TABLE_TAG, "reg app failed, app_id %04x, status %d",
+            ESP_LOGE(GATTS_TABLE_TAG, "regI (1287) Vesync_BT: vesync_set_bt_status 0app failed, app_id %04x, status %d",
                     param->reg.app_id,
                     param->reg.status);
             return;
@@ -628,94 +634,180 @@ static bool advertise_timer_delete(void)
     return true;
 }
 
-static void vesynv_advertise_timerout_callback(TimerHandle_t timer)
-{
-    if(xTimerIsTimerActive(advertise_timer)){
-        advertise_timer_stop();
-        ESP_LOGI(GATTS_TABLE_TAG, "Time type %s","advertise_timer");
-    }
-    vesync_bt_advertise_stop();
-    ESP_LOGI(GATTS_TABLE_TAG, "vesynv_advertise_timerout_callback");
-}
-
+/**
+ * @brief 设置蓝牙链路状态
+ * @param new_status 
+ */
 static void vesync_set_bt_status(BT_STATUS_T new_status)
 {
-    static BT_STATUS_T backup_status = BT_INIT;
-    uint8_t bt_conn =0 ;
-    ESP_LOGI(GATTS_TABLE_TAG, "vesync_set_bt_status %d"  ,new_status);
+    uint8_t bt_conn;
 
-    if(backup_status != new_status){
+    if(bt_status != new_status){
         switch(new_status){
-            case BT_ADVERTISE_START:
-                    vesync_bt_advertise_start(0);
+            case BT_CREATE_SERVICE:
+                    if(advertise_timer_init(APP_ADV_TIMEOUT_IN_SECONDS) != true){
+                        ESP_LOGE(GATTS_TABLE_TAG, "create advertise time fail!!!");
+                    }
+                break;
+            case BT_ADVERTISE_START:{
+                    esp_power_level_t ble_power;
+                    vesync_bt_advertise_start(APP_ADV_TIMEOUT_IN_SECONDS);
+                    ble_power = esp_ble_tx_power_get(ESP_BLE_PWR_TYPE_DEFAULT);
+                    ESP_LOGI(GATTS_TABLE_TAG, "ble power level [%d]",ble_power);
+                }
                 break;
             case BT_ADVERTISE_STOP:
-
                 break;
             case BT_CONNTED:
                     bt_conn = 2;
-                    uart_encode_send(MASTER_SET,CMD_BT_STATUS,(char *)&bt_conn,sizeof(uint8_t));
+                    vesync_bt_advertise_stop();
+                    xEventGroupSetBits(user_event_group, BT_CONNECTED_BIT);
+                    xEventGroupClearBits(user_event_group, BT_DIS_CONNECTED_BIT);
+
+                    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                    uart_encode_send(MASTER_SET,CMD_BT_STATUS,(char *)&bt_conn,sizeof(uint8_t),true);
                 break;
             case BT_DISCONNTED:
                     bt_conn = 0;
-                    esp_ble_gap_start_advertising(&adv_params);
-                    uart_encode_send(MASTER_SET,CMD_BT_STATUS,(char *)&bt_conn,sizeof(uint8_t));
+                    vesync_bt_advertise_start(APP_ADV_TIMEOUT_IN_SECONDS);
+                    xEventGroupSetBits(user_event_group, BT_DIS_CONNECTED_BIT);
+                    xEventGroupClearBits(user_event_group, BT_CONNECTED_BIT);
+
+                    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                    uart_encode_send(MASTER_SET,CMD_BT_STATUS,(char *)&bt_conn,sizeof(uint8_t),true);
                 break;
             default:
                 break;
         }
         bt_status = new_status;
     }
-    backup_status = new_status;
+    ESP_LOGI(GATTS_TABLE_TAG, "vesync set new status bits [%d]" ,new_status);
 }
 
+/**
+ * @brief 返回蓝牙链路连接状态
+ * @return BT_STATUS_T 
+ */
+BT_STATUS_T vesync_get_bt_status(void)
+{
+    ESP_LOGI(GATTS_TABLE_TAG, "vesync get current status [%d]" ,bt_status);
+    return bt_status;
+}
+
+/**
+ * @brief 蓝牙是否连接成功？
+ * @return true 
+ * @return false 
+ */
 bool vesync_bt_connected(void)
 {
     return (bt_status == BT_CONNTED);
 }
 
 /**
- * @brief pdFALSE ONE SHOT
+ * @brief 蓝牙广播超时回调处理
+ * @param timer 
+ */
+static void vesynv_advertise_timerout_callback(TimerHandle_t timer)
+{
+    if(xTimerIsTimerActive(timer) != pdFALSE){
+        advertise_timer_delete();
+        ESP_LOGI(GATTS_TABLE_TAG, "delete timer!");
+    }else{
+        advertise_timer_stop();
+        ESP_LOGI(GATTS_TABLE_TAG, "stop timer!");
+    }
+    vesync_bt_advertise_stop();
+    ESP_LOGI(GATTS_TABLE_TAG, "vesync bt advertise stop!!!");
+}
+
+/**
+ * @brief 创建蓝牙广播超时定时器
+ * @param time_out 
  * @return true 
  * @return false 
  */
-static bool advertise_timer_init(void)
+static bool advertise_timer_init(uint32_t time_out)
 {
-    advertise_timer = xTimerCreate("advertise_timer", 5000 / portTICK_PERIOD_MS, pdFALSE,
+    advertise_timer = xTimerCreate("advertise_timer", 10000 / portTICK_PERIOD_MS, pdFALSE,
                                          NULL, vesynv_advertise_timerout_callback);
-    if (advertise_timer == NULL){
+    if(advertise_timer == NULL){
         return false;
     }else{
         return true;
     }
 }
 
-/**
- * @brief 
+/**   
+ * @brief 设置广播超时
  * @param timeout 为0不设置广播超时时间，一直广播
  */
 void vesync_bt_advertise_start(uint32_t timeout)
 {   
+    advertise_timer_stop();
     if(timeout != 0){
         /* 创建广播监测超时定时器 */
-        if(advertise_timer_init() == true){
-            ESP_LOGI(GATTS_TABLE_TAG, "bt create timer success");
-            advertise_timer_stop();
-            xTimerChangePeriod(advertise_timer,timeout/portTICK_PERIOD_MS,portMAX_DELAY);
-            advertise_timer_start();
-        }
+        ESP_LOGI(GATTS_TABLE_TAG, "bt refresh timer [%d]ms" ,timeout);
+        xTimerChangePeriod(advertise_timer,timeout/portTICK_PERIOD_MS,portMAX_DELAY);
+        advertise_timer_start();
     }
     esp_ble_gap_start_advertising(&adv_params);
 }
 
 /**
- * @brief 
+ * @brief 停止广播
  */
 void vesync_bt_advertise_stop(void)
 {
-    esp_ble_gap_stop_advertising();
+    advertise_timer_stop();
+    ESP_ERROR_CHECK(esp_ble_gap_stop_advertising());
 }
 
+/**
+ * @brief 蓝牙接收队列任务处理，满足长度>10开始解析
+ * @param pvParameters 
+ */
+static void vesync_bt_handler_loop(void *pvParameters)
+{
+    size_t len = 0;
+    for(;;){
+        xEventGroupWaitBits(user_event_group, BT_CONNECTED_BIT,
+            false, true, portMAX_DELAY);	//第二个false 不用等待所有的bit都要置位;
+
+		if(xRingbufferGetMaxItemSize(ringbuf_write) - xRingbufferGetCurFreeSize(ringbuf_write) >=10){
+            uint8_t *databuf;
+			databuf = xRingbufferReceive(ringbuf_write,&len,portMAX_DELAY);
+            ESP_LOGI(GATTS_TABLE_TAG, "vesync_bt_handler_loop %d",len);
+            if(databuf == NULL){
+                ESP_LOGI(GATTS_TABLE_TAG,"Test: Timeout on recv!");
+            }else if(len == 0){
+                ESP_LOGI(GATTS_TABLE_TAG,"End packet received.\n");
+                vRingbufferReturnItem(ringbuf_write, databuf);
+            }else{
+                esp_log_buffer_hex(GATTS_TABLE_TAG,(char *)(databuf),len);
+                if(m_bt_handler != NULL){
+                    m_bt_handler((hw_info *)&info_str,(char *)databuf, len);    //接收app数据并赋值给info_str
+                }
+                vRingbufferReturnItem(ringbuf_write, databuf);
+            }
+        }else{
+            vTaskDelay(200 / portTICK_PERIOD_MS);	//避免任务一直占用看门狗复位；
+            esp_task_wdt_reset();
+        }
+    }
+}
+
+/**
+ * @brief 
+ */
+void vesync_bt_deinit(void)
+{
+    advertise_timer_delete();
+    ESP_ERROR_CHECK(esp_ble_gatts_app_unregister(ESP_APP_ID));
+    ESP_ERROR_CHECK(esp_bluedroid_disable());
+    ESP_ERROR_CHECK(esp_bluedroid_deinit());
+    ESP_ERROR_CHECK(esp_bt_controller_disable());
+}
 /**
  * @brief  初始化蓝牙硬件配置
  * @param  用户接口回调
@@ -775,9 +867,13 @@ void vesync_bt_init(bt_recv_cb_t cb)
         ESP_LOGE(GATTS_TABLE_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
 
-    ret = esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,ESP_PWR_LVL_P7);
-
+    ret = esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT,TX_POWER);
     ESP_ERROR_CHECK(ret);
 
-    vesync_bt.m_bt_handler = cb;
-    }
+    ringbuf_write = xRingbufferCreate(RING_BUFF_LEN, RINGBUF_TYPE_BYTEBUF);
+    ringbuf_read  = xRingbufferCreate(RING_BUFF_LEN, RINGBUF_TYPE_BYTEBUF);
+    xTaskCreate(vesync_bt_handler_loop, "vesync_bt_handler_loop", 4096, NULL, 5, NULL);
+
+    m_bt_handler = cb;
+}
+

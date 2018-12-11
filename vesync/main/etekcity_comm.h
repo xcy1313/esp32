@@ -9,8 +9,8 @@
 #define ETEKCITY_COMM_H
 
 //帧头帧尾定义
-#define FRAME_HEAD          0xA5    //帧起始符
-#define FRAME_END           0x5A    //帧结束符
+#define UART_HEAD          	0xA5    //帧起始符
+#define UART_END           	0x5A    //帧结束符
 
 //帧数据域缓存区最大长度定义，可设置的最大值为256
 #define DATA_BUFF_MAX       256
@@ -32,15 +32,15 @@
 
 enum
 {
-	STEP_FRAME_HEAD = 0,
-	STEP_FRAME_CTRL = 1,
-	STEP_FRAME_LEN  = 2,
-	STEP_FRAME_CMD  = 3,
-	STEP_FRAME_DATA = 4,
-	STEP_FRAME_SUM  = 5,
-	STEP_FRAME_END  = 6,
-	STEP_BUTT
-}STEP_FRAME;
+	UART_FRAME_HEAD = 0,
+	UART_FRAME_CTRL = 1,
+	UART_FRAME_LEN  = 2,
+	UART_FRAME_CMD  = 3,
+	UART_FRAME_DATA = 4,
+	UART_FRAME_SUM  = 5,
+	UART_FRAME_END  = 6,
+	UART_BUTT
+}UART_FRAME;
 
 typedef struct
 {

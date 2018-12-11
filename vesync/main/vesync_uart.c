@@ -1,5 +1,7 @@
 #include "vesync_uart.h"
+#include "vesync_wifi.h"
 #include "vesync_bt.h"
+#include "vesync_public.h"
 #include "user_common.h"
 #include "body_fat_calc.h"
 
@@ -17,9 +19,12 @@ static QueueHandle_t uart0_queue;
 
 static TimerHandle_t uart_resend_timer;
 
+static bool uart_init = false;
 hw_info         info_str;
 UARTSTRUCT      vesync_uart;
 uint8_t rec_command;
+
+RESEND_COMD_BIT resend_cmd_bit;
 
 command_types command_type[15] ={
     {CMD_HW_VN	            ,true  ,NULL},  //查询硬件版本
@@ -29,14 +34,8 @@ command_types command_type[15] ={
     {CMD_BODY_FAT	        ,false ,NULL},  //计算后的体脂参数      
     {CMD_POWER_BATTERY	    ,true  ,NULL},  //硬件状态
     {CMD_MEASURE_UNIT	    ,false ,NULL},  //切换硬件计算单位
-    {CMD_BACKLIGHT_TIME	    ,false ,NULL},
-    {CMD_CREATE_USER        ,true  ,vesync_bt_notify},  //创建用户
-    {CMD_HISTORY_TOTALLEN   ,true  ,vesync_bt_notify},  //当前历史数据总长度
-    {CMD_USER_AMOUT         ,true  ,vesync_bt_notify},  //查询当前所有用户数量
-    {CMD_DELETE_USER        ,true  ,vesync_bt_notify},  //删除用户
-    {CMD_DELETE_HIS_ITEM    ,true  ,vesync_bt_notify},  //删除某条历史测量记录
-    {CMD_SYNC_UTC           ,true  ,vesync_bt_notify},  //同步utc时间
-    {CMD_MODIFY_USER        ,true  ,vesync_bt_notify}   //修改用户
+    {CMD_BT_STATUS	        ,false ,NULL},
+    {CMD_WIFI_STATUS	    ,false ,NULL},
 };
 
 static bool uart_resend_timer_stop(void)
@@ -56,6 +55,7 @@ static bool uart_resend_timer_start(void)
 {
     bool status = false;
 
+    uart_resend_timer_stop();
     if (xTimerStart(uart_resend_timer, portMAX_DELAY) != pdPASS) {
         status = false;
     } else {
@@ -65,8 +65,48 @@ static bool uart_resend_timer_start(void)
     return status;
 }
 
+/**
+ * @brief uart 重传任务处理
+ * @param timer 
+ */
 static void vesynv_uart_resend_timerout_callback(TimerHandle_t timer){
-    ESP_LOGI(TAG, "---------------------->vesynv_uart_resend_timerout_callback");
+    ESP_LOGI(TAG, "---------------------->uart resend timer stop");
+
+    if(resend_cmd_bit & RESEND_CMD_MEASURE_UNIT_BIT){
+        ESP_LOGI(TAG, "RESEND_CMD_MEASURE_UNIT_BIT");
+        uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
+    }
+    if(resend_cmd_bit & RESEND_CMD_BT_STATUS_BIT){
+        ESP_LOGI(TAG, "RESEND_CMD_BT_STATUS_BIT");
+        uint8_t bt_status = vesync_get_bt_status();
+        uint8_t bt_conn =0 ;
+        if(bt_status == BT_CONNTED){
+            bt_conn = 2;
+            uart_encode_send(MASTER_SET,CMD_BT_STATUS,(char *)&bt_conn,sizeof(uint8_t),true);
+        }else if(bt_status == BT_DISCONNTED){
+            uart_encode_send(MASTER_SET,CMD_BT_STATUS,(char *)&bt_conn,sizeof(uint8_t),true);
+        }
+    }
+    if(resend_cmd_bit & RESEND_CMD_BODY_FAT_BIT){
+        ESP_LOGI(TAG, "RESEND_CMD_BODY_FAT_BIT");
+        uart_encode_send(MASTER_SET,CMD_BODY_FAT,(char *)&info_str.user_fat_data.fat,sizeof(info_str.user_fat_data)-28,true);
+    }
+    if(resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT){
+        ESP_LOGI(TAG, "RESEND_CMD_WIFI_STATUS_BIT");
+        uint8_t wifi_status = vesync_wifi_get_status();
+        uint8_t wifi_conn =0 ;
+        if(wifi_status == STATION_GOT_IP){
+            wifi_conn = 2;
+            uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(char *)&wifi_conn,sizeof(uint8_t),true);
+        }else if(wifi_status == STATION_CONNECTING){
+            wifi_conn = 1;
+            uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(char *)&wifi_conn,sizeof(uint8_t),true);
+        }
+        else if(wifi_status == STATION_DIS_CONNECTED){
+            wifi_conn = 0;
+            uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(char *)&wifi_conn,sizeof(uint8_t),true);
+        }
+    }
 }
 
 /**
@@ -76,7 +116,7 @@ static void vesynv_uart_resend_timerout_callback(TimerHandle_t timer){
  */
 static bool uart_resend_timer_init(void)
 {
-    uart_resend_timer = xTimerCreate("uart_resend_timer_timer", 200 / portTICK_PERIOD_MS, pdTRUE,
+    uart_resend_timer = xTimerCreate("uart_resend_timer_timer", 500 / portTICK_PERIOD_MS, pdFALSE,
                                          NULL, vesynv_uart_resend_timerout_callback);
     if (uart_resend_timer == NULL){
         return false;
@@ -86,64 +126,104 @@ static bool uart_resend_timer_init(void)
 }
 
 static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t channel,uni_frame_t *frame){
-#if 1
-	printf("\r\n");		//数据入库;
-	printf("\r\n");		//数据入库;
-	printf("receive come----->");		//数据入库;
-	printf("\r\n");		//数据入库;
-	for(int j=0;j<len;j++){
-		printf("%02x ",data[j]);
-	}
-	printf("\r\n");
-	printf("len =%d \r\n",len);
-	printf("receive end----->\r\n");		//数据入库;
-	printf("\r\n");
-#endif    
-    esp_task_wdt_reset();
-
     for(int i=0;i<len;i++){
         if(Comm_frame_parse(data[i],channel,frame) == 1){            
              for(uint8_t j=0;j<sizeof(command_type)/sizeof(command_type[0]);j++){
                 if(frame->frame_cmd == command_type[j].command){    //
+                    frame_ctrl_t res_ctl ={     //应答包res状态  
+                        .data =0,
+                    };
+                    static uint8_t *resp_cnt =NULL;
+                    uint8_t *opt = NULL;
+                    uint16_t bt_command = 0;
                     if(frame->frame_data_len >2){  //主机请求效应设备返回的数据或设备主动上传的数据
                         if(command_type[j].record){
-                            uint8_t *opt = NULL;
                             opt = &frame->frame_data[1];    //过滤命令id字节
                             switch(command_type[j].command){
-                                case CMD_BODY_WEIGHT:
+                                case CMD_BODY_WEIGHT:{
+                                        static uint8_t cnt =0;
+                                        resp_cnt =&cnt;
+                                        *(uint16_t *)&bt_command = CMD_REPORT_WEIGHT;
                                         memcpy((uint8_t *)&res->response_weight_data.weight,opt,frame->frame_data_len-1);
                                         printf("\r\n weight =%d ,lb = %d,if =0x%x ,unit =0x%x,imped =0x%04x\r\n",res->response_weight_data.weight,\
-                                                                                                 res->response_weight_data.lb,\
-                                                                                                 res->response_weight_data.if_stabil,\
-                                                                                                 res->response_weight_data.measu_unit,\
-                                                                                                 res->response_weight_data.imped_value);                                  
+                                                                                                    res->response_weight_data.lb,\
+                                                                                                    res->response_weight_data.if_stabil,\
+                                                                                                    res->response_weight_data.measu_unit,\
+                                                                                                    res->response_weight_data.imped_value);                                  
                                         // 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
+                                        res_ctl.data = 0;       //表示设备主动上传
                                         command_type[j].transfer_callback = vesync_bt_notify;
                                         if(body_fat_person(res,&res->response_weight_data)){
                                             ESP_LOGI(TAG, "------>the same person! \r\n");
                                         }
+                                        cnt++;
+                                    }  
                                     break;
-                                case CMD_HW_VN:
+                                case CMD_HW_VN:{
+                                        static uint8_t cnt =0;
+                                        resp_cnt =&cnt;
+
+                                        *(uint16_t *)&bt_command = CMD_REPORT_VESION;
                                         memcpy((uint8_t *)&res->response_version_data.hardware,opt,frame->frame_data_len-1);
+#if 0                                        
                                         printf("\r\n hardware =0x%02x ,firmware =0x%02x ,protocol =0x%02x\r\n",res->response_version_data.hardware,\
                                                                                                 res->response_version_data.firmware,\
                                                                                                 res->response_version_data.protocol);
+#endif                                                                                                
+                                        res_ctl.data = 0;       //表示设备主动上传
                                         command_type[j].transfer_callback = vesync_bt_notify;
+                                        cnt++;
+                                    }
                                     break;
-                                case CMD_ID:
+                                case CMD_ID:{
+                                        static uint8_t cnt =0;
+                                        resp_cnt =&cnt;
+
+                                        *(uint16_t *)&bt_command = CMD_REPORT_CODING;
+                                        res_ctl.data = 0;       //表示设备主动上传
                                         memcpy((uint8_t *)&res->response_encodeing_data.type,opt,frame->frame_data_len-1);
-                                        printf("\r\n type =0x%02x ,item =0x%02x\r\n",res->response_encodeing_data.type,res->response_encodeing_data.item);
+                                        //printf("\r\n type =0x%02x ,item =0x%02x\r\n",res->response_encodeing_data.type,res->response_encodeing_data.item);
                                         command_type[j].transfer_callback = vesync_bt_notify;
+                                        cnt++;
+                                    }
                                     break;
-                                case CMD_POWER_BATTERY:
-                                        memcpy((uint8_t *)&res->response_hardstate.battery_level,opt,frame->frame_data_len-1);
-                                        printf("\r\n power =0x%02x ,battery_per =0x%02x\r\n",res->response_hardstate.battery_level,res->response_hardstate.power);
+                                case CMD_POWER_BATTERY:{
+                                        static uint8_t cnt =0;
+                                        static uint8_t opwer_status =0;
+                                        static uint8_t npwer_status =0;
+                                        resp_cnt =&cnt;
+
+                                        res_ctl.data = 0;       //表示设备主动上传
+                                        *(uint16_t *)&bt_command = CMD_REPORT_POWER;
+                                        memcpy((uint8_t *)&res->response_hardstate.power,opt,frame->frame_data_len-1);
+                                        //printf("\r\n power =0x%02x ,battery_per =0x%02x\r\n",res->response_hardstate.power,res->response_hardstate.battery_level);
                                         command_type[j].transfer_callback = vesync_bt_notify;
+
+                                        opwer_status = npwer_status;
+                                        npwer_status = res->response_hardstate.power;
+                                        cnt++;
+                                        ESP_LOGI(TAG, ",npwer_status [%d]  opwer_statusd[%d]\r\n",npwer_status,opwer_status);
+                                        if((npwer_status == 0) && (opwer_status == 1)){         //关机
+                                            //vesync_power_save_enter(WAKE_UP_PIN);
+                                            vesync_bt_advertise_stop();
+                                        }else if((npwer_status == 1) && (opwer_status == 0)){   //开机
+                                            vesync_bt_advertise_start(ADVER_TIME_OUT);
+                                            ESP_LOGI(TAG, "unit is %d\r\n" ,info_str.user_config_data.measu_unit);
+                                            resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
+                                            uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
+                                        }
+                                    }
                                     break;
-                                case CMD_HADRWARE_ERROR:
+                                case CMD_HADRWARE_ERROR:{
+                                        static uint8_t cnt =0;
+                                        resp_cnt =&cnt;
+
+                                        *(uint16_t *)&bt_command = CMD_REPORT_ERRPR;
                                         res->response_error_notice.error.para = *(uint32_t *)&opt[0];
-                                        printf("\r\n error type =0x%04x\r\n",res->response_error_notice.error.para);
+                                        //printf("\r\n error type =0x%04x\r\n",res->response_error_notice.error.para);
                                         command_type[j].transfer_callback = vesync_bt_notify;
+                                        cnt++;
+                                    }
                                     break;
                                 default:
                                         ESP_LOGI(TAG, "other command %d\r\n" ,command_type[j].record);
@@ -151,26 +231,32 @@ static void decodecommand(hw_info *res ,const char *data,uint16_t len ,uint8_t c
                             }
                         }
                         if(command_type[j].transfer_callback != NULL){
-                            command_type[j].transfer_callback(0,0,(uint8_t *)&frame->frame_data[0] ,frame->frame_data_len-1);  //透传控制码
+                            vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
                         }
                     }else{//设备返回的应答
                         ESP_LOGI(TAG, ",----------------ack %d\r\n",command_type[j].command);
+                        static uint8_t *resp_cnt =NULL;
                         switch(command_type[j].command){
-                            case CMD_MEASURE_UNIT:
-                                ESP_LOGI(TAG, "----ack \r\n");
-                                command_type[j].transfer_callback = vesync_bt_notify;
-                                if(command_type[j].transfer_callback != NULL){
-                                    command_type[j].transfer_callback(0,0,&res->response_weight_data.measu_unit ,sizeof(uint8_t));  //透传app
+                            case CMD_MEASURE_UNIT:{
+                                    static uint8_t cnt =0;
+                                    resp_cnt =&cnt;
+                                    vesync_bt_notify(res_ctl,resp_cnt,CMD_SET_WEIGHT_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t));
+                                    cnt++;
+                                    resend_cmd_bit &= ~RESEND_CMD_MEASURE_UNIT_BIT;
                                 }
                                 break;
                             case CMD_BT_STATUS:
-                                    rec_command = CMD_BT_STATUS;
+                                    resend_cmd_bit &= ~RESEND_CMD_BT_STATUS_BIT;
                                 break;
+                            case CMD_WIFI_STATUS:
+                                    resend_cmd_bit &= ~RESEND_CMD_WIFI_STATUS_BIT;
+                                break;
+                            case CMD_BODY_FAT:
+                                    resend_cmd_bit &= ~RESEND_CMD_BODY_FAT_BIT;
                             default:
                                 break;
                         }
                     }
-                    break;
                 }   
             }
         }
@@ -252,15 +338,18 @@ static void uart_task_handler(void *pvParameters)
 
 /**
  * @brief 
- * @param channel 
+ * @param ctl 
+ * @param cmd 
  * @param data 
  * @param len 
+ * @param resend 为真开启定时器重传功能
  */
-void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len)
+void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len,bool resend)
 {
     char sendbuf[200] ={0xA5};
 	uint8_t sendlen =0;
 
+    if(!uart_init)  return;
 	if(len >sizeof(sendbuf)-len)	return;
     if(len ==0)	return;
 
@@ -269,8 +358,24 @@ void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len)
     if(sendlen != 0){
         WriteCoreQueue(sendbuf,sendlen);
     }
+    //esp_log_buffer_hex(TAG, sendbuf, sendlen);
+
+    if(resend){
+       uart_resend_timer_stop(); 
+       uart_resend_timer_start(); 
+    }
 }
 
+/**
+ * @brief 关闭串口硬件
+ */
+void vesync_uart_deint(void)
+{
+    if(!uart_init)  return;
+
+    uart_init = false;
+    uart_driver_delete(EX_UART_NUM);
+}
 /**
  * @brief  初始化串口硬件配置
  * @param  用户接口回调
@@ -279,9 +384,8 @@ void uart_encode_send(uint8_t ctl,uint8_t cmd,const char *data,uint16_t len)
 void vesync_uart_int(uart_recv_cb_t cb)
 {
     esp_log_level_set(TAG, ESP_LOG_INFO);
+    if(uart_init)   return ;
 
-    /* Configure parameters of an UART driver,
-     * communication pins and install the driver */
     uart_config_t uart_config = {
         .baud_rate = 9600,
         .data_bits = UART_DATA_8_BITS,
@@ -309,5 +413,6 @@ void vesync_uart_int(uart_recv_cb_t cb)
     if(uart_resend_timer_init() == false){
         ESP_LOGE(TAG, "uart_resend_timer_init fail");
     }
+    uart_init = true;
     vesync_uart.m_uart_handler = cb;
 }

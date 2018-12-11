@@ -97,17 +97,20 @@ static esp_blufi_callbacks_t vesync_blufi_callbacks = {
 static void Handle_ConfigNetJson(device_info_t *info,cJSON *json)
 {
 	cJSON *root = json;
+    uint32_t mask =0;
 
 	cJSON *pid = cJSON_GetObjectItemCaseSensitive(root, "pid");
 	if(true == cJSON_IsString(pid)){
 		strcpy((char*)info->mqtt_config.pid, pid->valuestring);
 		BLUFI_INFO("pid : %s\r\n", info->mqtt_config.pid);
+        mask |=0x1;
 	}
 
 	cJSON *configKey = cJSON_GetObjectItemCaseSensitive(root, "configKey");
 	if(true == cJSON_IsString(configKey)){
         strcpy((char*)info->mqtt_config.configKey, configKey->valuestring);
 		BLUFI_INFO("configKey : %s\r\n", info->mqtt_config.configKey);
+        mask |=0x2;
 	}
 
 	cJSON *serverDN = cJSON_GetObjectItemCaseSensitive(root, "serverDN");
@@ -123,6 +126,7 @@ static void Handle_ConfigNetJson(device_info_t *info,cJSON *json)
 		}else{
 			strcpy((char*)info->mqtt_config.serverDN, serverDN->valuestring);
 		}
+        mask |=0x4;
 		BLUFI_INFO("serverDN : %s\r\n", info->mqtt_config.serverDN);
 	}
 
@@ -134,6 +138,7 @@ static void Handle_ConfigNetJson(device_info_t *info,cJSON *json)
 		}else{
 			strcpy((char*)info->mqtt_config.serverIP, serverIP->valuestring);
 		}
+        mask |=0x8;
 		BLUFI_INFO("serverIP : %s\r\n", (char*)info->mqtt_config.serverIP);
 	}
 
@@ -141,34 +146,43 @@ static void Handle_ConfigNetJson(device_info_t *info,cJSON *json)
 	if(true == cJSON_IsString(wifiSSID)){
 		strcpy((char*)info->station_config.wifiSSID, wifiSSID->valuestring);
 		BLUFI_INFO("wifiSSID : %s\r\n", (char*)info->station_config.wifiSSID);
+        mask |=0x10;
 	}
 
 	cJSON *wifiPassword = cJSON_GetObjectItemCaseSensitive(root, "wifiPassword");
 	if(true == cJSON_IsString(wifiPassword)){
 		strcpy((char*)info->station_config.wifiPassword, wifiPassword->valuestring);
 		BLUFI_INFO("wifiPassword : %s\r\n", (char*)info->station_config.wifiPassword);
+        mask |=0x20;
 	}
 
 	cJSON *wifiStaticIP = cJSON_GetObjectItemCaseSensitive(root, "wifiStaticIP");
 	if(true == cJSON_IsString(wifiStaticIP)){
 		strcpy((char*)info->station_config.wifiStaticIP, wifiStaticIP->valuestring);
 		BLUFI_INFO("wifiStaticIP : %s\r\n", (char*)info->station_config.wifiStaticIP);
+        mask |=0x40;
 	}
 
 	cJSON *wifiGateway = cJSON_GetObjectItemCaseSensitive(root, "wifiGateway");
 	if(true == cJSON_IsString(wifiGateway)){
 		strcpy((char*)info->station_config.wifiGateway, wifiGateway->valuestring);
 		BLUFI_INFO("wifiGateway : %s\r\n", (char*)info->station_config.wifiGateway);
+        mask |=0x80;
 	}
 
 	cJSON *wifiDNS = cJSON_GetObjectItemCaseSensitive(root, "wifiDNS");
 	if(true == cJSON_IsString(wifiDNS)){
 		strcpy((char*)info->station_config.wifiDNS, wifiDNS->valuestring);
 		BLUFI_INFO("wifiDNS : %s\r\n", (char*)info->station_config.wifiDNS);
+        mask |=0x100;
 	}
-
-    vesync_flash_write_info(info); 
-    vesync_flash_read_info();
+    if(mask & 0x30){
+        vesync_refresh_wifi(info);
+    }
+    if((mask & 0x1ff) == 0x1ff){
+        vesync_flash_write_info(info); 
+    }
+    //vesync_flash_read_info();
 }
 
 #define DEVICE_TYPE     "1"
@@ -195,7 +209,7 @@ static void vesync_reply_firmware_information(void)
  */
 static void vesync_scan_wifi_list(void)
 {
-
+    int ret;
     wifi_scan_config_t scanConf = {
                 .ssid = NULL,
                 .bssid = NULL,
@@ -204,12 +218,14 @@ static void vesync_scan_wifi_list(void)
             };
     BLUFI_INFO("blufi wifi scan start\n");
 
-    ESP_ERROR_CHECK(esp_wifi_scan_start(&scanConf, true));
-
-    uint8_t buffer[64];
-    sprintf((char *)buffer, "{\"uri\":\"/replyWifiList\",\"result\":-1}");
-    if(esp_blufi_send_custom_data(buffer, sizeof(buffer)-1) != ESP_OK){
-        BLUFI_INFO("Send wifi list reply to app failed !\n");
+    ret = esp_wifi_scan_start(&scanConf, true);
+    if(ESP_OK != ret){
+        ESP_LOGE(TAG ,"blufi wifi scan error :%d\n" ,ret);
+        uint8_t buffer[64];
+        sprintf((char *)buffer, "{\"uri\":\"/replyWifiList\",\"result\":-1}");
+        if(esp_blufi_send_custom_data(buffer, sizeof(buffer)-1) != ESP_OK){
+            BLUFI_INFO("Send wifi list reply to app failed !\n");
+        }
     }
 }
 
@@ -276,15 +292,11 @@ static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb
             BLUFI_INFO("BLUFI ble connect\n");
             server_if = param->connect.server_if;
             conn_id = param->connect.conn_id;
-            esp_ble_gap_stop_advertising();
             blufi_security_init();
             break;
         case ESP_BLUFI_EVENT_BLE_DISCONNECT:
             BLUFI_INFO("BLUFI ble disconnect\n");
             blufi_security_deinit();
-        #ifdef ENABLE_BLUFI_ADVERTISE
-            esp_ble_gap_start_advertising(&vesync_blufi_adv_data_adv_params);
-        #endif
             break;
         case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:
             BLUFI_INFO("BLUFI Set WIFI opmode %d\n", param->wifi_mode.op_mode);
@@ -389,6 +401,8 @@ static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb
             BLUFI_INFO("Recv SOFTAP CHANNEL %d\n", ap_config.ap.channel);
             break;
         case ESP_BLUFI_EVENT_GET_WIFI_LIST:{
+            vesync_scan_wifi_list();
+#if 0            
             wifi_scan_config_t scanConf = {
                 .ssid = NULL,
                 .bssid = NULL,
@@ -397,6 +411,7 @@ static void vesync_blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb
             };
             BLUFI_INFO("blufi wifi scan start\n");
             ESP_ERROR_CHECK(esp_wifi_scan_start(&scanConf, true));
+#endif            
             break;
         }
         case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:  //手机下发custom data 

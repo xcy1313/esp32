@@ -2,6 +2,9 @@
 #include "vesync_unixtime.h"
 #include "esp_err.h"
 #include <time.h>  
+#include "esp_log.h"
+
+static const char *TAG = "vesync_rtc";
 
 #define RTC_Write(cnt,dev_addr,reg_addr,reg_data)	    1							
 #define RTC_Read(cnt,dev_addr,reg_addr,reg_data)	    1
@@ -22,6 +25,7 @@ char time_zone = CHINA_TIME;
 
 const unsigned char g_day_per_mon[MONTH_PER_YEAR] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+mytime_struct utcTime;
 /*
  * ���ܣ�
  *     �ж��Ƿ�������
@@ -256,6 +260,9 @@ static mytime_struct scale_trans_hex(mytime_struct *p_data ,unsigned char len)
 	utc_time.nHour = bcd_2_hex(p_data->nHour);
 	utc_time.nDay = bcd_2_hex(p_data->nDay);
 	
+    ESP_LOGI(TAG, "nYear[%d] nMonth[%d] nWeek[%d] nDay[%d] nHour[%d] nMin[%d] nSec[%d\r\n" ,
+                    utc_time.nYear,utc_time.nMonth,utc_time.nWeek,utc_time.nDay,utc_time.nHour,utc_time.nMin,utc_time.nSec);
+
 	return utc_time;
 }
 
@@ -272,6 +279,20 @@ static mytime_struct scale_trans_bcd(mytime_struct *p_data ,unsigned char len)
 	utc_time.nDay = hex_2_bcd(p_data->nDay);
 	
 	return utc_time;
+}
+
+mytime_struct unix_2_localtime(unsigned int *unix_time,char zone){
+	mytime_struct my_time;
+
+	utc_sec_2_mytime((*unix_time) + zone * SEC_PER_HOUR, &my_time, false);
+
+	my_time = scale_trans_hex(&my_time,sizeof(mytime_struct));
+
+	printf("\r\n");
+	ESP_LOGI(TAG, "year[%02x] month[%02x] day[%02x] week[%02x]  hour[%02x]  min[%02x]  sec[%02x]",my_time.nYear,my_time.nMonth,my_time.nDay,my_time.nWeek,my_time.nHour,my_time.nMin,my_time.nSec);
+	printf("\r\n");
+
+	return my_time;
 }
 
 //���ñ���ʱ��;
