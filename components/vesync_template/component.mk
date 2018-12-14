@@ -1,0 +1,6 @@
+
+TEMPLATE ?= 0
+ifeq ($(TEMPLATE),1)
+	COMPONENT_ADD_INCLUDEDIRS += template
+	COMPONENT_SRCDIRS := template
+endif
