@@ -28,8 +28,9 @@ typedef enum
 	DONOT_CONFIG_NET = 0,				//处于非配网模式
 	SMART_CONFIG	 = 1,				//smartconfig模式配网
 	AP_CONFIG		 = 2,				//AP模式配网
-	RESET_NETWORK	 = 3,				//清除保存的配网数据
-	CONFIG_TIME_OUT  = 4,				//配网超时
+	BLUFI_CONFIG	 = 3,				//蓝牙配网
+	RESET_NETWORK	 = 4,				//清除保存的配网数据
+	CONFIG_TIME_OUT  = 5,				//配网超时
 } config_network_mode_e;
 
 /**

@@ -4,9 +4,6 @@
  * @author Jiven 
  * @date 2018-11-20
  */
-
-#include <string.h>
-#include <stdio.h>
 #include "etekcity_bt_prase.h"
 #include "esp_log.h"
 
@@ -113,7 +110,6 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 		case BT_FRAME_DATA:
 			frame->frame_data[frame->frame_data_pos++] = byteData;
 			if(frame->frame_data_pos >= (frame->frame_data_len-sizeof(frame->frame_cmd))){
-				esp_log_buffer_hex(BT_TAG,frame->frame_data,frame->frame_data_pos);
 				frame->frame_data_pos = 0;
 				*step = BT_FRAME_SUM;
 			}	

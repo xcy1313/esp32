@@ -53,6 +53,7 @@ void vesync_enter_production_testmode(production_status_cb_t cb)
 	production_status_cb = cb;
 
 	vesync_set_production_status(RPODUCTION_START);
+	vesync_client_connect_wifi(PRODUCTION_WIFI_SSID, PRODUCTION_WIFI_KEY);	// wifi driver初始化，否则无法获取mac地址
 
 	LOG_I(TAG, "Production param :");
 	LOG_I(TAG, "==============================");
@@ -64,10 +65,10 @@ void vesync_enter_production_testmode(production_status_cb_t cb)
 	LOG_I(TAG, "cid : %s", cid_mac);
 	LOG_I(TAG, "username : %s", username);
 	LOG_I(TAG, "server : %s:1883", PRODUCTION_SERVER_ADDR);
+	LOG_I(TAG, "ssid : %s", PRODUCTION_WIFI_SSID);
+	LOG_I(TAG, "pwd : %s", PRODUCTION_WIFI_KEY);
 	LOG_I(TAG, "==============================");
 
-	//vesync_client_connect_wifi(PRODUCTION_WIFI_SSID, PRODUCTION_WIFI_KEY);
-	//vesync_config_cloud_mqtt_client("64464d9993b347888adb3bef18c10404","192.168.16.25",61613,"etekcity","hardware");
 	vesync_config_cloud_mqtt_client_with_tls(cid_mac, PRODUCTION_SERVER_ADDR, 1883, username, "0");
 	vesync_mqtt_client_connect_to_cloud();
 }

@@ -113,7 +113,7 @@ vesync_mqtt_client_t* vesync_get_cloud_mqtt_client(void)
  */
 void vesync_client_connect_wifi(char *wifi_ssid, char *wifi_password)
 {
-	vesync_connect_wifi(wifi_ssid, wifi_password, vesync_connect_wifi_callback);
+	vesync_connect_wifi(wifi_ssid, wifi_password, true);
 }
 
 /**
@@ -170,4 +170,9 @@ void vesync_mqtt_client_connect_to_cloud(void)
 void vesync_mqtt_client_disconnet_from_cloud(void)
 {
 	vesync_mqtt_disconnect(&s_vesync_client);
+}
+
+void vesync_clinet_wifi_module_init(void)
+{
+	vesync_init_wifi_module(vesync_connect_wifi_callback);
 }
