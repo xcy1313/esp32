@@ -29,14 +29,14 @@ static void vesync_event_center_thread(void *args)
 	BaseType_t notified_ret;
 	uint32_t notified_value;
 
-	// if(vesync_flash_read_net_info(&net_info) == true){
-	// 	vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-	// }else{
-	// 	LOG_I(TAG, "first time use!!!!");
-	// }
+	 if(vesync_flash_read_net_info(&net_info) == true){
+	 	vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+	 }else{
+	 	LOG_I(TAG, "first time use!!!!");
+	 }
 	// vesync_setup_wifi_open_ap_and_sta("ESP8266_FreeRTOS");
 	//vesync_developer_start();
-	vesync_enter_production_testmode(NULL);
+	//vesync_enter_production_testmode(NULL);
 
 	// vesync_config_cloud_mqtt_client("vesync_client", "192.168.16.25", 61613, "etekcity", "hardware");
 

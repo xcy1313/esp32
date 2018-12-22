@@ -26,7 +26,7 @@ void app_main()
     }
     ESP_ERROR_CHECK(ret);
     //app_public_events_task_create();
-    //app_ble_init();
-    //app_scales_start();
+    app_ble_init();
+    app_scales_start();
     xTaskCreate(vesync_entry, "vesync_entry", 4096, NULL, 5, NULL);
 }
