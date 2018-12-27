@@ -15,8 +15,9 @@
 #include "cJSON.h"
 
 //WiFi状态、网络状态事件标志组位定义，置位代表连接成功
-#define EVENT_BIT_WIFI_STATUS		0X000001
-#define EVENT_BIT_NETWORK_STATUS	0X000002
+#define EVENT_BIT_WIFI_STATUS			0X000001
+#define EVENT_BIT_NETWORK_STATUS		0X000002
+#define EVENT_BIT_NET_WIFI_DISCONNECT	0x000004
 
 static const char *TAG = "vesync_wifi";
 
@@ -24,6 +25,8 @@ static const char *TAG = "vesync_wifi";
 static EventGroupHandle_t s_network_event_group = NULL;
 
 static vesync_wifi_cb s_vesync_wifi_callback = NULL;		//wifi连接状态回调函数指针
+
+static vesync_wifi_status_e wifi_status = VESYNC_WIFI_INIT;
 
 /**
  * @brief 扫描AP热点的回调函数
@@ -42,7 +45,7 @@ static void  blufi_wifi_list_packet(uint16_t ap_count,void  *arg)
         
 		if(NULL != root){
 			cJSON_AddStringToObject(root, "uri", "/replyWifiList");
-			cJSON_AddNumberToObject(root, "result", 0);
+			cJSON_AddNumberToObject(root, "err", 1);
 			cJSON_AddItemToObject(root, "wifiList", wifiList =  cJSON_CreateArray());
 
 			if(NULL != wifiList){
@@ -73,18 +76,46 @@ static void  blufi_wifi_list_packet(uint16_t ap_count,void  *arg)
 }
 
 /**
+ * @brief 设置wifi工作模式
+ * @param status 
+ */
+static void vesync_set_wifi_status(vesync_wifi_status_e new_status)
+{
+    uint8_t wifi_conn;
+
+    if(new_status != wifi_status){
+        ESP_LOGI(TAG, "wifi set mode is %d",new_status);
+        wifi_status = new_status;
+    }
+}
+
+vesync_wifi_status_e vesync_wifi_get_status(void)
+{
+    ESP_LOGI(TAG, "wifi get mode is %d",wifi_status);
+    return wifi_status;
+}
+
+/**
  * @brief 连接WiFi的底层回调
  * @param status [WiFi连接状态，包括连接成功和连接掉线，以及连接失败时的错误原因]
  */
 static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 {
+	static vesync_wifi_status_e ostatus = VESYNC_WIFI_INIT;
 	switch(status)						//驱动层根据需要使用部分WiFi状态
 	{
+		case VESYNC_WIFI_CONNECTING:
+			ostatus = VESYNC_WIFI_CONNECTING;
+			break;
 		case VESYNC_WIFI_GOT_IP:
 			xEventGroupSetBits(s_network_event_group, EVENT_BIT_NETWORK_STATUS);
+			xEventGroupClearBits(s_network_event_group, EVENT_BIT_NET_WIFI_DISCONNECT);
+			ostatus = VESYNC_WIFI_GOT_IP;
 			break;
 		case VESYNC_WIFI_LOST_IP:
 			xEventGroupClearBits(s_network_event_group, EVENT_BIT_NETWORK_STATUS);
+			xEventGroupSetBits(s_network_event_group, EVENT_BIT_NET_WIFI_DISCONNECT);
+			ostatus = VESYNC_WIFI_LOST_IP;
 			break;
 		case VESYNC_WIFI_SCAN_DONE:{
 				uint16_t apCount = 0;
@@ -120,7 +151,7 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 		default:
 			break;
 	}
-
+	vesync_set_wifi_status(ostatus);	//用于本文件处理
 	if(NULL != s_vesync_wifi_callback)	//驱动层调用上一层注册的回调函数，WiFi状态传递给上一层继续处理
 	{
 		s_vesync_wifi_callback(status);
@@ -142,6 +173,26 @@ int vesync_wait_network_connected(uint32_t	wait_time)
 	                          pdTRUE,
 	                          wait_time / portTICK_RATE_MS);
 	if(ret & EVENT_BIT_NETWORK_STATUS)
+		return 0;
+	else
+		return -1;
+}
+
+/**
+ * @brief 阻塞等待网络断开成功
+ * @param wait_time [等待时间，单位：毫秒]
+ * @return int 		[等待结果，0 - 等待网络连接成功；-1 - 等待网络连接超时]
+ */
+int vesync_wait_network_disconnected(uint32_t	wait_time)
+{
+	int ret;
+	//阻塞等待网络事件标志组网络连接标志置位
+	ret = xEventGroupWaitBits(s_network_event_group,
+	                          EVENT_BIT_NET_WIFI_DISCONNECT,
+	                          pdFALSE,
+	                          pdFALSE,
+	                          wait_time / portTICK_RATE_MS);
+	if(ret & EVENT_BIT_NET_WIFI_DISCONNECT)
 		return 0;
 	else
 		return -1;
@@ -238,6 +289,11 @@ uint8_t vesync_get_wifi_config(wifi_interface_t interface,wifi_config_t *cfg){
  */
 void vesync_connect_wifi(char *wifi_ssid, char *wifi_password, bool power_save)
 {
+	if(VESYNC_WIFI_GOT_IP == vesync_wifi_get_status()){	//如果之前设备是连接状态 需要主动断开
+		ESP_LOGI(TAG, "wifi disconnect......");
+		ESP_ERROR_CHECK(esp_wifi_disconnect());
+		vesync_wait_network_disconnected(3000);
+	}
 	vesync_hal_connect_wifi(wifi_ssid, wifi_password, power_save);
 	LOG_I(TAG, "Connect to ap ssid : %s, password : %s ", wifi_ssid, wifi_password);
 }

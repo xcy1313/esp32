@@ -15,6 +15,8 @@
 
 #include "etekcity_bt_prase.h"
 
+#define CID_LENGTH						32				//cid闀垮害
+
 #define NET_CONFIG_TIME_OUT 20*1000
 #define ADVER_TIME_OUT  10000     //广播超时1分钟
 #define BLE_MAX_MTU     200
@@ -28,18 +30,32 @@
 #define vesync_ble_rev_data_evt      0x2
 
 
-#define ERR_CONFIG_NET_SUCCESS 					0 		
-#define ERR_CONFIG_WIFI_SSID_MISSED				50		
-#define ERR_CONFIG_CONFIGKEY_MISSED 			51		
-#define ERR_CONFIG_NO_AP_FOUND	 				52		
-#define ERR_CONFIG_WRONG_PASSWORD 				53		
-#define ERR_CONFIG_CONNECT_WIFI_FAIL			54		
-#define ERR_CONFIG_CID_MISSED 					55		
-#define ERR_CONFIG_SERVER_IP_MISSED				56		
+#define ERR_CONFIG_NET_SUCCESS 					0 		//配网时设备连接MQTT服务器成功
+#define ERR_CONFIG_CMD_SUCCESS                  1       //收到命令应答
+#define ERR_CONFIG_WIFI_SSID_MISSED				50		//路由器ssid出错
+#define ERR_CONFIG_CONFIGKEY_MISSED 			51		//mqtt configkey出错
+#define ERR_CONFIG_NO_AP_FOUND	 				52		//找不到热点
+#define ERR_CONFIG_WRONG_PASSWORD 				53		//路由器密码出错
+#define ERR_CONFIG_CONNECT_WIFI_FAIL			54		//连接路由器失败
+#define ERR_CONFIG_CID_MISSED 					55		//MQTT CID缺失
+#define ERR_CONFIG_SERVER_IP_MISSED				56		//MQTT服务器IP缺失
 #define ERR_CONFIG_URI_ERROR	 				57		
-#define ERR_CONFIG_PID_DO_NOT_MATCHED			58		
+#define ERR_CONFIG_PID_DO_NOT_MATCHED			58	    //pid与产测不匹配	
 #define ERR_CONFIG_NO_APP_LINK					59		
-#define ERR_CONFIG_PARSE_JSON_FAIL				60		
+#define ERR_CONFIG_PARSE_JSON_FAIL				60		//json解析出错
+#define ERR_CONFIG_SMART_CONFIG_RESTART			61		//配网时设备端SMARTCONFIG发生了超时重启，超时时间现设置为240s
+#define ERR_CONFIG_LINK_SERVER_FAILED			62		//配网时设备连接MQTT服务器失败
+#define ERR_CONFIG_TIMEOUT						63		//配网超时，全程共5分钟
+#define ERR_CONFIG_WIFI_DEIVER_INIT				64		//wifi驱动未初始化
+
+#define ERR_CONFIG_SERVER_URL_MISSED            80      //https uri地址出错
+#define ERR_CONFIG_ACCOUNT_ID_MISSED            81      //账户信息出错
+#define ERR_WIFI_LINK_BUSY                      82      //wifi链路忙，不能进入扫描模式
+#define ERR_NO_ALLOCATION_CID                   83      //未分配cid
+#define ERR_CONNECT_MQTT_SERVER_FAIL            84      //连接MQTT服务器失败
+#define ERR_CONNECT_HTTPS_SERVER_FAIL           85     //连接https服务器失败
+
+#define ERR_TOTAL                               100     
 
 /* Attributes State Machine */
 enum{
@@ -89,6 +105,8 @@ typedef enum{
 //设备WiFi参数配置
 #pragma pack(1)
 typedef struct{
+    uint8_t server_url[64+ 4];
+    uint8_t account_id[4+ 4];
 	uint8_t wifiSSID[32 + 4];
 	uint8_t wifiPassword[64 + 4];
 	uint8_t wifiStaticIP[16 + 4];
@@ -97,26 +115,28 @@ typedef struct{
 }station_config_t;
 #pragma pack()			//
 
-#define CONFIGKEY_BUF_LEN				16+4	//configKey缓存区大小
-
 //设备MQTT参数配置
 #pragma pack(1)
 typedef struct{
-	uint32_t mqtt_port;
-	uint32_t mqtt_keepalive;
-	uint32_t security;
-	uint8_t  configKey[CONFIGKEY_BUF_LEN];
-	uint8_t  serverDN[128 + 4];
+    uint8_t  pid[16 + 4];
+	uint8_t  configKey[20];
+	uint8_t  serverDN[64 + 4];
 	uint8_t  serverIP[16 + 4];
-	uint8_t  pid[16 + 4];
-	uint32_t ip_link_error_count;
 } mqtt_config_t;
 #pragma pack()
 
+//设备产测配置
+#pragma pack(1)
+typedef struct{
+	uint8_t  cid[32 + 4];
+}product_config_t;
+#pragma pack()
+extern product_config_t product_config;
+
 //设备配网参数配置
 typedef struct{
-    station_config_t station_config;
     mqtt_config_t    mqtt_config;
+    station_config_t station_config;
 }net_info_t;
 extern net_info_t net_info;
 

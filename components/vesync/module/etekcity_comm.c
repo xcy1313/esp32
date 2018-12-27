@@ -167,7 +167,7 @@ unsigned char Comm_frame_pack(	unsigned char ctrl,
 	unsigned char i;
 	unsigned sum = 0;
 
-	if ((NULL == outbuf) || (NULL == data))
+	if ((NULL == outbuf))
 	{
 		DBG("[Comm_frame_pack]Err: data or outbuf pointer is NULL.\r\n");
 		return 0;
@@ -183,8 +183,10 @@ unsigned char Comm_frame_pack(	unsigned char ctrl,
     outbuf[1] = ctrl;                  			//控制码
     outbuf[2] = datalen;             			//用户数据（命令码+参数）长度
     outbuf[3] = cmd;                   			//命令码
- 	memcpy(&(outbuf[4]), data, datalen);		//命令参数
+	if(datalen >1){
+		memcpy(&(outbuf[4]), data, datalen);		//命令参数
 
+	}
 	for(i=0;i<datalen+3;i++)
 	{
 		sum += outbuf[i];

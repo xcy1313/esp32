@@ -27,8 +27,8 @@
 // #define RESTORE_DONOT_REBOOT
 
 //产测系统配置，基线内部产测系统使用production名称，factory工厂模式留给应用层使用
-#define PRODUCTION_WIFI_SSID			"VeSync_Pruduction_AP"
-#define PRODUCTION_WIFI_KEY				"VeSync2018@etekcity.com.cn"
+#define PRODUCTION_WIFI_SSID			"Field_test02"//"VeSync_Pruduction_AP"
+#define PRODUCTION_WIFI_KEY				"05031122"//"VeSync2018@etekcity.com.cn"
 #define PRODUCTION_SERVER_ADDR			"34.207.59.169" //产测服务器地址
-
+#define TEST_MQTT_SERVER_ADDR           "192.168.16.25"
 #endif

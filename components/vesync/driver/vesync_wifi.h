@@ -81,4 +81,22 @@ int vesync_scan_wifi_list_start(void);
  */
 int vesync_scan_wifi_list_stop(void);
 
+/**
+ * @brief 阻塞等待网络断开成功
+ * @param wait_time [等待时间，单位：毫秒]
+ * @return int 		[等待结果，0 - 等待网络连接成功；-1 - 等待网络连接超时]
+ */
+int vesync_wait_network_disconnected(uint32_t	wait_time);
+
+/**
+ * @brief 阻塞等待网络连接成功
+ * @param wait_time 
+ * @return int 
+ */
+int vesync_wait_network_connected(uint32_t	wait_time);
+/**
+ * @brief 获取wifi状态
+ * @return vesync_wifi_status_e 
+ */
+vesync_wifi_status_e vesync_wifi_get_status(void);
 #endif

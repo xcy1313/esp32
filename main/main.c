@@ -5,9 +5,10 @@
 #include "vesync_uart.h"
 #include "nvs_flash.h"
 
-#include "app_handle_phone.h"
-#include "app_handle_scales.h"
-#include "app_public_events.h"
+#include "vesync_production.h"
+// #include "app_handle_phone.h"
+// #include "app_handle_scales.h"
+// #include "app_public_events.h"
 #include "esp_log.h"
 
 static const char *TAG = "APP_MAIN";
@@ -25,8 +26,10 @@ void app_main()
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    //app_public_events_task_create();
-    app_ble_init();
-    app_scales_start();
     xTaskCreate(vesync_entry, "vesync_entry", 4096, NULL, 5, NULL);
+    //app_public_events_task_create();
+    if(PRODUCTION_EXIT == vesync_get_production_status()){
+        // app_ble_init();
+        // app_scales_start();
+    }
 }

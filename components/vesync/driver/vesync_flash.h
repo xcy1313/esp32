@@ -16,17 +16,24 @@
 
 #include "vesync_bt_hal.h"
 
+#define CONFIG_NAMESPACE "product"
+#define CONFIG_CID_HOLDER_KEY "config_holder"
+#define CONFIG_CID_CID_KEY "config_cid"
+#define CONFIG_CID_AUTH_KEY "config_auth"
+#define CONFIG_CID_PID_KEY "config_pid"
+
 #define INFO_NAMESPACE "vesync"
 #define INFO_pid_KEY "vesync_pids"
 #define INFO_config_KEY  "vesync_config"
 #define INFO_DN_KEY  "vesync_server"
 #define INFO_IP_KEY  "vesync_ip"
+#define INFO_URL_KEY  "vesync_url"
+#define INFO_ACCOUNT_KEY  "vesync_account"
 #define INFO_SSID_KEY  "vesync_ssid"
 #define INFO_PWD_KEY  "vesync_pwd"
 #define INFO_static_IP_KEY  "vesync_ip"
 #define INFO_gateWay_KEY  "vesync_gate_way"
 #define INFO_DNS_KEY "vesync_dns"
-
 /**
  * @brief 擦除当前label_name区域对应的key_name存储内容
  * @param label_name 
@@ -87,5 +94,20 @@ uint32_t vesync_flash_write_net_info(net_info_t *info);
  * @return false 
  */
 bool vesync_flash_read_net_info(net_info_t *x_info);
+
+/**
+ * @brief 写入配网参数信息
+ * @param info 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_write_product_config(product_config_t *info);
+
+/**
+ * @brief 读取配网参数信息
+ * @param x_info 
+ * @return true 
+ * @return false 
+ */
+bool vesync_flash_read_product_config(product_config_t *x_info);
 
 #endif

@@ -246,6 +246,16 @@ uint32_t vesync_flash_write_net_info(net_info_t *info)
         ESP_LOGE(TAG, "%s: store configkey failed(0x%x)\n", __func__, err);
         return err;
     }
+    err = nvs_set_blob(handle, INFO_URL_KEY, info->station_config.server_url, sizeof(info->station_config.server_url));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: store server_dn failed(0x%x)\n", __func__, err);
+        return err;
+    }
+    err = nvs_set_blob(handle, INFO_ACCOUNT_KEY, info->station_config.account_id, sizeof(info->station_config.account_id));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: store server_dn failed(0x%x)\n", __func__, err);
+        return err;
+    }
     err = nvs_set_blob(handle, INFO_DN_KEY, info->mqtt_config.serverDN, sizeof(info->mqtt_config.serverDN));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: store server_dn failed(0x%x)\n", __func__, err);
@@ -365,6 +375,27 @@ bool vesync_flash_read_net_info(net_info_t *x_info)
     free(buf);
     ESP_ERROR_CHECK(err);
 
+    err = nvs_get_blob(handle, INFO_URL_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_URL_KEY, buf, &length);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "INFO_server_URL_KEY len[%d]",length);
+        memcpy(info->station_config.server_url,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->station_config.server_url,length);
+    }
+    free(buf);
+    ESP_ERROR_CHECK(err);
+    err = nvs_get_blob(handle, INFO_ACCOUNT_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_blob(handle, INFO_ACCOUNT_KEY, buf, &length);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "INFO_server_ACCOUNT_KEY len[%d]",length);
+        memcpy(info->station_config.account_id,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->station_config.account_id,length);
+    }
+    free(buf);
+    ESP_ERROR_CHECK(err);
+
     err = nvs_get_blob(handle, INFO_SSID_KEY, NULL, &length);
     buf = (char *)malloc(length);
     err |= nvs_get_blob(handle, INFO_SSID_KEY, buf, &length);
@@ -426,6 +457,131 @@ bool vesync_flash_read_net_info(net_info_t *x_info)
 }
 
 /**
+ * @brief 写产测参数flash
+ * @param info 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_write_product_config(product_config_t *info)
+{
+    esp_err_t err;
+    nvs_handle handle;
+
+    err = nvs_open(CONFIG_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
+        return err;
+    }
+    ESP_ERROR_CHECK(nvs_erase_all(handle));
+
+    // err = nvs_set_blob(handle, CONFIG_CID_HOLDER_KEY, info->cid_holder, sizeof(info->cid_holder));
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "%s: store pid failed(0x%x)\n", __func__, err);
+    //     return err;
+    // }
+    err = nvs_set_str(handle, CONFIG_CID_CID_KEY, (char *)info->cid);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: store pid failed(0x%x)\n", __func__, err);
+        return err;
+    }
+    // err = nvs_set_blob(handle, CONFIG_CID_AUTH_KEY, info->authKey, sizeof(info->authKey));
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "%s: store configkey failed(0x%x)\n", __func__, err);
+    //     return err;
+    // }
+    // err = nvs_set_blob(handle, CONFIG_CID_PID_KEY, info->pid, sizeof(info->pid));
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "%s: store server_dn failed(0x%x)\n", __func__, err);
+    //     return err;
+    // }
+
+    err = nvs_commit(handle);       //写完后需要更新flash
+    if (err != ESP_OK) {
+        nvs_close(handle);
+        return err;
+    }
+
+    ESP_LOGI(TAG, "NVS store net info ok!!!!!");
+    nvs_close(handle);
+    return err;
+}
+
+/**
+ * @brief 读取info 设备信息
+ * @return device_info_t 
+ */
+bool vesync_flash_read_product_config(product_config_t *x_info)
+{
+    nvs_handle handle;
+    product_config_t *info = x_info;
+    nvs_stats_t nvs_stats;
+    
+    nvs_get_stats(NULL, &nvs_stats);
+
+    ESP_LOGI(TAG,"Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\n",
+       nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
+
+    esp_err_t err = nvs_open(CONFIG_NAMESPACE, NVS_READONLY, &handle);
+    if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
+        ESP_LOGE(TAG, "%s: NVS has not been initialized. "
+                "Call nvs_flash_init before starting WiFi/BT.", __func__);
+        return false;        
+    } else if(err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
+        return false;
+    }
+
+    size_t length = 0;
+    char *buf = NULL;
+
+    // err = nvs_get_blob(handle, CONFIG_CID_HOLDER_KEY, NULL, &length);
+    // buf = (char *)malloc(length);
+    // err |= nvs_get_blob(handle, CONFIG_CID_HOLDER_KEY, buf, &length);
+    // if (err == ESP_OK) {
+    //     memcpy(info->cid_holder,buf,length);
+    //     esp_log_buffer_char(TAG,(char *)info->cid_holder,length);
+    // }
+    // free(buf);
+    // ESP_ERROR_CHECK(err);
+
+    err = nvs_get_str(handle, CONFIG_CID_CID_KEY, NULL, &length);
+    buf = (char *)malloc(length);
+    err |= nvs_get_str(handle, CONFIG_CID_CID_KEY, buf, &length);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "config_key len[[%d]",length);
+        memcpy(info->cid,buf,length);
+        esp_log_buffer_char(TAG,(char *)info->cid,length);
+    }
+    free(buf);
+    ESP_ERROR_CHECK(err);
+
+    // err = nvs_get_blob(handle, CONFIG_CID_AUTH_KEY, NULL, &length);
+    // buf = (char *)malloc(length);
+    // err |= nvs_get_blob(handle, CONFIG_CID_AUTH_KEY, buf, &length);
+    // if (err == ESP_OK) {
+    //     ESP_LOGI(TAG, "INFO_server_DN_KEY len[%d]",length);
+    //     memcpy(info->authKey,buf,length);
+    //     esp_log_buffer_char(TAG,(char *)info->authKey,length);
+    // }
+    // free(buf);
+    // ESP_ERROR_CHECK(err);
+    
+    // err = nvs_get_blob(handle, CONFIG_CID_PID_KEY, NULL, &length);
+    // buf = (char *)malloc(length);
+    // err |= nvs_get_blob(handle, CONFIG_CID_PID_KEY, buf, &length);
+    // if (err == ESP_OK) {
+    //     ESP_LOGI(TAG, "INFO_server_IP_KEY len[%d]",length);
+    //     memcpy(info->pid,buf,length);
+    //     esp_log_buffer_char(TAG,(char *)info->pid,length);
+    // }
+    // free(buf);
+    // ESP_ERROR_CHECK(err);
+    
+    nvs_close(handle);
+
+    return true;
+}
+
+/**
  * @brief 初始化 自定义partition区
  * @param enable 
  * @param part_name 
@@ -436,12 +592,11 @@ void vesync_flash_config(bool enable ,const char *part_name)
     /* Initialize Special NVS. */
 	if(enable){
     	ret = nvs_flash_init_partition(part_name);
-		ESP_LOGI(TAG, "NVS init %s ,ret:%d",part_name,ret);  
+		ESP_LOGI(TAG, "NVS re-init is %s ,ret:%d",part_name,ret);  
 	}else{
 		ret = nvs_flash_deinit_partition(part_name);
 		ESP_LOGI(TAG, "NVS deinit %s ,ret:%d",part_name,ret);
 	}
-    ESP_LOGI(TAG, "NVS init %s ,ret:%d",part_name,ret);  
     ESP_ERROR_CHECK( ret );
 }
 

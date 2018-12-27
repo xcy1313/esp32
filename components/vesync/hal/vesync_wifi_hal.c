@@ -43,6 +43,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 	{
 		case SYSTEM_EVENT_STA_START:
 			esp_wifi_connect();
+			hal_call_wifi_connect_callback(VESYNC_WIFI_CONNECTING);
 			break;
 		case SYSTEM_EVENT_STA_GOT_IP:
 			LOG_I(TAG, "Device got ip : %s", ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));

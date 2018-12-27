@@ -13,6 +13,7 @@
 #include "vesync_mqtt.h"
 
 #include "vesync_net_service.h"
+#include "vesync_production.h"
 
 #include "vesync_ca_cert.h"
 
@@ -79,6 +80,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 			LOG_I(TAG, "MQTT_EVENT_DATA");
 			LOG_I(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
 			LOG_I(TAG, "DATA=%.*s", event->data_len, event->data);
+			vesync_prase_production_json_packet(event->topic ,event->data);
 			break;
 
 		case MQTT_EVENT_ERROR:
