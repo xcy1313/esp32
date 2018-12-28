@@ -133,7 +133,6 @@ error:
     }
     return false;
 }
-
 /**
  * @brief 读取key_name对应的flash存储内容
  * @param label_name 
@@ -142,14 +141,17 @@ error:
  * @param len 
  * @return uint32_t 返回当前读取成功的数据长度
  */
-void vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len)
+uint32_t vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len)
 {
     esp_err_t err =0;
     nvs_handle fp;
     size_t required_size = 0;
 
     err = nvs_open_from_partition(label_name,key_name, NVS_READONLY, &fp);
-    ESP_LOGI(TAG, "NVS read err:%d",err);
+    if(err != ESP_OK){
+        ESP_LOGI(TAG, "NVS read err:%d",err);
+        return err;
+    }
 
     err = nvs_get_blob(fp, key_name, NULL, &required_size);     //获取当前键值对存储的数据总长度 
     ESP_ERROR_CHECK(err);
@@ -165,7 +167,9 @@ void vesync_flash_read(const char *label_name,const char *key_name,const void *d
     }
     
     nvs_close(fp);
+    return ESP_OK;
 }
+
 /**
  * @brief flash写入uint8_t类型数据
  * @param value 

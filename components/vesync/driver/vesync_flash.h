@@ -54,12 +54,13 @@ bool vesync_flash_write(const char *label_name,const char *key_name,const void *
 
 /**
  * @brief 读取当前所在key_name的存储内容
- * @param label_name partition区名
- * @param key_name 键值名
- * @param data 数据读取指针
- * @param len 读取长度
+ * @param label_name 
+ * @param key_name 
+ * @param data 
+ * @param len 
+ * @return uint32_t 返回操作错误码
  */
-void vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len);
+uint32_t vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len);
 
 /**
  * @brief 配置自定义partition区，操作前必须对此enable
