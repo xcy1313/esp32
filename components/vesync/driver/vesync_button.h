@@ -18,8 +18,6 @@
 #define Reapet_key    	3            //长键 
 #define Very_Long_key   4            //长长键 
 
-#define BUTTON_KEY  	19
-
 #define KEY_NULL           0x00  
 #define KEY_BUTTON_VALUE   0x01
 

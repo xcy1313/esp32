@@ -37,4 +37,9 @@ extern TaskHandle_t event_center_taskhd;
  */
 void vesync_entry(void *args);
 
+/**
+ * @brief vesync平台应用层入口函数
+ */
+void vesync_user_entry(void *args);
+
 #endif

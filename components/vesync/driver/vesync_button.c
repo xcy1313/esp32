@@ -12,9 +12,8 @@
 
 static TimerHandle_t button_timer;
 
+uint8_t pin_key;
 volatile uint8_t 	FKEY;    
-volatile uint8_t 	OKEY; 
-volatile uint8_t 	NKEY;  
 uint8_t 			key_press; 
 static vesync_button_cb_t  m_button_handler;
 
@@ -24,7 +23,7 @@ static vesync_button_cb_t  m_button_handler;
  */
 static uint8_t GetKeyValueControlTask(void)
 {	
-	if(gpio_get_level(BUTTON_KEY) == 0)
+	if(gpio_get_level(pin_key) == 0)
 		FKEY = KEY_BUTTON_VALUE ; 
 	else 		 		       		           
 		FKEY = KEY_NULL	;  
@@ -191,9 +190,10 @@ static gpio_config_t init_io(gpio_num_t num)
  */
 void vesync_button_init(uint32_t pin,vesync_button_cb_t cb)
 {
-    gpio_config_t io_config = init_io(BUTTON_KEY);
+    gpio_config_t io_config = init_io(pin);
     gpio_config(&io_config);
 
+	pin_key = pin;
 	m_button_handler = cb;
 	button_timer = xTimerCreate("button_timer", 20 / portTICK_PERIOD_MS, true,
 										NULL, vesynv_button_callback);

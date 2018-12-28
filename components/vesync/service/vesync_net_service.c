@@ -13,6 +13,7 @@
 #include "vesync_mqtt.h"
 
 #include "vesync_net_service.h"
+#include "vesync_production.h"
 
 #include "vesync_ca_cert.h"
 
@@ -79,6 +80,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 			LOG_I(TAG, "MQTT_EVENT_DATA");
 			LOG_I(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
 			LOG_I(TAG, "DATA=%.*s", event->data_len, event->data);
+			vesync_prase_production_json_packet(event->topic ,event->data);
 			break;
 
 		case MQTT_EVENT_ERROR:
@@ -113,7 +115,7 @@ vesync_mqtt_client_t* vesync_get_cloud_mqtt_client(void)
  */
 void vesync_client_connect_wifi(char *wifi_ssid, char *wifi_password)
 {
-	vesync_connect_wifi(wifi_ssid, wifi_password, vesync_connect_wifi_callback);
+	vesync_connect_wifi(wifi_ssid, wifi_password, true);
 }
 
 /**
@@ -170,4 +172,9 @@ void vesync_mqtt_client_connect_to_cloud(void)
 void vesync_mqtt_client_disconnet_from_cloud(void)
 {
 	vesync_mqtt_disconnect(&s_vesync_client);
+}
+
+void vesync_clinet_wifi_module_init(void)
+{
+	vesync_init_wifi_module(vesync_connect_wifi_callback);
 }

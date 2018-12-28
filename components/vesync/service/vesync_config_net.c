@@ -10,7 +10,9 @@
 #include "vesync_main.h"
 #include "freertos/timers.h"
 
-// static const char* TAG = "vesync_confnet";
+#include "vesync_log.h"
+
+ static const char* TAG = "vesync_confnet";
 
 static config_network_mode_e config_network_mode = DONOT_CONFIG_NET; 	//配网模式，默认处于非配网模式
 static TimerHandle_t netconf_timeout_timer;								//配网超时判断定时器
@@ -44,7 +46,9 @@ void vesync_set_network_configmode(config_network_mode_e mode)
  */
 void vesync_configure_network(config_network_mode_e config_mode, config_network_cb_t resultCB)
 {
-	config_network_callback = resultCB;
+	if(NULL != resultCB){
+		config_network_callback = resultCB;
+	}
 
 	switch(config_mode)
 	{
@@ -112,7 +116,9 @@ void vesync_configure_network(config_network_mode_e config_mode, config_network_
 			// vesync_tcp_server_start(VESYNC_TCP_SERVER_PORT, vesync_tcpserver_recv_callback);
 			vesync_start_config_net_monitor_timer(5 * 60 * 1000);					//5分钟配网超时判断
 			break;
+		case BLUFI_CONFIG:
 
+			break;
 		case RESET_NETWORK:
 			// vesync_set_wifiled_behavior(WIFI_LED_RESET_DEVICE);
 			// vesync_reset_device_conf(&g_device_config);										//恢复出厂设置

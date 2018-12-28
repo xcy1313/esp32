@@ -9,5 +9,3 @@ include $(IDF_PATH)/make/project.mk
 
 ctags:
 	ctags -R `pwd` $(IDF_PATH)/components
-
-

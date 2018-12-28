@@ -9,6 +9,7 @@
 #define VESYNC_WIFI_HAL_H
 
 #include "esp_wifi.h"
+#include <stdbool.h>
 
 //硬件抽象层WiFi接口定义
 #define HAL_WIFI_INTERFACE_STA			ESP_IF_WIFI_STA
@@ -49,12 +50,14 @@
  */
 typedef enum
 {
-	VESYNC_WIFI_GOT_IP = 0,
-	VESYNC_WIFI_LOST_IP = 1,
-	VESYNC_WIFI_WRONG_PASSWORD = 2,
-	VESYNC_WIFI_NO_AP_FOUND = 3,
-	VESYNC_WIFI_CONNECT_FAIL = 4,
-	VESYNC_WIFI_SCAN_DONE = 5,
+	VESYNC_WIFI_INIT =-1,
+	VESYNC_WIFI_CONNECTING =0,
+	VESYNC_WIFI_GOT_IP ,
+	VESYNC_WIFI_LOST_IP,
+	VESYNC_WIFI_WRONG_PASSWORD ,
+	VESYNC_WIFI_NO_AP_FOUND ,
+	VESYNC_WIFI_CONNECT_FAIL ,
+	VESYNC_WIFI_SCAN_DONE ,
 } vesync_wifi_status_e;
 
 /**
@@ -65,7 +68,7 @@ typedef void (*vesync_wifi_cb)(vesync_wifi_status_e wifi_status);
 /**
  * @brief 硬件抽象层初始化wifi模块
  */
-void vesync_hal_init_wifi_module(void);
+void vesync_hal_init_wifi_module(vesync_wifi_cb callback);
 
 /**
  * @brief 硬件抽象层设置设备为WiFi热点
@@ -102,9 +105,9 @@ uint8_t vesync_hal_get_wifi_mode(void);
  * @brief 硬件抽象层连接WiFi
  * @param wifi_ssid			[WiFi名称]
  * @param wifi_password 	[WiFi密码]
- * @param callback 			[WiFi连接回调函数]
+ * @param power_save 		[WiFi开启省电模式]
  */
-void vesync_hal_connect_wifi(char *wifi_ssid, char *wifi_password, vesync_wifi_cb callback);
+void vesync_hal_connect_wifi(char *ssid ,char *pwd ,bool power_save);
 
 /**
  * @brief 硬件抽象层获取mac地址字符串

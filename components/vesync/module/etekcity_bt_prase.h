@@ -7,6 +7,9 @@
 #ifndef _ETEKCITY_BT_PRASE_H
 #define _ETEKCITY_BT_PRASE_H
 
+#include <string.h>
+#include <stdio.h>
+
 enum{
 	NO_ACK =0,		//不需要应答
 	NEED_ACK		//需要应答	

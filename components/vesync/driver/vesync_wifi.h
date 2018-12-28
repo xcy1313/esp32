@@ -20,7 +20,7 @@ int vesync_wait_network_connected(uint32_t	wait_time);
 /**
  * @brief 初始化wifi模块
  */
-void vesync_init_wifi_module(void);
+void vesync_init_wifi_module(vesync_wifi_cb callback);
 
 /**
  * @brief 设置设备为开放热点
@@ -53,7 +53,7 @@ uint8_t vesync_get_wifi_mode(void);
  * @param wifi_key 	[WiFi密码]
  * @param callback 	[WiFi连接回调函数]
  */
-void vesync_connect_wifi(char *wifi_ssid, char *wifi_password, vesync_wifi_cb callback);
+void vesync_connect_wifi(char *wifi_ssid, char *wifi_password, bool power_save);
 
 /**
  * @brief 获取设备WiFi客户端模式下的mac地址字符串
@@ -61,4 +61,42 @@ void vesync_connect_wifi(char *wifi_ssid, char *wifi_password, vesync_wifi_cb ca
  */
 void vesync_get_wifi_sta_mac_string(char *mac_str_buffer);
 
+/**
+ * @brief 获取当前模式下的wifi配置
+ * @param mode 
+ * @return uint8_t 
+ */
+uint8_t vesync_get_wifi_config(wifi_interface_t interface,wifi_config_t *cfg);
+
+/**
+ * @brief 开启wifi扫描
+ * @param callback 	[WiFi连接回调函数]
+ * @return int 
+ */
+int vesync_scan_wifi_list_start(void);
+
+/**
+ * @brief 停止wifi扫描
+ * @return int 
+ */
+int vesync_scan_wifi_list_stop(void);
+
+/**
+ * @brief 阻塞等待网络断开成功
+ * @param wait_time [等待时间，单位：毫秒]
+ * @return int 		[等待结果，0 - 等待网络连接成功；-1 - 等待网络连接超时]
+ */
+int vesync_wait_network_disconnected(uint32_t	wait_time);
+
+/**
+ * @brief 阻塞等待网络连接成功
+ * @param wait_time 
+ * @return int 
+ */
+int vesync_wait_network_connected(uint32_t	wait_time);
+/**
+ * @brief 获取wifi状态
+ * @return vesync_wifi_status_e 
+ */
+vesync_wifi_status_e vesync_wifi_get_status(void);
 #endif

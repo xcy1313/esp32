@@ -7,6 +7,15 @@
 
 #ifndef VESYNC_PRODUCATION_H
 #define VESYNC_PRODUCATION_H
+#include "cJSON.h"
+
+#define PUBLISHSEND_TOPIC "$vesync/things/%s/shadow/update"				//发布主题
+#define SUBSRECEIVE_TOPIC "$vesync/things/%s/shadow/update/delta"		//订阅主题
+
+#define CID_LENGTH						32				//cid闀垮害
+#define DEVCONF_HOLDER					0xA5A5			//璁惧閰嶇疆鍒濆鍖栦繚瀛樻爣蹇?
+#define CID_HOLDER 						0xCCDD			//CID淇濆瓨鏍囧織
+#define CONFIGKEY_BUF_LEN				16+4			//configKey缂撳瓨鍖哄ぇ灏?
 
 /**
  * @brief 产测状态
@@ -55,5 +64,10 @@ int vesync_subscribe_production_topic(void);
  * @brief 产测系统连接成功后上报数据
  */
 int vesync_production_connected_report_to_server(void);
+
+/**
+ * @brief 解析产测系统数据流
+ */
+void vesync_prase_production_json_packet(const char *topic,char *data);
 
 #endif

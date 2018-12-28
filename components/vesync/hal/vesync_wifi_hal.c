@@ -26,6 +26,7 @@ static void hal_call_wifi_connect_callback(vesync_wifi_status_e wifi_status)
 {
 	if(NULL != s_wifi_connect_callback)
 	{
+		LOG_I(TAG, "hal_call_wifi_connect_callback %d\n", wifi_status);
 		s_wifi_connect_callback(wifi_status);
 	}
 }
@@ -42,6 +43,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 	{
 		case SYSTEM_EVENT_STA_START:
 			esp_wifi_connect();
+			hal_call_wifi_connect_callback(VESYNC_WIFI_CONNECTING);
 			break;
 		case SYSTEM_EVENT_STA_GOT_IP:
 			LOG_I(TAG, "Device got ip : %s", ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
@@ -77,37 +79,10 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 			esp_wifi_connect();
 			break;
 		}
-		case SYSTEM_EVENT_SCAN_DONE: {
-            uint16_t apCount = 0;
-            esp_wifi_scan_get_ap_num(&apCount);
-            if (apCount == 0) {
-                ESP_LOGI(TAG,"Nothing AP found");
-                break;
-            }
-            wifi_ap_record_t *ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
-			memset(ap_list ,NULL,sizeof(wifi_ap_record_t) * apCount);
-            if (!ap_list) {
-                ESP_LOGI(TAG,"malloc error, ap_list is NULL");
-                break;
-            }
-            wifi_ap_record_t *blufi_ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
-            if (!blufi_ap_list) {
-                ESP_LOGI(TAG,"malloc error, blufi_ap_list is NULL");
-                break;
-            }
-            ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
-
-            for (int i = 0; i < apCount; ++i){
-                blufi_ap_list[i].authmode = ap_list[i].authmode; 
-                blufi_ap_list[i].rssi = ap_list[i].rssi;
-                memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
-            }
-            free(ap_list);
-            free(blufi_ap_list);
-			vesync_hal_scan_stop();
+		case SYSTEM_EVENT_SCAN_DONE: 
 			hal_call_wifi_connect_callback(VESYNC_WIFI_SCAN_DONE);
-            break;
-        } 
+			LOG_I(TAG, "blufi wifi scan done");
+			break;
 		default:
 			LOG_I(TAG, "WiFi untreated event id : %d", event->event_id);
 			break;
@@ -116,15 +91,16 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 }
 
 /**
- * @brief 硬件抽象层初始化wifi模块
+ * @brief WIFI Hal层注册wifi事件回调
+ * @param callback 
  */
-void vesync_hal_init_wifi_module(void)
+void vesync_hal_register_cb(vesync_wifi_cb callback)
 {
-	tcpip_adapter_init();
-	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));		//默认启动时为客户端模式，必须设置！
+	if(NULL != callback){
+		s_wifi_connect_callback = callback;
+	}else{
+		LOG_E(TAG, "hal cb register fail");
+	}
 }
 
 /**
@@ -197,25 +173,37 @@ uint8_t vesync_hal_get_wifi_mode(void)
 }
 
 /**
- * @brief 硬件抽象层连接WiFi
- * @param wifi_ssid			[WiFi名称]
- * @param wifi_password 	[WiFi密码]
- * @param callback 			[WiFi连接回调函数]
+ * @brief 配置为station以备连接路由器
+ * @param ssid 
+ * @param pwd 
  */
-void vesync_hal_connect_wifi(char *wifi_ssid, char *wifi_password, vesync_wifi_cb callback)
+void vesync_hal_connect_wifi(char *ssid ,char *pwd ,bool power_save)
 {
-	wifi_config_t wifi_config;
-	memset(&wifi_config, 0, sizeof(wifi_config_t));
-	strcpy((char *) & (wifi_config.sta.ssid), wifi_ssid);
-	strcpy((char *) & (wifi_config.sta.password), wifi_password);
+	static wifi_config_t wifi_config ={0};
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
-	ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-	ESP_ERROR_CHECK(esp_wifi_start());
-
-	if(NULL != callback)
-	{
-		s_wifi_connect_callback = callback;
+	memset(&wifi_config,0,sizeof(wifi_config_t));
+	if(pwd == NULL){
+		LOG_E(TAG, "pwd is NULL");
+		return;
 	}
+
+	strcpy((char *)wifi_config.sta.ssid,(char *)ssid);
+	strcpy((char *)wifi_config.sta.password,(char *)pwd);
+	ESP_LOGI(TAG, "Setting WiFi configuration SSID [%s],pwd [%s]",ssid,pwd);
+
+	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+	ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+
+	ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
+	ESP_ERROR_CHECK( esp_wifi_start() );
+
+	if(power_save){
+		ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MODEM));			//开启wifi省电模式;
+	}
+	ESP_ERROR_CHECK( esp_wifi_connect() );
+	ESP_LOGI(TAG, "wifi connect...........");
 }
 
 /**
@@ -238,20 +226,19 @@ int vesync_hal_get_mac_string(int interface, char *mac_str_buffer)
  */
 int vesync_hal_scan_wifi_list_start(void)
 {
-    int ret;
-    wifi_scan_config_t scanConf = {
-                .ssid = NULL,
-                .bssid = NULL,
-                .channel = 0,
-                .show_hidden = false
-            };
-    LOG_I(TAG,"blufi wifi scan start\n");
+	int ret;
+	wifi_scan_config_t scanConf = {
+					.ssid = NULL,
+					.bssid = NULL,
+					.channel = 0,
+					.show_hidden = false
+	};
+	LOG_I(TAG,"blufi wifi scan start\n");
 
-    ret = esp_wifi_scan_start(&scanConf, true);
-
-    if(ESP_OK != ret){
-        LOG_E(TAG ,"blufi wifi scan error :%d\n" ,ret);
-    }
+	ret = esp_wifi_scan_start(&scanConf, true);
+	if(ESP_OK != ret){
+		LOG_E(TAG ,"blufi wifi scan error :%d\n" ,ret);
+	}
 	return ret;
 }
 
@@ -261,6 +248,18 @@ int vesync_hal_scan_wifi_list_start(void)
  */
 int vesync_hal_scan_stop(void)
 {
-    LOG_I(TAG,"blufi wifi scan stop\n");
-    return esp_wifi_scan_stop();
+	LOG_I(TAG,"blufi wifi scan stop\n");
+	
+	return esp_wifi_scan_stop();
+}
+
+/**
+ * @brief 硬件抽象层初始化wifi模块
+ */
+void vesync_hal_init_wifi_module(vesync_wifi_cb callback)
+{
+	tcpip_adapter_init();
+	vesync_hal_register_cb(callback);
+	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+	LOG_I(TAG,"vesync wifi hal init\n");
 }
