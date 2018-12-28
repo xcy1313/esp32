@@ -1,3 +1,3 @@
 
-COMPONENT_ADD_INCLUDEDIRS += application_name
-COMPONENT_SRCDIRS := application_name
+COMPONENT_ADD_INCLUDEDIRS += WiFiBT_Scale_FatScalePlus_US
+COMPONENT_SRCDIRS := WiFiBT_Scale_FatScalePlus_US

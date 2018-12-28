@@ -1,4 +1,9 @@
-
+/**
+ * @file app_body_fat_calc.h
+ * @brief 称体体脂参数计算
+ * @author Jiven 
+ * @date 2018-12-28
+ */
 #ifndef _APP_BODY_FAT_CALC_H
 #define _APP_BODY_FAT_CALC_H
 
@@ -9,17 +14,7 @@
 
 #include "app_handle_scales.h"
 
-#define ALL_CALC    0X1F
-
-enum{
-    UNIT_KG,
-    UNIT_LB,
-    UNIT_ST,
-}UNIT;
-
-
-
-
+#define ALL_CALC    0x1F
 
 /**
  * @brief 根据flash存储用户模型 判断是否为绑定的用户数据

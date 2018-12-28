@@ -104,17 +104,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						cnt++;
 					}  
 					break;
-					case CMD_ID:{
-						static uint8_t cnt =0;
-						resp_cnt =&cnt;
-
-						*(uint16_t *)&bt_command = CMD_REPORT_CODING;
-						res_ctl.data = 0;       //表示设备主动上传
-						memcpy((uint8_t *)&res->response_encodeing_data.type,opt,frame->frame_data_len-1);
-						//printf("\r\n type =0x%02x ,item =0x%02x\r\n",res->response_encodeing_data.type,res->response_encodeing_data.item);
-						cnt++;
-					}
-					break;
 					case CMD_POWER_BATTERY:{
 						static uint8_t cnt =0;
 						static uint8_t opwer_status =0;
@@ -159,23 +148,20 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							vesync_bt_notify(res_ctl,resp_cnt,CMD_SET_WEIGHT_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t));
 							cnt++;
 							resend_cmd_bit &= ~RESEND_CMD_MEASURE_UNIT_BIT;
-							LOG_I(TAG, "ack for CMD_MEASURE_UNIT\r\n");
 						}
 						break;
 					case CMD_BT_STATUS:
 							resend_cmd_bit &= ~RESEND_CMD_BT_STATUS_BIT;
-							LOG_I(TAG, "ack for CMD_BT_STATUS\r\n");
 						break;
 					case CMD_WIFI_STATUS:
 							resend_cmd_bit &= ~RESEND_CMD_WIFI_STATUS_BIT;
-							LOG_I(TAG, "ack for CMD_WIFI_STATUS\r\n");
 						break;
 					case CMD_BODY_FAT:
 							resend_cmd_bit &= ~RESEND_CMD_BODY_FAT_BIT;
-							LOG_I(TAG, "ack for CMD_BODY_FAT\r\n");
 					default:
 						break;
 				}
+				LOG_I(TAG, "ack for cmd bits [0x%04x]\r\n" ,resend_cmd_bit);
 			}
 		}
 	}
@@ -260,21 +246,17 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
     ESP_LOGI(TAG, "uart resend timer stop [0x%04x]" ,resend_cmd_bit);
 
     if((resend_cmd_bit & RESEND_CMD_MEASURE_UNIT_BIT) == RESEND_CMD_MEASURE_UNIT_BIT){
-        ESP_LOGI(TAG, "RESEND_CMD_MEASURE_UNIT_BIT");
         app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
     }
     if((resend_cmd_bit & RESEND_CMD_BT_STATUS_BIT) == RESEND_CMD_BT_STATUS_BIT){
 		uint8_t bt_conn;
-        ESP_LOGI(TAG, "RESEND_CMD_BT_STATUS_BIT");
 		bt_conn = vesync_bt_connected()?CMD_BT_STATUS_CONNTED:CMD_BT_STATUS_DISCONNECT;
         app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
     }
     if((resend_cmd_bit & RESEND_CMD_BODY_FAT_BIT) == RESEND_CMD_BODY_FAT_BIT){
-        ESP_LOGI(TAG, "RESEND_CMD_BODY_FAT_BIT");
         app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&info_str.user_fat_data.fat,sizeof(info_str.user_fat_data)-28,true);
     }
     if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
-		ESP_LOGI(TAG, "RESEND_CMD_WIFI_STATUS_BIT");
 		uint8_t wifi_status = vesync_wifi_get_status();
 		uint8_t wifi_conn =0 ;
 		if(wifi_status == VESYNC_WIFI_GOT_IP){
@@ -344,7 +326,6 @@ void app_scales_start(void)
             case UNIT_LB:
             case UNIT_ST:
                 info_str.user_config_data.measu_unit = unit;
-                ESP_LOGI(TAG, "read flash unit %d",info_str.user_config_data.measu_unit);
             break;
             default:
                 info_str.user_config_data.measu_unit = UNIT_KG;

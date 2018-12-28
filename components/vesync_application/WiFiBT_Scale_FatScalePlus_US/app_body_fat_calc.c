@@ -55,6 +55,20 @@ static const char *TAG = "body_FAT";
 #define BMR_SPORT_WOMAM(F,A,W,H)        ff((0.15016-25.81/(F))*(W)+(147997/(F)-15.777)*(H)*(H)/10000+3112/(A)-42482/(F)-21)
 
 /**
+ * @brief 判断计算参数是否为空，防止分母为0出现panic
+ * @param config 
+ * @param p_weitht 
+ * @return true 
+ * @return false 
+ */
+bool body_fat_para_if_null(response_weight_data_t *p_weitht)
+{
+    if((p_weitht->weight == 0) || (p_weitht->lb == 0)){
+        return false;
+    }
+    return true;
+}
+/**
  * @brief 
  * @param bt_status 蓝牙连接状态
  * @param mask      需要处理的体脂参数个数
@@ -66,7 +80,9 @@ static const char *TAG = "body_FAT";
 bool body_fat_calc(bool bt_status,uint16_t mask ,hw_info *res,user_config_data_t *config,response_weight_data_t *p_weitht)
 {    
     ESP_LOGI(TAG, "body_fat_calc bt:%d,weight[%d] gender[%d] height[%d] account[0x%04x]",bt_status,p_weitht->weight,config->gender,config->height,config->account);
-    user_fat_data_t  resp_fat_data;
+    user_fat_data_t  resp_fat_data ={0};
+
+    if(false == body_fat_para_if_null(p_weitht)) return false;
 
     resp_fat_data.bmi = BMI(p_weitht->weight,config->height);
 
@@ -267,8 +283,10 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                 for(uint8_t k=0;k<user_cnt;k++){
                     ESP_LOGI(TAG, "match user is [0x%04x]",user_list[i].account);         //定位当前账户 并推送至云端
                 }
-                body_fat_calc(bt_status,ALL_CALC,res,&user_list[i],p_weitht);
-                ret = true;
+                if(body_fat_calc(bt_status,ALL_CALC,res,&user_list[i],p_weitht)){
+                    ret = true;
+                    ESP_LOGI(TAG, "fat calc ok!");         //体脂参数计算正确
+                }
             }
         }
     }    

@@ -7,33 +7,21 @@
 #ifndef _APP_HANLDE_SACLES_H
 #define _APP_HANLDE_SACLES_H
 
-#include "vesync_unixtime.h"
 #include "etekcity_bt_prase.h"
 #include "etekcity_comm.h"
 #include <stdint.h>
 
 #define BUTTON_KEY  	19
 
-#define INFO_NAMESPACE "vesync"
-#define INFO_pid_KEY "vesync_pids"
-#define INFO_config_KEY  "vesync_config"
-#define INFO_DN_KEY  "vesync_server"
-#define INFO_IP_KEY  "vesync_ip"
-#define INFO_SSID_KEY  "vesync_ssid"
-#define INFO_PWD_KEY  "vesync_pwd"
-#define INFO_static_IP_KEY  "vesync_ip"
-#define INFO_gateWay_KEY  "vesync_gate_way"
-#define INFO_DNS_KEY "vesync_dns"
 
-
-#define CONFIG_NAMESPACE "para_config"
+#define CONFIG_NAMESPACE "para_config"	//体脂称测量单位保存记录键值
 #define config_unit    "config_unit"
 
-#define USER_MODEL_NAMESPACE "userconfig"
+#define USER_MODEL_NAMESPACE "userconfig" //体脂称用户模型保存记录键值
 #define USER_MODEL_KEY 		 "config"
 
-#define USER_HISTORY_DATA_NAMESPACE  "userdata"
-#define USER_HISTORY_KEY 			 "config"
+#define USER_HISTORY_DATA_NAMESPACE  "userdata" //体脂称用户测量历史数据记录键值
+#define USER_HISTORY_KEY 			 "history"
 
 #define UART_TX_PIN		(16)
 #define UART_RX_PIN		(17)
@@ -45,6 +33,7 @@
 #define SLAVE_INQUIRY	0x40	//从设备对主设备进行必要的查询操作
 #define SLAVE_SEND		0x50	//从设备主动上数据给主设备
 
+//串口数据重发功能标识
 typedef enum{
 	RESEND_CMD_HW_VN_BIT	 	 = 0x0001,
 	RESEND_CMD_ID_BIT		 	 = 0x0002,
@@ -57,6 +46,7 @@ typedef enum{
 }RESEND_COMD_BIT;
 extern RESEND_COMD_BIT resend_cmd_bit;
 
+//升级状态标识
 enum{
 	CMD_BT_STATUS_DISCONNECT = 0,
 	CMD_BT_STATUS_CONNTEING  = 1,
@@ -64,6 +54,13 @@ enum{
 	CMD_BT_STATUS_UPGADE_ING = 3,
 	CMD_BT_STATUS_UPGADE_DONE = 4,
 };
+
+//称体计量单位切换
+enum{
+    UNIT_KG,
+    UNIT_LB,
+    UNIT_ST,
+}UNIT;
 
 #define CMD_HW_VN	            1
 #define CMD_ID	                7
@@ -111,39 +108,6 @@ enum{
 #define CMD_INQUIRY_HISTORY		(PROJECT_FOR_SCALES_BASE_ADDR+0x0023)
 #define CMD_SET_FAT_CONFIG		(PROJECT_FOR_SCALES_BASE_ADDR+0x0024)
 #define CMD_UPGRADE				(PROJECT_FOR_SCALES_BASE_ADDR+0x0025)
-
-
-typedef enum {
-    RET_MSG_ID_NONE = 0,
-    RET_MSG_ID_OK = 1,
-    RET_MSG_ID_IDLE,
-    RET_MSG_ID_ERROR,
-    RET_MSG_ID_TIMEOUT,
-	RET_MSG_ACK_ERROR,
-	RET_MSG_ACK_OK,
-	RET_MSG_DATA_OVER,
-	RET_MSG_DATA_NULL,
-	RET_MSG_DATA_ERROR,
-    RET_MSG_ID_BUSY
-} RET_MSG_ID_E;
-
-typedef enum{
-	SYNC_HEAD,
-	SYNC_DATA,
-	SYNC_TAIL,
-	SYNC_WAIT
-}packet_frame;
-
-typedef struct{
-	uint32_t total_len;
-	uint32_t per_len;	//单条长度;
-	uint32_t start_time;//单条时间;
-	uint32_t flash_addr;
-	uint32_t compar_len;//单条长度;
-	uint32_t rest_len;	//单条长度;
-	uint32_t fs_len;	//sd文件长度;
-	uint8_t  total_item;
-}update_reg_t;
 
 #define MAX_CONUT		16
 
@@ -198,22 +162,6 @@ typedef struct{
 	uint8_t  battery_level;	//电池电量
 }response_hardstate_t;
 
-//预留12个字节备用,凑齐4的整数倍字节,共8+12字节;
-#pragma pack(1)
-typedef struct{
-	uint16_t hardware;	//硬件
-	uint16_t firmware;	//固件
-	uint16_t protocol;	//协议
-}response_version_data_t;
-#pragma pack()			//
-
-#pragma pack(1)
-typedef struct{
-	uint8_t  type;//类型
-	uint8_t  item;	//编码
-}response_encodeing_data_t;
-#pragma pack()			//
-
 typedef struct{
 	union{
 		uint32_t para;
@@ -222,30 +170,32 @@ typedef struct{
 }response_error_notice_t;
 
 //用户沉淀数据
+#pragma pack(1)
 typedef struct{
 	uint8_t 				  number;			//账户模型信息数组编号
 	uint32_t				  account;			//账户号
 	uint16_t 				  imped_value;		//阻抗值;
-	mytime_struct			  utc_time;			//测量时间戳
+	uint32_t  			 	  utc_time;			//测量时间戳
 	uint8_t 				  measu_unit;		//测量单位
 	uint16_t 				  weight_kg; 		//体重kg值；
 	uint16_t 				  weight_st; 		//体重st值；	  
 }user_account_t;
+#pragma pack()			//
 
 typedef struct {
 	response_weight_data_t    response_weight_data;			
-	response_version_data_t   response_version_data;
-	response_encodeing_data_t response_encodeing_data;
 	response_hardstate_t 	  response_hardstate;
 	response_error_notice_t   response_error_notice;
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
 	user_account_t			  *user_history;
-	update_reg_t	 		  updateReg;
 }hw_info;
 extern hw_info info_str;
 
 
+/**
+ * @brief 启动体脂称硬件接口功能
+ */
 void app_scales_start(void);
 /**
  * @brief app层调用串口发送

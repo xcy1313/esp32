@@ -6,7 +6,6 @@
  */
 #include "app_handle_scales.h"
 #include "app_handle_phone.h"
-#include "cJSON.h"
 
 #include "vesync_wifi.h"
 #include "vesync_bt_hal.h"
@@ -15,7 +14,6 @@
 #include "vesync_crc8.h"
 
 #include "vesync_flash.h"
-#include "vesync_unixtime.h"
 #include "vesync_ota.h"
 
 #include "vesync_log.h"
@@ -73,7 +71,7 @@ bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
 bool vesync_set_unix_time(uint8_t *opt ,uint8_t len)
 {
     uint32_t unix_time = *(uint32_t *)&opt[1];
-    Rtc_SyncSet_Time((unsigned int *)&unix_time,(char)opt[0]);
+    //Rtc_SyncSet_Time((unsigned int *)&unix_time,(char)opt[0]);
     return true;
 }
 
