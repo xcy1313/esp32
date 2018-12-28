@@ -247,7 +247,10 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
         user_config_data_t user_list[MAX_CONUT] ={0};        
         uint16_t len =0;
 
-        vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len);
+        if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
+            ESP_LOGE(TAG, "user module NULL");
+            return false;
+        }
         ESP_LOGI(TAG, "flash user count:%d" ,len/sizeof(user_config_data_t));
         if(len == 0){                          //第一次使用
             oweight = nweight;
