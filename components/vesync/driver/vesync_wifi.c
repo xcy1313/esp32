@@ -81,8 +81,6 @@ static void  blufi_wifi_list_packet(uint16_t ap_count,void  *arg)
  */
 static void vesync_set_wifi_status(vesync_wifi_status_e new_status)
 {
-    uint8_t wifi_conn;
-
     if(new_status != wifi_status){
         ESP_LOGI(TAG, "wifi set mode is %d",new_status);
         wifi_status = new_status;

@@ -9,6 +9,13 @@
 #define VESYNC_NET_SERVICE_H
 
 #include "vesync_mqtt.h"
+#include "cJSON.h"
+
+// mqtt 主题定义
+#define DEVICE_REQUEST_TOPIC            "mqtt/%s/v1/req"
+#define DEVICE_RESPONSE_TOPIC           "mqtt/%s/v1/rsp"
+#define CLOUD_BYPASS_TOPIC              "mqtt/%s/v1/bypass"
+#define CLOUD_BYPASS_RSP_TOPIC          "mqtt/%s/v1/bypass/rsp"
 
 typedef enum
 {
@@ -69,4 +76,13 @@ void vesync_mqtt_client_disconnet_from_cloud(void);
  * @brief 用户调用初始化wifi模块
  */
 void vesync_clinet_wifi_module_init(void);
+
+/**
+ * @brief 为cjson格式的协议方法添加固定的接口头部
+ * @param method 	[接口方法名]
+ * @param body 		[方法的数据体]
+ * @return cJSON* 	[添加了固定头部后的cjson格式数据，使用完后必须调用cJSON_Delete进行删除！！！]
+ */
+cJSON* vesync_json_add_method_head(char *method,cJSON *body);
+
 #endif
