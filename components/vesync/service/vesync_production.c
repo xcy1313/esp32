@@ -210,11 +210,10 @@ static void  vesync_resp_json_to_server(cJSON* json)
  */
 static bool vesync_prase_topic_cid_packet(product_config_t *info,char *data)
 {
-	bool ret = false;
 	cJSON *root = cJSON_Parse( data );
 	if(NULL == root){
 		LOG_I(TAG, "Parse cjson error !\r\n" );
-		return;
+		return false;
 	}
 
 	cJSON* state = cJSON_GetObjectItemCaseSensitive( root, "state" );
@@ -248,6 +247,7 @@ static bool vesync_prase_topic_cid_packet(product_config_t *info,char *data)
 		}
 	}
 	cJSON_Delete( root );
+	return true;
 }
 
 /**
@@ -258,9 +258,9 @@ void vesync_prase_production_json_packet(const char *topic,char *data)
 {
 	if(vesync_get_production_status() == PRODUCTION_EXIT) return;
 
-	vesync_prase_topic_cid_packet(&net_info,data);
+	vesync_prase_topic_cid_packet(&product_config,data);
 	if(strcmp(topic, sub_Topic) == 0){	//订阅的cid主题
-		vesync_prase_topic_cid_packet(&net_info,data);
+		vesync_prase_topic_cid_packet(&product_config,data);
 	}else{
 
 	}
