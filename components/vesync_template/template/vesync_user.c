@@ -86,10 +86,8 @@ static void init_wifi_led_gpio(void)
 /**
  * @brief vesync平台应用层入口函数
  */
-void vesync_user_entry(void)
+void vesync_user_entry(void *args)
 {
 	LOG_I(TAG, "Application layer start !");
-	init_wifi_led_gpio();
-	vesync_regist_wifiled_cb(wifiled_status_callback);		//注册WiFi指示灯状态回调函数
-	// vesync_init_uart(HAL_UART_0, HAL_UART_BAUDRATE_115200, user_uart_recv_callback);
+	vTaskDelete(NULL);
 }
