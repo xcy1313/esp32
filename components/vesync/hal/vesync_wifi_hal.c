@@ -26,7 +26,7 @@ static void hal_call_wifi_connect_callback(vesync_wifi_status_e wifi_status)
 {
 	if(NULL != s_wifi_connect_callback)
 	{
-		LOG_I(TAG, "hal_call_wifi_connect_callback %d\n", wifi_status);
+		LOG_I(TAG, "hal_call_wifi_connect_callback %d", wifi_status);
 		s_wifi_connect_callback(wifi_status);
 	}
 }
@@ -248,7 +248,7 @@ int vesync_hal_scan_wifi_list_start(void)
  */
 int vesync_hal_scan_stop(void)
 {
-	LOG_I(TAG,"blufi wifi scan stop\n");
+	LOG_I(TAG,"blufi wifi scan stop");
 	
 	return esp_wifi_scan_stop();
 }
