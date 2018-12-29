@@ -192,46 +192,6 @@ int vesync_production_connected_report_to_server(void)
  */
 static bool vesync_prase_topic_cid_packet(product_config_t *info, char *data)
 {
-<<<<<<< HEAD
-	cJSON *root = cJSON_Parse( data );
-	if(NULL == root){
-		LOG_I(TAG, "Parse cjson error !\r\n" );
-		return false;
-	}
-
-	cJSON* state = cJSON_GetObjectItemCaseSensitive( root, "state" );
-	if(state != NULL){
-		cJSON* cid = cJSON_GetObjectItemCaseSensitive( state, "cid" );
-		if(cJSON_IsString(cid)){
-			if( strlen(cid->valuestring) == CID_LENGTH ){
-				strcpy((char *)info->cid, cid->valuestring);
-				LOG_I(TAG, "cid : %s\r\n", info->cid);
-
-				//info->cid_holder = CID_HOLDER;
-				if(vesync_flash_write_product_config(info)==0){
-				 	//set_production_status(RPODUCTION_TEST_PASS);
-
-				// 	vesync_resp_json_to_server(cid);
-				// }else{
-				// 	set_production_status(PRODUCTION_TEST_FAIL);
-				// 	LOG_I(TAG, "Save cid to flash fail !\r\n");
-				// 	LOG_I(TAG, "Erase sector ret : %d\r\n",erase_ret);
-				// 	LOG_I(TAG, "Write sector ret : %d\r\n",write_ret);
-
-				// 	cJSON *cid_error = cJSON_CreateObject();
-				// 	if(NULL != cid_error){
-				// 		cJSON_AddStringToObject(cid_error,"cid","error");
-				// 		cJSON* cid_report = cJSON_GetObjectItem( cid_error, "cid" );
-				// 		vesync_resp_json_to_server(cid_report);
-				// 	}
-				// 	cJSON_Delete(cid_error);            
-				 }
-			}
-		}
-	}
-	cJSON_Delete( root );
-	return true;
-=======
     bool ret = false;
     cJSON *root = cJSON_Parse(data);
     if(NULL == root)
@@ -277,7 +237,6 @@ static bool vesync_prase_topic_cid_packet(product_config_t *info, char *data)
     cJSON_Delete(root);
 
     return true;
->>>>>>> 3cde3a81537bcc6160276421fa2547d5852347b5
 }
 
 /**
@@ -289,12 +248,6 @@ void vesync_prase_production_json_packet(const char *topic, char *data)
 {
     if(vesync_get_production_status() == PRODUCTION_EXIT) return;
 
-<<<<<<< HEAD
-	vesync_prase_topic_cid_packet(&product_config,data);
-	if(strcmp(topic, sub_Topic) == 0){	//订阅的cid主题
-		vesync_prase_topic_cid_packet(&product_config,data);
-	}else{
-=======
     vesync_prase_topic_cid_packet(&product_config, data);
     // if(strcmp(topic, sub_Topic) == 0) 	//订阅的cid主题
     // {
@@ -302,7 +255,6 @@ void vesync_prase_production_json_packet(const char *topic, char *data)
     // }
     // else
     // {
->>>>>>> 3cde3a81537bcc6160276421fa2547d5852347b5
 
     // }
 }
