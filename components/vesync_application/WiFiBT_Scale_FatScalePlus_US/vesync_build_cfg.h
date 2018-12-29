@@ -15,11 +15,11 @@
 
 //==========实际应用项目的相关配置==========
 //设备类型名称定义
-#define DEVICE_TYPE						"10AOutletEU"
-#define FIRM_VERSION					"1.0.00"
+#define DEVICE_TYPE						"InWallSwitch-3CH"
+#define FIRM_VERSION					"1.1.05"
 
 //产品PID
-#define DEV_PID							"3awa9gqd5x3zab27"
+#define DEV_PID							"t5932z1opbw289dg"
 
 //产品authkey
 #define DEV_AUTHKEY						"ww6zvzwtaa6hqjl991g0w1obkeo0sd44"
@@ -30,6 +30,6 @@
 //产测系统配置，基线内部产测系统使用production名称，factory工厂模式留给应用层使用
 #define PRODUCTION_WIFI_SSID			"VeSync_Pruduction_AP"
 #define PRODUCTION_WIFI_KEY				"VeSync2018@etekcity.com.cn"
-#define PRODUCTION_SERVER_ADDR			"34.207.59.169" //产测服务器地址
+#define PRODUCTION_SERVER_ADDR			"inwallswitch-3ch.us.factory.vesync.com" //产测服务器地址
 
 #endif
