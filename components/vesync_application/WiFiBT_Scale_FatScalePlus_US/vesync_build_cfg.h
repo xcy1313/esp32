@@ -16,6 +16,7 @@
 //==========实际应用项目的相关配置==========
 //设备类型名称定义
 #define DEVICE_TYPE						"10AOutletEU"
+#define FIRM_VERSION					"1.0.00"
 
 //产品PID
 #define DEV_PID							"3awa9gqd5x3zab27"
