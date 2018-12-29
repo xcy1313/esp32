@@ -45,7 +45,9 @@ static void vesync_event_center_thread(void *args)
 		LOG_E(TAG, "enter product test mode[%s]",product_config.cid);
 		vesync_enter_production_testmode(NULL);
 	}
-	vesync_developer_start();
+	vesync_client_connect_wifi("R6100-2.4G","12345678");
+	//vesync_developer_start();
+
 	while(1){
 		notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
 		if(pdPASS == notified_ret){
@@ -93,9 +95,6 @@ void vesync_entry(void *args)
 {
 	vesync_clinet_wifi_module_init();
 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
-	//vesync_ota_init(NULL);
-	// vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
-	// vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 	if(pdPASS != xTaskCreate(vesync_event_center_thread,
 	                         EVENT_TASK_NAME,
 	                         EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),
