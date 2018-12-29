@@ -35,7 +35,7 @@ bool vesync_config_unit(hw_info *info,uint8_t *opt,uint8_t len)
 
     if(opt[0] != info->user_config_data.measu_unit){
         memcpy((uint8_t *)&info->user_config_data.measu_unit,(uint8_t *)opt,len);
-        vesync_flash_write_i8(CONFIG_NAMESPACE,config_unit,info->user_config_data.measu_unit);  
+        vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info->user_config_data.measu_unit);  
 		resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
         app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&opt[0],sizeof(uint8_t),true);
     }
@@ -441,6 +441,5 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 void app_ble_init(void)
 {
 	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
-    vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 }
 

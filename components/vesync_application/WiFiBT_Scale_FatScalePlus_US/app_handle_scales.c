@@ -6,6 +6,7 @@
  */
 #include "app_handle_scales.h"
 #include "app_handle_phone.h"
+#include "vesync_power_management.h"
 #include "vesync_uart.h"
 #include "vesync_bt_hal.h"
 #include "vesync_wifi.h"
@@ -31,7 +32,7 @@ static bool app_uart_resend_timer_stop(void);
 
 void app_scales_power_on(void)
 {
-	//vesync_bt_advertise_start(ADVER_TIME_OUT);
+	vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 
@@ -56,14 +57,16 @@ void app_scales_power_on(void)
 	resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 }
 
-void app_scales_power_down(void)
+/**
+ * @brief 
+ */
+void app_scales_power_off(void)
 {
+	vesync_bt_advertise_stop();
 	resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 	app_uart_resend_timer_stop();	//称体休眠 下发数据无效
 	LOG_I(TAG, "scales power down!!!");
-	//vesync_power_save_enter(WAKE_UP_PIN);
-	//vesync_bt_advertise_stop();
-
+	vesync_power_save_enter(WAKE_UP_PIN);
 }
 /**
  * @brief 
@@ -118,7 +121,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 
 						cnt++;
 						if((npwer_status == 0) && (opwer_status == 1)){         //关机
-							app_scales_power_down();
+							app_scales_power_off();
 						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
 							LOG_I(TAG, "scales power on!!!");
 							app_scales_power_on();
@@ -193,7 +196,7 @@ void app_button_event_handler(void *p_event_data){
 					backup_unix = UNIT_LB;
 				}
 				info_str.user_config_data.measu_unit = backup_unix;
-				vesync_flash_write_i8(CONFIG_NAMESPACE,config_unit,info_str.user_config_data.measu_unit);
+				vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info_str.user_config_data.measu_unit);
 				resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 				app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
             }
@@ -320,7 +323,7 @@ void app_scales_start(void)
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
 	vesync_button_init(BUTTON_KEY,app_button_event_handler);
 
-	if(ESP_OK == vesync_flash_read_i8(CONFIG_NAMESPACE,config_unit,&unit)){
+	if(ESP_OK == vesync_flash_read_i8(UNIT_NAMESPACE,UNIT_KEY,&unit)){
         switch(unit){
             case UNIT_KG:
             case UNIT_LB:

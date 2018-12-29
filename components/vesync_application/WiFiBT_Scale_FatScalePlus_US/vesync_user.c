@@ -14,10 +14,11 @@
 #include "vesync_wifi.h"
 #include "vesync_flash.h"
 #include "vesync_net_service.h"
+#include "vesync_production.h"
 
 #include "app_handle_phone.h"
 #include "app_handle_scales.h"
-#include "vesync_production.h"
+#include "app_handle_server.h"
 
 static const char* TAG = "vesync_user";
 
@@ -43,6 +44,7 @@ void vesync_user_entry(void *args)
 	if(PRODUCTION_EXIT == vesync_get_production_status()){
 		app_ble_init();
 		app_scales_start();
+		app_hadle_server_create();
     }
 	vTaskDelete(NULL);
 }

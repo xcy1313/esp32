@@ -8,6 +8,8 @@
 #include "vesync_uart.h"
 #include "vesync_flash.h"
 #include "esp_log.h"
+#include <time.h>
+#include "vesync_crc8.h"
 
 static const char *TAG = "body_FAT";
 
@@ -81,9 +83,10 @@ bool body_fat_calc(bool bt_status,uint16_t mask ,hw_info *res,user_config_data_t
 {    
     ESP_LOGI(TAG, "body_fat_calc bt:%d,weight[%d] gender[%d] height[%d] account[0x%04x]",bt_status,p_weitht->weight,config->gender,config->height,config->account);
     user_fat_data_t  resp_fat_data ={0};
-
+    uint8_t crc8;
+    uint8_t o_crc8;
     if(false == body_fat_para_if_null(p_weitht)) return false;
-
+    
     resp_fat_data.bmi = BMI(p_weitht->weight,config->height);
 
     switch(config->gender){
@@ -243,6 +246,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
     static uint16_t o_imped_value = 0;
     static uint16_t n_imped_value = 0;
 
+
     if((1 == p_weitht->if_stabil) && (p_weitht->imped_value !=0)){    //判断是否稳定体重;
         user_config_data_t user_list[MAX_CONUT] ={0};        
         uint16_t len =0;
@@ -286,9 +290,24 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                 for(uint8_t k=0;k<user_cnt;k++){
                     ESP_LOGI(TAG, "match user is [0x%04x]",user_list[i].account);         //定位当前账户 并推送至云端
                 }
-                if(body_fat_calc(bt_status,ALL_CALC,res,&user_list[i],p_weitht)){
-                    ret = true;
-                    ESP_LOGI(TAG, "fat calc ok!");         //体脂参数计算正确
+                if(bt_status == false){
+                    user_history_t history = {0};
+                    history.account = user_list[i].account;
+                    history.imped_value = new_imped;
+                    history.utc_time = time((time_t *)NULL);
+
+                    history.measu_unit = p_weitht->measu_unit;
+                    history.weight_kg = p_weitht->weight;
+                    history.weight_lb = p_weitht->lb;
+                    
+                    ESP_LOGI(TAG, "account [0x%04x],imped_value[0x%02x],utc_time [0x%04x],unit [0x%x] ,kg [0x%02x],lb [0x02%x]",
+                        history.account,history.imped_value,history.utc_time,history.measu_unit,history.weight_kg,history.weight_lb);         //体脂参数计算正确
+                    
+                    if(body_fat_calc(bt_status,ALL_CALC,res,&user_list[i],p_weitht)){
+                        ret = true;
+                        ESP_LOGI(TAG, "fat calc success");         //体脂参数计算正确
+                    }
+                    vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_KEY,(user_history_t *)&history ,sizeof(user_history_t));
                 }
             }
         }

@@ -12,10 +12,11 @@
 #include <stdint.h>
 
 #define BUTTON_KEY  	19
+#define WAKE_UP_PIN     25
 
 
-#define CONFIG_NAMESPACE "para_config"	//体脂称测量单位保存记录键值
-#define config_unit    "config_unit"
+#define UNIT_NAMESPACE "unit_space"	//体脂称测量单位保存记录键值
+#define UNIT_KEY      "unit_key"
 
 #define USER_MODEL_NAMESPACE "userconfig" //体脂称用户模型保存记录键值
 #define USER_MODEL_KEY 		 "config"
@@ -178,8 +179,8 @@ typedef struct{
 	uint32_t  			 	  utc_time;			//测量时间戳
 	uint8_t 				  measu_unit;		//测量单位
 	uint16_t 				  weight_kg; 		//体重kg值；
-	uint16_t 				  weight_st; 		//体重st值；	  
-}user_account_t;
+	uint16_t 				  weight_lb; 		//体重st值；	  
+}user_history_t;
 #pragma pack()			//
 
 typedef struct {
@@ -188,7 +189,7 @@ typedef struct {
 	response_error_notice_t   response_error_notice;
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
-	user_account_t			  *user_history;
+	user_history_t			  *user_history_data;
 }hw_info;
 extern hw_info info_str;
 
