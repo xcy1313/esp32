@@ -15,6 +15,7 @@
 #include "vesync_flash.h"
 #include "vesync_device.h"
 #include "vesync_build_cfg.h"
+#include "vesync_interface.h"
 
 static const char* TAG = "vesync_production";
 
@@ -26,17 +27,6 @@ static char production_request_topic[40];
 static char production_response_topic[40];
 static char production_bypass_topic[40];
 static char production_bypass_rsp_topic[40];
-
-/**
- * @brief 直接打印cjson格式的数据
- * @param json [cjson格式的数据]
- */
-static void vesync_printf_cjson(cJSON *json)
-{
-    char *out = cJSON_Print(json);
-    LOG_I(TAG, "\n%s", out);
-    free(out);
-}
 
 /**
  * @brief 获取产测状态
@@ -117,8 +107,9 @@ int vesync_subscribe_production_topic(void)
  */
 int vesync_publish_production_data(char* data, int qos, int retain)
 {
-    // ret = vesync_mqtt_publish_rawdata_to_topic(vesync_get_cloud_mqtt_client(), publicTopic, publishdatainfo, strlen(publishdatainfo), qos, retain);
-    return 0;
+    int ret;
+    ret = vesync_mqtt_publish_rawdata_to_topic(vesync_get_cloud_mqtt_client(), production_request_topic, data, strlen(data), qos, retain);
+    return ret;
 }
 
 /**
@@ -130,7 +121,9 @@ int vesync_publish_production_data(char* data, int qos, int retain)
  */
 int vesync_response_production_command(char* data, int qos, int retain)
 {
-    return 0;
+    int ret;
+    ret = vesync_mqtt_publish_rawdata_to_topic(vesync_get_cloud_mqtt_client(), production_request_topic, data, strlen(data), qos, retain);
+    return ret;
 }
 
 /**
@@ -177,9 +170,6 @@ int vesync_production_connected_report_to_server(void)
     //发送设备状态
     ret = vesync_mqtt_publish_rawdata_to_topic(vesync_get_cloud_mqtt_client(), production_request_topic, out, strlen(out), MQTT_QOS1, 1);
     vesync_printf_cjson(root);
-    LOG_I(TAG, "publish result : %d", ret);
-    // printf("out:\n%s\n", out);
-    // printf("topic : %s\n", production_request_topic);
     free(out);    
     cJSON_Delete(root);
 

@@ -52,6 +52,12 @@ typedef void (*json_recv_cb_t)(char*);
 void vesync_regist_recvjson_cb(json_recv_cb_t cb);
 
 /**
+ * @brief 调用应用层所注册的json接收回调函数
+ * @param json [json原始数据]
+ */
+void vesync_call_recvjson_cb(char *json);
+
+/**
  * [restore_device_cb_t 复位设备回调函数指针]
  * @return  [无]
  */

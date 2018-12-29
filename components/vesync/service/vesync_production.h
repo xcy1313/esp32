@@ -54,6 +54,24 @@ void vesync_enter_production_testmode(production_status_cb_t cb);
 int vesync_subscribe_production_topic(void);
 
 /**
+ * @brief 发布产测相关的数据
+ * @param data 		[数据内容指针]
+ * @param qos 		[QoS]
+ * @param retain 	[retain]
+ * @return int 		[发布结果]
+ */
+int vesync_publish_production_data(char* data, int qos, int retain);
+
+/**
+ * @brief 响应回复产测服务器的指令
+ * @param data 		[数据内容指针]
+ * @param qos 		[QoS]
+ * @param retain 	[retain]
+ * @return int 		[发布结果]
+ */
+int vesync_response_production_command(char* data, int qos, int retain);
+
+/**
  * @brief 产测系统连接成功后上报数据
  */
 int vesync_production_connected_report_to_server(void);

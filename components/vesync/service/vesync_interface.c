@@ -47,6 +47,18 @@ void vesync_regist_recvjson_cb(json_recv_cb_t cb)
 }
 
 /**
+ * @brief 调用应用层所注册的json接收回调函数
+ * @param json [json原始数据]
+ */
+void vesync_call_recvjson_cb(char *json)
+{
+	if(NULL != json_recv_callback)
+	{
+		json_recv_callback(json);
+	}
+}
+
+/**
  * [vesync_regist_connectedserver_cb 注册连接服务器成功后的回调函数]
  * @param  cb [连接服务器成功回调函数，该函数由应用层定义，每次成功连接上服务器后会调用该函数，可用于上报设备上电数据信息]
  * @return    [无]
@@ -247,6 +259,6 @@ int vesync_publish_rawdata_to_topic(char* data, int datalen, char* topic, int qo
 void vesync_printf_cjson(cJSON *json)
 {
 	char *out = cJSON_Print(json);
-	printf("\n%s\n", out);
+	LOG_I("JSON", "\n%s", out);
 	free(out);
 }

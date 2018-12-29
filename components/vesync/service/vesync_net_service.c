@@ -14,6 +14,7 @@
 
 #include "vesync_net_service.h"
 #include "vesync_production.h"
+#include "vesync_interface.h"
 
 #include "vesync_ca_cert.h"
 #include "vesync_build_cfg.h"
@@ -40,6 +41,28 @@ static void vesync_connect_wifi_callback(vesync_wifi_status_e status)
 			break;
 		default:
 			break;
+	}
+}
+
+/**
+ * @brief 初步处理接收到的mqtt数据
+ * @param topic 	[接收的主题]
+ * @param topic_len [主题长度]
+ * @param data 		[接收的数据]
+ * @param data_len 	[数据长度]
+ */
+static void vesync_handle_mqtt_data(char *topic, int topic_len, char *data, int data_len)
+{
+	// vesync_prase_production_json_packet(event->topic ,event->data);
+	// LOG_I(TAG, "MQTT recv topic=%.*s", topic_len, topic);
+	// LOG_I(TAG, "MQTT recv data=%.*s", data_len, data);
+	char *data_buf = malloc(data_len + 1);
+	if(NULL != data_buf)
+	{
+		memcpy(data_buf, data, data_len);
+		data_buf[data_len] = '\0';
+		vesync_call_recvjson_cb(data_buf);
+		free(data_buf);
 	}
 }
 
@@ -80,9 +103,9 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 
 		case MQTT_EVENT_DATA:
 			LOG_I(TAG, "MQTT_EVENT_DATA");
-			LOG_I(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
-			LOG_I(TAG, "DATA=%.*s", event->data_len, event->data);
-			vesync_prase_production_json_packet(event->topic ,event->data);
+			// LOG_I(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
+			// LOG_I(TAG, "DATA=%.*s", event->data_len, event->data);
+			vesync_handle_mqtt_data(event->topic, event->topic_len, event->data, event->data_len);
 			break;
 
 		case MQTT_EVENT_ERROR:
@@ -199,7 +222,7 @@ cJSON* vesync_json_add_method_head(char *method,cJSON *body)
 		seconds = time((time_t *)NULL);
 		char traceId_buf[64];
 		itoa(seconds, traceId_buf, 10);
-		cJSON_AddStringToObject(root, "traceId", traceId_buf);
+		cJSON_AddStringToObject(root, "traceId", traceId_buf);		//==TODO==，需要修改成毫秒级
 		cJSON_AddStringToObject(root, "method", method);
 		cJSON_AddStringToObject(root, "pid", DEV_PID);
 		cJSON_AddStringToObject(root, "cid", (const char*)(product_config.cid));
