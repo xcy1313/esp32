@@ -63,6 +63,7 @@ void print_sha256 (const uint8_t *image_hash, const char *label)
 static void vesync_ota_event_post_to_user(vesync_ota_status_t status)
 {
     if (vesync_ota_status_handler_cb) {
+        ESP_LOGI(TAG, "ota status %d", status);
         return (*vesync_ota_status_handler_cb)(status);
     }
 }
@@ -121,7 +122,7 @@ static void vesync_ota_task_handler(void *pvParameters)
         http_cleanup(client);
         task_fatal_error();
     }
-    //vesync_ota_event_post_to_user(OTA_BUSY);
+    vesync_ota_event_post_to_user(OTA_BUSY);
     ESP_LOGI(TAG, "esp_ota_begin succeeded");
     
     int binary_file_length = 0;
@@ -210,7 +211,7 @@ vesync_ota_status_t vesync_ota_init(vesync_ota_event_cb_t cb)
     print_sha256(sha_256, "SHA-256 for current firmware: ");
 
     vesync_ota_status_handler_cb = cb;
-    xTaskCreate(vesync_ota_task_handler, "vesync_ota_task_handler", 2048, NULL, 5, NULL);
+    xTaskCreate(vesync_ota_task_handler, "vesync_ota_task_handler", 8192, NULL, 5, NULL);
     
     return OTA_IDLE;
 }

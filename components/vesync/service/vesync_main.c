@@ -14,6 +14,7 @@
 #include "vesync_sntp_service.h"
 #include "vesync_flash.h"
 #include "vesync_log.h"
+
 #include "vesync_device.h"
 #include "vesync_ota.h"
 
@@ -32,6 +33,7 @@ static void vesync_event_center_thread(void *args)
 	BaseType_t notified_ret;
 	uint32_t notified_value;
 
+<<<<<<< HEAD
 	if(vesync_flash_read_product_config(&product_config)){
 		LOG_I(TAG, "find product test cid ok[%s]",product_config.cid);
 		vesync_set_device_status(DEV_CONFNET_OFFLINE);		//已配网但未连接上服务器
@@ -45,8 +47,16 @@ static void vesync_event_center_thread(void *args)
 		LOG_E(TAG, "enter product test mode[%s]",product_config.cid);
 		vesync_enter_production_testmode(NULL);
 	}
-	vesync_developer_start();
+	vesync_client_connect_wifi("R6100-2.4G","12345678");
+	//vesync_developer_start();
+
 	while(1){
+=======
+	vesync_developer_start();
+
+	while(1)
+	{
+>>>>>>> 3cde3a81537bcc6160276421fa2547d5852347b5
 		notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
 		if(pdPASS == notified_ret){
 			LOG_I(TAG, "Event center get new notified : %x.", notified_value);
@@ -84,7 +94,6 @@ static void vesync_event_center_thread(void *args)
 	}
 }
 
-
 /**
  * @brief vesync平台入口
  * @param args [无]
@@ -93,9 +102,6 @@ void vesync_entry(void *args)
 {
 	vesync_clinet_wifi_module_init();
 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
-	//vesync_ota_init(NULL);
-	// vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
-	// vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 	if(pdPASS != xTaskCreate(vesync_event_center_thread,
 	                         EVENT_TASK_NAME,
 	                         EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),
@@ -109,7 +115,7 @@ void vesync_entry(void *args)
 	while(1)
 	{
 		// LOG_I(TAG, "ESP8266 FreeRTOS printf !");
-		printf_os_task_manager();
+		// printf_os_task_manager();
 
 		//仅需要在一个任务中使用较低的系统延时值就可以使整个系统保持较高频的任务调度
 		//因为空闲任务和中断型任务函数无法即时触发调度，要依赖于系统的自动调度

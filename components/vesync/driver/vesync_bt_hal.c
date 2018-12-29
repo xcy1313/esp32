@@ -24,6 +24,8 @@
 #include "esp_log.h"
 #include "cJSON.h"
 
+#include "vesync_build_cfg.h"
+
 #define GATTS_TABLE_TAG "Vesync_BT"
 
 #define APP_ADV_INTERVAL_MIN            0x20                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
