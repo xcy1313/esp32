@@ -178,19 +178,19 @@ int vesync_developer_start(void)
  */
 void printf_os_task_manager(void)
 {
-	uint8_t pcWriteBuffer[512];
+	uint8_t pcWriteBuffer[1024];
 	int free_mem = 0;
 
-	// printf("\n=====================================================\n");
-	// printf("name \t\t\tstatus \tprio \tfree \tpid\n");
-	// vTaskList((char *)&pcWriteBuffer);
-	// printf("%s", pcWriteBuffer);
-	// printf("-----------------------------------------------------\n");
-	// printf("name \t\t\trun_count \tusage\n");
-	// vTaskGetRunTimeStats((char *)&pcWriteBuffer);
-	// printf("%s", pcWriteBuffer);
-	// printf("-----------------------------------------------------\n");
+	printf("\n=====================================================\n");
+	printf("name \t\t\tstatus \tprio \tfree \tpid\n");
+	vTaskList((char *)&pcWriteBuffer);
+	printf("%s", pcWriteBuffer);
+	printf("-----------------------------------------------------\n");
+	printf("name \t\t\trun_count \tusage\n");
+	vTaskGetRunTimeStats((char *)&pcWriteBuffer);
+	printf("%s", pcWriteBuffer);
+	printf("-----------------------------------------------------\n");
 	 free_mem = esp_get_free_heap_size();
 	 printf("memory free : \t%d byte\n", free_mem);
-	// printf("=====================================================\n\n");
+	printf("=====================================================\n\n");
 }
