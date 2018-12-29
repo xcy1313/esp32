@@ -78,6 +78,24 @@ void vesync_mqtt_client_disconnet_from_cloud(void);
 void vesync_clinet_wifi_module_init(void);
 
 /**
+ * @brief 设置https服务器地址
+ * @param address 	[服务器域名或者IP地址]
+ * @return int 		[设置结果，0为成功]
+ */
+int vesync_set_https_server_address(char *address);
+
+/**
+ * @brief vesync平台https客户端发起请求
+ * @param method 		[请求的接口名]
+ * @param body 			[请求接口的数据内容]
+ * @param recv_buff 	[返回的数据内容缓存buffer]
+ * @param recv_len 		[返回的数据内容长度指针，传入时为缓存buffer的长度，供内部判断buffer大小是否足够，足够时内部把返回的数据拷贝至buffer，并赋值该值为数据长度]
+ * @param wait_time_ms 	[超时等待时间]
+ * @return int 			[请求结果]
+ */
+int vesync_https_client_request(char *method, char *body, char *recv_buff, int *recv_len, int wait_time_ms);
+
+/**
  * @brief 为cjson格式的协议方法添加固定的接口头部
  * @param method 	[接口方法名]
  * @param body 		[方法的数据体]
