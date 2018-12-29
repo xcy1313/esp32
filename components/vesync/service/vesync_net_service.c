@@ -19,10 +19,16 @@
 #include "vesync_build_cfg.h"
 #include "vesync_bt_hal.h"
 
-static const char* TAG = "mqtt_service";
+#include "vesync_https.h"
+#include "vesync_ca_cert.h"
+
+static const char* TAG = "net_service";
 
 static vesync_mqtt_client_t s_vesync_client = {0};
 static vesync_mqtt_status_e s_vesync_mqtt_status = MQTT_OFFLINE;
+
+#define HTTPS_SERVER_ADDR_LEN		128
+static char s_https_server_addr[HTTPS_SERVER_ADDR_LEN] = {"test-online.vesync.com"};
 
 /**
  * @brief 连接WiFi的结果回调
@@ -207,4 +213,44 @@ cJSON* vesync_json_add_method_head(char *method,cJSON *body)
 	}
 
 	return root;
+}
+
+
+/**
+ * @brief 设置https服务器地址
+ * @param address 	[服务器域名或者IP地址]
+ * @return int 		[设置结果，0为成功]
+ */
+int vesync_set_https_server_address(char *address)
+{
+    if(NULL == address)
+    {
+        LOG_E(TAG, "Https server address is null !");
+        return -1;
+    }
+    if(strlen(address) >= HTTPS_SERVER_ADDR_LEN)
+    {
+        LOG_E(TAG, "Https server address is too long");
+        return -1;
+    }
+    strcpy(s_https_server_addr, address);
+    return 0;
+}
+
+/**
+ * @brief vesync平台https客户端发起请求
+ * @param method 		[请求的接口名]
+ * @param body 			[请求接口的数据内容]
+ * @param recv_buff 	[返回的数据内容缓存buffer]
+ * @param recv_len 		[返回的数据内容长度指针，传入时为缓存buffer的长度，供内部判断buffer大小是否足够，足够时内部把返回的数据拷贝至buffer，并赋值该值为数据长度]
+ * @param wait_time_ms 	[超时等待时间]
+ * @return int 			[请求结果]
+ */
+int vesync_https_client_request(char *method, char *body, char *recv_buff, int *recv_len, int wait_time_ms)
+{
+    int ret;
+    char url[64];
+    sprintf(url, "/cloud/v1/deviceWeb/%s", method);
+    ret = vesync_https_request(s_https_server_addr, "443", url, body, recv_buff, recv_len, wait_time_ms);
+    return ret;
 }
