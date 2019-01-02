@@ -141,7 +141,6 @@ typedef struct{
 	uint16_t bone;		//骨重
 	uint16_t bmr;		//基础代谢;
 	uint16_t bmi;		//身体质量指数;
-	uint8_t  unused[28];//预留12
 }user_fat_data_t;		//用户体脂数据
 #pragma pack()			//
 

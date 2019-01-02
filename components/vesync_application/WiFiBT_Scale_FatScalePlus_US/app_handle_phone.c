@@ -64,6 +64,23 @@ bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
     return ret;
 }
 
+bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
+{
+    bool ret = false;
+    if(opt[0] == 1){    //app下发wifi升级指令
+        int ret;
+        char recv_buff[1024];
+        int buff_len = sizeof(recv_buff);
+        ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
+        if(buff_len > 0 && ret == 0){
+            LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        }
+        //vesync_ota_init(NULL);
+    }
+
+    return ret;
+}
+
 /**
  * @brief app下发unix时间戳，设置本地utc时间
  * @param opt 
@@ -391,7 +408,13 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                             }
                         break;
                     case CMD_UPGRADE:
-                            //vesync_ota_init(NULL);
+                            if(vesync_upgrade_config(info,opt,len)){
+                                ESP_LOGI(TAG, "CMD_UPGRADE");
+                            }else{
+                                resp_strl.buf[0] = 1;   //具体产品对应的错误码
+                                resp_strl.len = 1;
+                                res_ctl.bitN.error_flag = 1;
+                            }
                         break;   
                     default:
                         ESP_LOGE(TAG, "app set other cmd!");

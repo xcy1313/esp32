@@ -189,5 +189,5 @@ static void app_handle_server_task_handler(void *pvParameters){
 void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
-    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, NULL);
+    //xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, NULL);
 }

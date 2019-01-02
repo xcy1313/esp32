@@ -246,7 +246,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
     static uint8_t o_crc8 =0;
     static uint8_t crc8 =0;
 
-    if(bt_status == true) return;
+    if(bt_status == true) return false;
     if((1 == p_weitht->if_stabil) && (p_weitht->imped_value !=0)){    //判断是否稳定体重;
         user_config_data_t user_list[MAX_CONUT] ={0};        
         uint16_t len =0;

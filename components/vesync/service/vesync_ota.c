@@ -22,7 +22,7 @@
 
 
 #define SERVER_URL "http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin"
-#define BUFFSIZE 1024
+#define BUFFSIZE 480
 #define HASH_LEN 32 /* SHA-256 digest length */
 
 static const char *TAG = "vesync_OTA";
