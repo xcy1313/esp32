@@ -153,7 +153,6 @@ typedef struct{
 	uint8_t	 if_stabil;	//是否稳定
 	uint8_t  measu_unit;//测量单位
 	uint16_t imped_value;//阻抗值;
-	uint8_t  unused[12];
 }response_weight_data_t;
 #pragma pack()			//
 extern response_weight_data_t response_weight_data;

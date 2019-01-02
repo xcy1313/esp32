@@ -9,33 +9,62 @@
 #include "vesync_production.h"
 #include "vesync_net_service.h"
 #include "vesync_interface.h"
+#include "vesync_wifi.h"
 
 #include "app_handle_server.h"
 #include "app_handle_scales.h"
+#include <time.h>
 
-#include "esp_log.h"
+#include "vesync_log.h"
 
 static const char *TAG = "app_handle_server";
 
 /**
- * @brief
- * @param pvParameters
+ * @brief 接收json数据回调函数
+ * @param data [原始格式的json数据]
  */
-static void app_handle_server_task_handler(void *pvParameters)
+void vesync_recv_json_data(char *data)
 {
-    while(1)
+    LOG_I(TAG, "User recv : %s", data);
+    cJSON *root = cJSON_Parse(data);
+    if(NULL == root)
     {
-
+        LOG_E(TAG, "Parse cjson error !");
+        return;
     }
-    vTaskDelete(NULL);
-}
-/**
- * @brief app端创建通知任务
- */
-void app_hadle_server_create(void)
-{
-    vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
-    //xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, NULL);
+    vesync_printf_cjson(root);
+
+    cJSON *jsonCmd = cJSON_GetObjectItemCaseSensitive(root, "jsonCmd");
+    if(true == cJSON_IsObject(jsonCmd))
+    {
+        cJSON *cid = cJSON_GetObjectItemCaseSensitive(jsonCmd, "cid");
+        if(true == cJSON_IsString(cid))
+        {
+            LOG_I(TAG, "Get cid success !");
+            cJSON *report = cJSON_CreateObject();
+            if(NULL != report)
+            {
+                time_t seconds;
+                seconds = time((time_t *)NULL);
+                char traceId_buf[64];
+                itoa(seconds, traceId_buf, 10);
+                cJSON_AddStringToObject(report, "traceId", traceId_buf);		//==TODO==，需要修改成毫秒级
+                cJSON_AddNumberToObject(report, "code", 0);
+                cJSON_AddStringToObject(report, "msg", "cid set ok");
+            }
+            char* out = cJSON_PrintUnformatted(report);
+            LOG_I(TAG, "Response server : %s",out);
+            vesync_response_production_command(out, MQTT_QOS1, 0);
+            free(out);
+            cJSON_Delete(report);
+        }
+        else
+            LOG_E(TAG, "Get cid error !");
+
+        cJSON_Delete(root);									//务必记得释放资源！
+    }
+    else
+        LOG_E(TAG, "Get jsonCmd error !");
 }
 
 /**
@@ -140,4 +169,25 @@ void app_handle_production_response_bt_rssi(int rssi)
         }
     }
     cJSON_Delete(root);
+}
+
+/**
+ * @brief
+ * @param pvParameters
+ */
+static void app_handle_server_task_handler(void *pvParameters){
+    while(1){
+        if(0 == vesync_wait_network_connected(3000)){
+
+        }
+    }
+    vTaskDelete(NULL);
+}
+/**
+ * @brief app端创建通知任务
+ */
+void app_hadle_server_create(void)
+{
+    vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
+    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, NULL);
 }

@@ -15,6 +15,7 @@
 #include "vesync_flash.h"
 #include "vesync_net_service.h"
 #include "vesync_production.h"
+#include "vesync_interface.h"
 
 #include "app_handle_phone.h"
 #include "app_handle_scales.h"
@@ -38,7 +39,9 @@ void vesync_user_entry(void *args)
 		}
 	}else{
 		LOG_E(TAG, "enter product test mode[%s]",product_config.cid);
+		//vesync_enter_production_testmode(NULL);
 		vesync_enter_production_testmode(NULL);
+		vesync_regist_recvjson_cb(vesync_recv_json_data);
 	}
 	LOG_I(TAG, "Application layer start !");
 	if(PRODUCTION_EXIT == vesync_get_production_status()){

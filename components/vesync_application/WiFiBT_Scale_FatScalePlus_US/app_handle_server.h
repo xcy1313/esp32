@@ -46,4 +46,10 @@ void app_handle_production_report_weight(int weight, int imped);
  */
 void app_handle_production_response_bt_rssi(int rssi);
 
+/**
+ * @brief 注册回调接收Mqtt数据buff
+ * @param data 
+ */
+void vesync_recv_json_data(char *data);
+
 #endif

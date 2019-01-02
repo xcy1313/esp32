@@ -83,10 +83,8 @@ bool body_fat_calc(bool bt_status,uint16_t mask ,hw_info *res,user_config_data_t
 {    
     ESP_LOGI(TAG, "body_fat_calc bt:%d,weight[%d] gender[%d] height[%d] account[0x%04x]",bt_status,p_weitht->weight,config->gender,config->height,config->account);
     user_fat_data_t  resp_fat_data ={0};
-    uint8_t crc8;
-    uint8_t o_crc8;
+
     if(false == body_fat_para_if_null(p_weitht)) return false;
-    
     resp_fat_data.bmi = BMI(p_weitht->weight,config->height);
 
     switch(config->gender){
@@ -245,12 +243,14 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
     static uint16_t nweight = 0;
     static uint16_t o_imped_value = 0;
     static uint16_t n_imped_value = 0;
+    static uint8_t o_crc8 =0;
+    static uint8_t crc8 =0;
 
-
+    if(bt_status == true) return;
     if((1 == p_weitht->if_stabil) && (p_weitht->imped_value !=0)){    //判断是否稳定体重;
         user_config_data_t user_list[MAX_CONUT] ={0};        
         uint16_t len =0;
-
+        
         if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
             ESP_LOGE(TAG, "user module NULL");
             return false;
@@ -307,10 +307,17 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         ret = true;
                         ESP_LOGI(TAG, "fat calc success");         //体脂参数计算正确
                     }
-                    vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_KEY,(user_history_t *)&history ,sizeof(user_history_t));
+                    o_crc8 = crc8;      //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
+                    crc8 = vesync_crc8(0,&p_weitht->weight,sizeof(response_weight_data_t));
+                    ESP_LOGE(TAG, "crc8 =%d,ocrc8 =%d",crc8,o_crc8);
+                    if(crc8 != o_crc8){
+                        vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_KEY,(user_history_t *)&history ,sizeof(user_history_t));
+                    }
                 }
             }
         }
+    }else{
+        o_crc8 = crc8 = 0;  //防止相同的用户参数两次称重结果相同造成不写入
     }    
     return ret;
 }

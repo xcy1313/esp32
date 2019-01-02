@@ -38,6 +38,7 @@ bool vesync_config_unit(hw_info *info,uint8_t *opt,uint8_t len)
         vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info->user_config_data.measu_unit);  
 		resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
         app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&opt[0],sizeof(uint8_t),true);
+        ret = true;
     }
     ESP_LOGI(TAG, "unit is %d\r\n" ,opt[0]);
 
@@ -58,7 +59,8 @@ bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
     memcpy((uint8_t *)&info->user_fat_data.fat,(uint8_t *)opt,len);
     resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
     app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)opt,len,true);    //透传app体脂计算参数 
-
+    ret = true;
+    
     return ret;
 }
 
