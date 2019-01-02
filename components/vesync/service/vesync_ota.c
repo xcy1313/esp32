@@ -199,7 +199,7 @@ vesync_ota_status_t vesync_ota_init(char *url,vesync_ota_event_cb_t cb)
     print_sha256(sha_256, "SHA-256 for current firmware: ");
 
     vesync_ota_status_handler_cb = cb;
-    xTaskCreate(vesync_ota_task_handler, "vesync_ota_task_handler", 8192, NULL, 5, NULL);
+    xTaskCreate(vesync_ota_task_handler, "vesync_ota_task_handler", 8192, NULL, 13, NULL);
     
     return OTA_IDLE;
 }
