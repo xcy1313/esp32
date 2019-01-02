@@ -16,6 +16,7 @@
 #include "vesync_production.h"
 #include "vesync_flash.h"
 #include "vesync_interface.h"
+#include "vesync_ota.h"
 
 static const char* TAG = "vesync_user";
 
@@ -67,15 +68,36 @@ static void vesync_recv_json_data(char *data)
         LOG_E(TAG, "Get jsonCmd error !");
 }
 
+static void ota_event_handler(vesync_ota_status_t status)
+{
+    switch(status){
+        case OTA_TIME_OUT:
+                LOG_I(TAG, "OTA_TIME_OUT");
+            break;
+        case OTA_BUSY:
+                LOG_I(TAG, "OTA_BUSY");
+            break;
+        case OTA_FAILED:
+                LOG_I(TAG, "OTA_FAILED");
+            break;
+        case OTA_SUCCESS:
+                LOG_I(TAG, "OTA_SUCCESS");
+            break;
+        default:
+            break;
+    }
+}
+
+
 /**
  * @brief vesync平台应用层入口函数
  */
 void vesync_user_entry(void *args)
 {
     LOG_I(TAG, "Application layer start !");
-
-    vesync_enter_production_testmode(NULL);
+    vesync_client_connect_wifi("R6100-2.4G", "12345678");	// wifi driver初始化，否则无法获取mac地址
+    //vesync_enter_production_testmode(NULL);
     vesync_regist_recvjson_cb(vesync_recv_json_data);
-
+    vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
     vTaskDelete(NULL);
 }

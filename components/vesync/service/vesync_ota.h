@@ -30,7 +30,7 @@ typedef enum{
 
 typedef void(*vesync_ota_event_cb_t)(vesync_ota_status_t status);
 
-vesync_ota_status_t vesync_ota_init(vesync_ota_event_cb_t cb);
+vesync_ota_status_t vesync_ota_init(char *url,vesync_ota_event_cb_t cb);
 
 
 
