@@ -20,16 +20,9 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
-<<<<<<< HEAD
-
-#define SERVER_URL "http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin"
-#define BUFFSIZE 480
-#define HASH_LEN 32 /* SHA-256 digest length */
-=======
 #define MAX_URL_LEN 128
 #define BUFFSIZE 480
 #define HASH_LEN 32 
->>>>>>> master-dev
 
 static const char *TAG = "vesync_OTA";
 static char ota_write_data[BUFFSIZE + 1] = { 0 };

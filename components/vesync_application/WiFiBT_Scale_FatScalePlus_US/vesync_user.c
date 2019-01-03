@@ -39,7 +39,7 @@ void vesync_user_entry(void *args)
 	// 	}
 	// }else{
 	// 	LOG_E(TAG, "enter product test mode[%s]",product_config.cid);
-	// 	vesync_enter_production_testmode(NULL);
+	 	vesync_enter_production_testmode(NULL);
 	// 	vesync_regist_recvjson_cb(vesync_recv_json_data);
 	// }
 	if(vesync_flash_read_net_info(&net_info) == true){
@@ -54,7 +54,7 @@ void vesync_user_entry(void *args)
 	{
 		app_ble_init();
 		app_scales_start();
-		app_hadle_server_create();
+		//app_hadle_server_create();
     }
 	vTaskDelete(NULL);
 }

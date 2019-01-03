@@ -12,7 +12,7 @@
 #include "vesync_uart.h"
 #include "app_public_events.h"
 #include "vesync_crc8.h"
-
+#include "vesync_production.h"
 #include "vesync_flash.h"
 #include "vesync_ota.h"
 
@@ -21,6 +21,27 @@
 static const char* TAG = "app_handle_phone";
 
 static bt_frame_t  bt_prase ={0};
+
+
+/**
+ * @brief 
+ * @param status 
+ */
+static void ota_event_handler(vesync_ota_status_t status)
+{
+    switch(status){
+        case OTA_TIME_OUT:
+
+            break;
+        case OTA_BUSY:
+            
+            break;
+        case OTA_SUCCESS:
+            break;
+        default:
+            break;
+    }
+}
 
 /**
  * @brief app切换测重单位，需要串口下发称体显示,保存当前称体单位
@@ -68,19 +89,39 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
     if(opt[0] == 1){    //app下发wifi升级指令
-        int ret;
-        char recv_buff[1024];
-        int buff_len = sizeof(recv_buff);
-        ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
-        if(buff_len > 0 && ret == 0){
-            LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-        }
-        //vesync_ota_init(NULL);
+        // int ret;
+        // char recv_buff[1024];
+        // int buff_len = sizeof(recv_buff);
+        // ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
+        // if(buff_len > 0 && ret == 0){
+        //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        // }
+        //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
+        ret = true;
     }
 
     return ret;
 }
 
+/**
+ * @brief 产测模式获取蓝牙rssi信号强度
+ * @param info 
+ * @param opt 
+ * @param len 
+ * @return true 
+ * @return false 
+ */
+bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
+{
+    bool ret = false;
+    if(vesync_get_production_status() == PRODUCTION_EXIT)    return false;
+                                
+    if(opt[0] == 1){    //app下发wifi升级指令
+        ret = true;
+    }
+    ret = true;
+    return ret;
+}
 /**
  * @brief app下发unix时间戳，设置本地utc时间
  * @param opt 
@@ -294,27 +335,6 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
             break;
     }
 }
-
-/**
- * @brief 
- * @param status 
- */
-static void ota_event_handler(vesync_ota_status_t status)
-{
-    switch(status){
-        case OTA_TIME_OUT:
-
-            break;
-        case OTA_BUSY:
-            
-            break;
-        case OTA_SUCCESS:
-            break;
-        default:
-            break;
-    }
-}
-
 /**
  * @brief 队列解析蓝牙接收数据
  * @param hw_data 硬件设备信息
@@ -416,6 +436,15 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                                 res_ctl.bitN.error_flag = 1;
                             }
                         break;   
+                    case CMD_FACTORY_GET_BT_RSSI:
+                            if(vesync_factory_get_bt_rssi(info,opt,len)){
+                                ESP_LOGI(TAG, "CMD_UPGRADE");
+                            }else{
+                                resp_strl.buf[0] = 1;   //具体产品对应的错误码
+                                resp_strl.len = 1;
+                                res_ctl.bitN.error_flag = 1;
+                            }
+                        break;
                     default:
                         ESP_LOGE(TAG, "app set other cmd!");
                         break; 
