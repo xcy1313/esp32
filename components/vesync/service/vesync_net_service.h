@@ -97,10 +97,11 @@ int vesync_https_client_request(char *method, char *body, char *recv_buff, int *
 
 /**
  * @brief 为cjson格式的协议方法添加固定的接口头部
+ * @param method 	[原样返回时间]
  * @param method 	[接口方法名]
  * @param body 		[方法的数据体]
  * @return cJSON* 	[添加了固定头部后的cjson格式数据，使用完后必须调用cJSON_Delete进行删除！！！]
  */
-cJSON* vesync_json_add_method_head(char *method,cJSON *body);
+cJSON* vesync_json_add_method_head(char *trace_id,char *method,cJSON *body);
 
 #endif

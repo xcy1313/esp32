@@ -219,16 +219,16 @@ void vesync_clinet_wifi_module_init(void)
  * @param body 		[方法的数据体]
  * @return cJSON* 	[添加了固定头部后的cjson格式数据，使用完后必须调用cJSON_Delete进行删除！！！]
  */
-cJSON* vesync_json_add_method_head(char *method,cJSON *body)
+cJSON* vesync_json_add_method_head(char *trace_id,char *method,cJSON *body)
 {
 	cJSON *root = cJSON_CreateObject();
 	if(NULL != root)
 	{
-		time_t seconds;
-		seconds = time((time_t *)NULL);
-		char traceId_buf[64];
-		itoa(seconds, traceId_buf, 10);
-		cJSON_AddStringToObject(root, "traceId", traceId_buf);		//==TODO==，需要修改成毫秒级
+		// time_t seconds;
+		// seconds = time((time_t *)NULL);
+		// char traceId_buf[64];
+		// itoa(seconds, traceId_buf, 10);
+		cJSON_AddStringToObject(root, "traceId", trace_id);		//==TODO==，需要修改成毫秒级
 		cJSON_AddStringToObject(root, "method", method);
 		cJSON_AddStringToObject(root, "pid", DEV_PID);
 		cJSON_AddStringToObject(root, "cid", (const char*)(product_config.cid));
