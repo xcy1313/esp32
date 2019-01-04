@@ -12,8 +12,8 @@
 #include <stdint.h>
 
 #define PRODUCT_VER		0x1
-#define PRODUCT_TYPE	0xF1
-#define PRODUCT_NUM		0xF1
+#define PRODUCT_TYPE    0xC0
+#define PRODUCT_NUM		0xA0
 #define PRODUCT_NAME	"ESF00+"
 
 #define DEVICE_TYPE     "1"

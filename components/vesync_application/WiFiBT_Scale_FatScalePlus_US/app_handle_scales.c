@@ -21,6 +21,7 @@
 #include "vesync_log.h"
 
 #include "app_body_fat_calc.h"
+#include "app_handle_server.h"
 
 static const char* TAG = "app_handle_scales";
 
@@ -144,6 +145,10 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 				vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 			}else{	//设备返回的应答
 				static uint8_t *resp_cnt =NULL;
+				opt = &frame->frame_data[1];    //过滤命令id字节
+				uint8_t length = frame->frame_data_len;
+				LOG_I(TAG, "receive buff len %d",length);
+				esp_log_buffer_hex(TAG, data, len);
 				switch(frame->frame_cmd){
 					case CMD_MEASURE_UNIT:{
 							static uint8_t cnt =0;
@@ -161,12 +166,34 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						break;
 					case CMD_BODY_FAT:
 							resend_cmd_bit &= ~RESEND_CMD_BODY_FAT_BIT;
+						break;
+					case CMD_FACTORY_SYNC_START:
+							resend_cmd_bit &= ~RESEND_CMD_FACTORY_START_BIT;
+						break;
+					case CMD_FACTORY_CHARGING:{
+							uint8_t charge_status  = opt[0];
+							uint8_t charge_percent = opt[1];
+							//app_handle_production_report_charge(charge_status,charge_percent);
+							resend_cmd_bit &= ~RESEND_CMD_FACTORY_CHARGE_BIT;
+						}
+						break;
+					case CMD_FACTORY_WEIGHT:{
+							uint16_t weight  = *(uint16_t *)&opt[0];
+							uint16_t imped =  *(uint16_t *)&opt[1];
+							//app_handle_production_report_weight(weight,imped);
+							resend_cmd_bit &= ~RESEND_CMD_FACTORY_WEIGHT_BIT;
+						}
+						break;
+					case CMD_FACTORY_SYNC_STOP:
+							resend_cmd_bit &= ~RESEND_CMD_FACTORY_STOP_BIT;
+						break;	
 					default:
 						break;
 				}
 				LOG_I(TAG, "ack for cmd bits [0x%04x]\r\n" ,resend_cmd_bit);
 			}
 		}
+		break;
 	}
 }
 
@@ -183,34 +210,53 @@ static void app_uart_init(void)
  * @param p_event_data 
  */
 void app_button_event_handler(void *p_event_data){
+	static uint8_t enter_factory_mode_cnt =0;
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
-        case Short_key:{
+        case Short_key:
 				//xTaskNotify(app_public_events_task, NET_CONFIG_NOTIFY_BIT, eSetBits);
-				uint8_t backup_unix = info_str.user_config_data.measu_unit;
-				if(backup_unix == UNIT_LB){
-					backup_unix = UNIT_KG;
-				}else if(backup_unix == UNIT_KG){
-					backup_unix = UNIT_ST;
-				}else if(backup_unix == UNIT_ST){
-					backup_unix = UNIT_LB;
+				if(vesync_get_production_status() >= PRODUCTION_EXIT){
+					uint8_t backup_unix = info_str.user_config_data.measu_unit;
+					if(backup_unix == UNIT_LB){
+						backup_unix = UNIT_KG;
+					}else if(backup_unix == UNIT_KG){
+						backup_unix = UNIT_ST;
+					}else if(backup_unix == UNIT_ST){
+						backup_unix = UNIT_LB;
+					}
+					info_str.user_config_data.measu_unit = backup_unix;
+					vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info_str.user_config_data.measu_unit);
+					resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
+					app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
+				}else if(vesync_get_production_status() == RPODUCTION_RUNNING){
+					static uint8_t factory_button_cnt =0;
+					if(factory_button_cnt ++ >=3){
+						app_handle_production_report_button(factory_button_cnt);
+					}
 				}
-				info_str.user_config_data.measu_unit = backup_unix;
-				vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info_str.user_config_data.measu_unit);
-				resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
-				app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
-            }
 			return;
-        case Double_key:
+		case Double_key:
+			if(PRODUCTION_EXIT == vesync_get_production_status()){
+				enter_factory_mode_cnt++;
+			}else{
+				enter_factory_mode_cnt = 0;
+			}
 			return;
-        case Reapet_key:
+		case Reapet_key:
+			if(PRODUCTION_EXIT == vesync_get_production_status()){
+				if(enter_factory_mode_cnt >=2){
+					ESP_LOGE(TAG, "enter factory mode");
+					vesync_flash_erase(0,CONFIG_NAMESPACE);
+					vesync_set_production_status(RPODUCTION_START);
+				}
+			}
 			return;
-        case Very_Long_key:
+		case Very_Long_key:
 
 			return;
-        default:
-        return;  
-    }
+		default:
+			return;  
+	}
 }
 
 static bool app_uart_resend_timer_stop(void)
@@ -257,7 +303,7 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
         app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
     }
     if((resend_cmd_bit & RESEND_CMD_BODY_FAT_BIT) == RESEND_CMD_BODY_FAT_BIT){
-        app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&info_str.user_fat_data.fat,sizeof(info_str.user_fat_data)-28,true);
+        app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&info_str.user_fat_data.fat,sizeof(info_str.user_fat_data),true);
     }
     if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
 		uint8_t wifi_status = vesync_wifi_get_status();

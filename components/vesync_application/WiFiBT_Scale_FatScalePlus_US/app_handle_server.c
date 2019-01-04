@@ -37,6 +37,51 @@ void vesync_recv_json_data(char *data)
     cJSON *jsonCmd = cJSON_GetObjectItemCaseSensitive(root, "jsonCmd");
     if(true == cJSON_IsObject(jsonCmd))
     {
+        cJSON *switch_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "switch");
+        if(true == cJSON_IsString(switch_item)){
+            if(!strcmp(switch_item->valuestring, "on")){
+                LOG_I(TAG, "project test start!");
+                vesync_set_production_status(RPODUCTION_RUNNING);   //状态调整为产测模式已开始;
+                resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,sizeof(uint8_t),true);
+            }
+        }
+        cJSON *button_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "button");
+        if(true == cJSON_IsString(button_item)){
+            if(!strcmp(button_item->valuestring, "on")){
+                LOG_I(TAG, "button test start");
+            }
+        }
+        cJSON *charge_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "charge");
+        if(true == cJSON_IsString(charge_item)){
+            if(!strcmp(charge_item->valuestring, "on")){
+                LOG_I(TAG, "charge test start!");
+                resend_cmd_bit |= RESEND_CMD_FACTORY_CHARGE_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,sizeof(uint8_t),true);
+            }
+        }
+        cJSON *weight_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "weight");
+        if(true == cJSON_IsString(weight_item)){
+            if(!strcmp(weight_item->valuestring, "on")){
+                LOG_I(TAG, "weight test start!");
+                resend_cmd_bit |= RESEND_CMD_FACTORY_WEIGHT_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,sizeof(uint8_t),true);
+            }
+        }
+        cJSON *bt_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "bt");
+        if(true == cJSON_IsString(bt_item)){
+            if(!strcmp(bt_item->valuestring, "on")){
+                LOG_I(TAG, "bt test start!");
+                //app_ble_init();
+                //app_scales_start(); //开启蓝牙广播模式;
+            }
+        }
+        cJSON *upgrade_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "firmware");
+        if(true == cJSON_IsString(upgrade_item)){
+            if(!strcmp(switch_item->valuestring, "on")){
+                LOG_I(TAG, "upgrade test start!");
+            }
+        }
         cJSON *cid = cJSON_GetObjectItemCaseSensitive(jsonCmd, "cid");
         if(true == cJSON_IsString(cid))
         {
@@ -52,6 +97,9 @@ void vesync_recv_json_data(char *data)
                 cJSON_AddNumberToObject(report, "code", 0);
                 cJSON_AddStringToObject(report, "msg", "cid set ok");
             }
+            resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
+            app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,sizeof(uint8_t),true);
+            vesync_set_production_status(PRODUCTION_EXIT);   //状态调整为产测模式已结束;
             char* out = cJSON_PrintUnformatted(report);
             LOG_I(TAG, "Response server : %s",out);
             vesync_response_production_command(out, MQTT_QOS1, 0);
@@ -60,7 +108,7 @@ void vesync_recv_json_data(char *data)
         }
         else
             LOG_E(TAG, "Get cid error !");
-
+        
         cJSON_Delete(root);									//务必记得释放资源！
     }
     else

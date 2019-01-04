@@ -6,6 +6,7 @@
  */
 #include "app_handle_scales.h"
 #include "app_handle_phone.h"
+#include "app_handle_server.h"
 
 #include "vesync_wifi.h"
 #include "vesync_bt_hal.h"
@@ -114,12 +115,15 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
 bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
+    int8_t rssi ;
+    rssi = opt[0];
+
     if(vesync_get_production_status() == PRODUCTION_EXIT)    return false;
-                                
-    if(opt[0] == 1){    //app下发wifi升级指令
-        ret = true;
-    }
+    ESP_LOGI(TAG, "bt rssi %d,0x%02x\n",rssi,rssi);
+
+    app_handle_production_response_bt_rssi(rssi);
     ret = true;
+
     return ret;
 }
 /**
@@ -344,6 +348,21 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
 static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 {
     //esp_log_buffer_hex(TAG, data_buf, length);
+    switch(data_buf[0]){
+        case 1:
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
+            break;
+        case 2:
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
+            break;
+        case 3:
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
+            break;
+        case 4:
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
+            break;
+    }
+#if 0    
     for(unsigned char i=0;i<length;++i){
         if(bt_data_frame_decode(data_buf[i],0,&bt_prase) == 1){
             frame_ctrl_t res_ctl ={     //应答包res状态  
@@ -436,11 +455,11 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                                 res_ctl.bitN.error_flag = 1;
                             }
                         break;   
-                    case CMD_FACTORY_GET_BT_RSSI:
+                    case CMD_FACTORY_GET_BT_RSSI:   //获取产测蓝牙rssi信号强度
                             if(vesync_factory_get_bt_rssi(info,opt,len)){
-                                ESP_LOGI(TAG, "CMD_UPGRADE");
+                                ESP_LOGI(TAG, "CMD_FACTORY_GET_BT_RSSI");
                             }else{
-                                resp_strl.buf[0] = 1;   //具体产品对应的错误码
+                                resp_strl.buf[0] = 1;   
                                 resp_strl.len = 1;
                                 res_ctl.bitN.error_flag = 1;
                             }
@@ -487,6 +506,7 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
             }
         }
     }
+#endif    
 }
 
 /**

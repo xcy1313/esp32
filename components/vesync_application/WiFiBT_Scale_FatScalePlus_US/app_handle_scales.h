@@ -43,6 +43,10 @@ typedef enum{
 	RESEND_CMD_BT_STATUS_BIT	 = 0x0010,
 	RESEND_CMD_WIFI_STATUS_BIT	 = 0x0020,
 	RESEND_CMD_MEASURE_UNIT_BIT	 = 0x0040,
+	RESEND_CMD_FACTORY_START_BIT = 0x0080,
+	RESEND_CMD_FACTORY_STOP_BIT	 = 0x0100,
+	RESEND_CMD_FACTORY_CHARGE_BIT= 0x0200,
+	RESEND_CMD_FACTORY_WEIGHT_BIT= 0x0400,
 	RESEND_CMD_ALL_BIT			 = 0xffff
 }RESEND_COMD_BIT;
 extern RESEND_COMD_BIT resend_cmd_bit;
@@ -76,6 +80,11 @@ enum{
 #define CMD_WIFI_STATUS	        126
 #define CMD_MEASURE_UNIT	    127
 #define CMD_BACKLIGHT_TIME	    128
+
+#define CMD_FACTORY_SYNC_START	130
+#define CMD_FACTORY_CHARGING	131
+#define CMD_FACTORY_WEIGHT		132
+#define CMD_FACTORY_SYNC_STOP	133
 
 #define CMD_HISTORY_TOTALLEN	200		
 #define CMD_HISTORY_WEIGHT		201		
@@ -115,7 +124,7 @@ enum{
 //20个字节，凑齐4的整数倍;
 #pragma pack(1)
 typedef struct{
-	uint8_t  action;	//操作类型，2为修改旧账户模型信息，1为删除旧账户模型信息，0为创建新账户模型信息
+	uint8_t  action;	//操作类型，3为同步最新的用户模型,2为修改旧账户模型信息，1为删除旧账户模型信息，0为创建新账户模型信息
 	uint32_t account;	//账户
 	uint8_t  gender;	//性别;
 	uint8_t  height_unit;//身高单位 0表示ft ,1表示cm
@@ -171,13 +180,13 @@ typedef struct{
 //用户沉淀数据
 #pragma pack(1)
 typedef struct{
-	uint8_t 				  number;			//账户模型信息数组编号
-	uint32_t				  account;			//账户号
-	uint16_t 				  imped_value;		//阻抗值;
-	uint32_t  			 	  utc_time;			//测量时间戳
-	uint8_t 				  measu_unit;		//测量单位
-	uint16_t 				  weight_kg; 		//体重kg值；
-	uint16_t 				  weight_lb; 		//体重st值；	  
+	uint32_t				account;		//账户号
+	uint16_t 				imped_value;	//阻抗值;
+	uint32_t  			 	utc_time;		//测量时间戳;
+	int8_t					time_zone;		//测量时区;
+	uint8_t 				measu_unit;		//测量单位
+	uint16_t 				weight_kg; 		//体重kg值；
+	uint16_t 				weight_lb; 		//体重st值；	  
 }user_history_t;
 #pragma pack()			//
 
