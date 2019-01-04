@@ -11,6 +11,9 @@
 #include "etekcity_comm.h"
 #include <stdint.h>
 
+#define PRODUCT_TEST_TYPE 0x88
+#define PRODUCT_TEST_NUM  0x88
+
 #define PRODUCT_VER		0x1
 #define PRODUCT_TYPE    0xC0
 #define PRODUCT_NUM		0xA0

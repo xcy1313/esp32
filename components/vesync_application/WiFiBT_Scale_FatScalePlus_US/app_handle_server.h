@@ -15,6 +15,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#define PRODUCT_TEST_START  0x1
+
+/**
+ * @brief 应答服务器
+ */
+void app_handle_production_response_ack(uint8_t test_item);
+
 /**
  * @brief 初始化网络功能配置
  */
@@ -24,27 +31,27 @@ void app_hadle_server_create(void);
  * @brief 上报产测时的按键测试次数
  * @param times [按键测试的次数]
  */
-void app_handle_production_report_button(int times);
+void app_handle_production_report_button(char *trace_id,int times);
 
 /**
  * @brief 上报产测时的充电状态
  * @param charge_status [充电状态，1 - 表示正在充电；0 - 表示未充电]
  * @param power_percent [当前电量百分比数值]
  */
-void app_handle_production_report_charge(int charge_status, int power_percent);
+void app_handle_production_report_charge(char *trace_id,int charge_status, int power_percent);
 
 /**
  * @brief 上报产测时的称重结果
  * @param weight [实时称重的结果，单位kg]
  * @param imped  [实时称重的阻抗，单位欧姆]
  */
-void app_handle_production_report_weight(int weight, int imped);
+void app_handle_production_report_weight(char *trace_id,int weight, int imped);
 
 /**
  * @brief 响应回复服务器蓝牙的rssi值
  * @param rssi [蓝牙信号的rssi值]
  */
-void app_handle_production_response_bt_rssi(int rssi);
+void app_handle_production_response_bt_rssi(char *trace_id,int rssi);
 
 /**
  * @brief 注册回调接收Mqtt数据buff

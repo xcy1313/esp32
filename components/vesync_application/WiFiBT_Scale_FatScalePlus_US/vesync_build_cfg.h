@@ -19,7 +19,7 @@
 #define FIRM_VERSION					"1.1.05"
 
 //产品PID
-#define DEV_PID							"t5932z1opbw289dg"
+#define DEV_PID							"v2zm0t0a4l6oylxs"
 
 //产品authkey
 #define DEV_AUTHKEY						"ww6zvzwtaa6hqjl991g0w1obkeo0sd44"
@@ -30,6 +30,6 @@
 //产测系统配置，基线内部产测系统使用production名称，factory工厂模式留给应用层使用
 #define PRODUCTION_WIFI_SSID			"VeSync_Pruduction_AP"
 #define PRODUCTION_WIFI_KEY				"VeSync2018@etekcity.com.cn"
-#define PRODUCTION_SERVER_ADDR			"inwallswitch-3ch.us.factory.vesync.com" //产测服务器地址
+#define PRODUCTION_SERVER_ADDR			"192.168.100.67"//"inwallswitch-3ch.us.factory.vesync.com" //产测服务器地址
 
 #endif

@@ -121,7 +121,7 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
     if(vesync_get_production_status() == PRODUCTION_EXIT)    return false;
     ESP_LOGI(TAG, "bt rssi %d,0x%02x\n",rssi,rssi);
 
-    app_handle_production_response_bt_rssi(rssi);
+    //app_handle_production_response_bt_rssi(rssi);
     ret = true;
 
     return ret;
@@ -347,22 +347,30 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
  */
 static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 {
+#if 1    
     //esp_log_buffer_hex(TAG, data_buf, length);
     switch(data_buf[0]){
         case 1:
+                vesync_set_production_status(RPODUCTION_RUNNING);   //状态调整为产测模式已开始;
+                resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
+                resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
             break;
         case 2:
+                resend_cmd_bit |= RESEND_CMD_FACTORY_CHARGE_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
             break;
         case 3:
+                resend_cmd_bit |= RESEND_CMD_FACTORY_WEIGHT_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
             break;
         case 4:
+                vesync_set_production_status(PRODUCTION_EXIT);   //状态调整为产测模式已结束;
+                resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
             break;
     }
-#if 0    
+#else    
     for(unsigned char i=0;i<length;++i){
         if(bt_data_frame_decode(data_buf[i],0,&bt_prase) == 1){
             frame_ctrl_t res_ctl ={     //应答包res状态  
@@ -515,5 +523,7 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 void app_ble_init(void)
 {
 	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
+    //vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
+    //vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 }
 

@@ -15,6 +15,7 @@
 #include "vesync_button.h"
 #include "freertos/timers.h"
 #include "vesync_production.h"
+#include "vesync_interface.h"
 #include "vesync_device.h"
 #include "app_public_events.h"
 
@@ -193,7 +194,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 				LOG_I(TAG, "ack for cmd bits [0x%04x]\r\n" ,resend_cmd_bit);
 			}
 		}
-		break;
 	}
 }
 
@@ -215,6 +215,7 @@ void app_button_event_handler(void *p_event_data){
     switch(*(uint8_t *)p_event_data){
         case Short_key:
 				//xTaskNotify(app_public_events_task, NET_CONFIG_NOTIFY_BIT, eSetBits);
+				enter_factory_mode_cnt = 0;
 				if(vesync_get_production_status() >= PRODUCTION_EXIT){
 					uint8_t backup_unix = info_str.user_config_data.measu_unit;
 					if(backup_unix == UNIT_LB){
@@ -231,7 +232,7 @@ void app_button_event_handler(void *p_event_data){
 				}else if(vesync_get_production_status() == RPODUCTION_RUNNING){
 					static uint8_t factory_button_cnt =0;
 					if(factory_button_cnt ++ >=3){
-						app_handle_production_report_button(factory_button_cnt);
+						//app_handle_production_report_button(factory_button_cnt);
 					}
 				}
 			return;
@@ -245,9 +246,11 @@ void app_button_event_handler(void *p_event_data){
 		case Reapet_key:
 			if(PRODUCTION_EXIT == vesync_get_production_status()){
 				if(enter_factory_mode_cnt >=2){
+					enter_factory_mode_cnt =0;
 					ESP_LOGE(TAG, "enter factory mode");
-					vesync_flash_erase(0,CONFIG_NAMESPACE);
-					vesync_set_production_status(RPODUCTION_START);
+					vesync_flash_erase("nvs",CONFIG_NAMESPACE);
+					vesync_regist_recvjson_cb(vesync_recv_json_data);
+					vesync_enter_production_testmode(NULL);
 				}
 			}
 			return;
@@ -293,19 +296,36 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 		return;
 	}
     ESP_LOGI(TAG, "uart resend timer stop [0x%04x]" ,resend_cmd_bit);
-
-    if((resend_cmd_bit & RESEND_CMD_MEASURE_UNIT_BIT) == RESEND_CMD_MEASURE_UNIT_BIT){
-        app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
-    }
-    if((resend_cmd_bit & RESEND_CMD_BT_STATUS_BIT) == RESEND_CMD_BT_STATUS_BIT){
+	if(vesync_get_production_status() == RPODUCTION_RUNNING){
+		if((resend_cmd_bit & RESEND_CMD_FACTORY_CHARGE_BIT) == RESEND_CMD_FACTORY_CHARGE_BIT){
+			app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
+		}
+		if((resend_cmd_bit & RESEND_CMD_FACTORY_WEIGHT_BIT) == RESEND_CMD_FACTORY_WEIGHT_BIT){
+			app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
+		}
+		if((resend_cmd_bit & RESEND_CMD_FACTORY_START_BIT) == RESEND_CMD_FACTORY_START_BIT){
+			app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
+		}
+		if((resend_cmd_bit & RESEND_CMD_FACTORY_WEIGHT_BIT) == RESEND_CMD_FACTORY_WEIGHT_BIT){
+			app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
+		}
+	}else if(vesync_get_production_status() == PRODUCTION_EXIT){
+		if((resend_cmd_bit & RESEND_CMD_FACTORY_STOP_BIT) == RESEND_CMD_FACTORY_STOP_BIT){
+			app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
+		}
+	}
+	if((resend_cmd_bit & RESEND_CMD_MEASURE_UNIT_BIT) == RESEND_CMD_MEASURE_UNIT_BIT){
+		app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
+	}
+	if((resend_cmd_bit & RESEND_CMD_BT_STATUS_BIT) == RESEND_CMD_BT_STATUS_BIT){
 		uint8_t bt_conn;
 		bt_conn = vesync_bt_connected()?CMD_BT_STATUS_CONNTED:CMD_BT_STATUS_DISCONNECT;
-        app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
-    }
-    if((resend_cmd_bit & RESEND_CMD_BODY_FAT_BIT) == RESEND_CMD_BODY_FAT_BIT){
-        app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&info_str.user_fat_data.fat,sizeof(info_str.user_fat_data),true);
-    }
-    if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
+		app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
+	}
+	if((resend_cmd_bit & RESEND_CMD_BODY_FAT_BIT) == RESEND_CMD_BODY_FAT_BIT){
+		app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&info_str.user_fat_data.fat,sizeof(info_str.user_fat_data),true);
+	}
+	if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
 		uint8_t wifi_status = vesync_wifi_get_status();
 		uint8_t wifi_conn =0 ;
 		if(wifi_status == VESYNC_WIFI_GOT_IP){
