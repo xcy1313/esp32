@@ -122,7 +122,7 @@ int vesync_publish_production_data(char* data, int qos, int retain)
 int vesync_response_production_command(char* data, int qos, int retain)
 {
     int ret;
-    ret = vesync_mqtt_publish_rawdata_to_topic(vesync_get_cloud_mqtt_client(), production_request_topic, data, strlen(data), qos, retain);
+    ret = vesync_mqtt_publish_rawdata_to_topic(vesync_get_cloud_mqtt_client(), production_bypass_rsp_topic, data, strlen(data), qos, retain);
     return ret;
 }
 
