@@ -15,7 +15,6 @@
 #include "vesync_crc8.h"
 #include "vesync_production.h"
 #include "vesync_flash.h"
-#include "vesync_ota.h"
 
 #include "vesync_log.h"
 
@@ -28,7 +27,7 @@ static bt_frame_t  bt_prase ={0};
  * @brief 
  * @param status 
  */
-static void ota_event_handler(vesync_ota_status_t status)
+void ota_event_handler(vesync_ota_status_t status)
 {
     switch(status){
         case OTA_TIME_OUT:
@@ -37,7 +36,15 @@ static void ota_event_handler(vesync_ota_status_t status)
         case OTA_BUSY:
             
             break;
+        case OTA_FAILED:
+            if(vesync_get_production_status() == RPODUCTION_RUNNING){
+
+            }
+            break;
         case OTA_SUCCESS:
+            if(vesync_get_production_status() == RPODUCTION_RUNNING){
+                app_handle_production_upgrade_response_result(vesync_get_time(),0);
+            }
             break;
         default:
             break;
@@ -118,12 +125,11 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
     int8_t rssi ;
     rssi = opt[0];
 
-    if(vesync_get_production_status() == PRODUCTION_EXIT)    return false;
-    ESP_LOGI(TAG, "bt rssi %d,0x%02x\n",rssi,rssi);
-
-    //app_handle_production_response_bt_rssi(rssi);
-    ret = true;
-
+    if(vesync_get_production_status() == RPODUCTION_RUNNING){
+        app_handle_production_response_bt_rssi(vesync_get_time(),rssi);
+        ESP_LOGI(TAG, "bt rssi %d,0x%02x\n",rssi,rssi);
+        ret = true;
+    }
     return ret;
 }
 /**
@@ -347,7 +353,7 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
  */
 static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 {
-#if 1    
+#if 0    
     //esp_log_buffer_hex(TAG, data_buf, length);
     switch(data_buf[0]){
         case 1:
@@ -413,7 +419,6 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                         }
                         break;
                     case CMD_CONFIG_ACCOUNT:
-                        //vesync_ota_init(ota_event_handler);
                         if(vesync_config_account(info,opt,len)){
                             ESP_LOGI(TAG, "CMD_CONFIG_ACCOUNT");
                         }else{
@@ -526,4 +531,11 @@ void app_ble_init(void)
     //vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     //vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 }
-
+/**
+ * @brief 初始化产测广播服务模式
+ */
+void app_product_ble_start(void)
+{
+    vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
+    vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+}

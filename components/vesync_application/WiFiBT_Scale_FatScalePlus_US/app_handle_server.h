@@ -18,9 +18,22 @@
 #define PRODUCT_TEST_START  0x1
 
 /**
+ * @brief 返回trace_id
+ * @param time 
+ */
+char *vesync_get_time(void);
+
+/**
+ * @brief 主动发起升级结果
+ * @param result 
+ * @param trace_id 
+ */
+void app_handle_production_upgrade_response_result(char *trace_id,uint8_t result);
+
+/**
  * @brief 应答服务器
  */
-void app_handle_production_response_ack(uint8_t test_item);
+void app_handle_production_response_ack(char *trace_id,uint8_t test_item);
 
 /**
  * @brief 初始化网络功能配置

@@ -68,6 +68,11 @@ void app_scales_power_off(void)
 	resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 	app_uart_resend_timer_stop();	//称体休眠 下发数据无效
 	LOG_I(TAG, "scales power down!!!");
+
+	vesync_hal_bt_client_deinit();
+    //vesync_wifi_deinit();
+    vesync_uart_deint();
+    //nvs_flash_deinit();
 	vesync_power_save_enter(WAKE_UP_PIN);
 }
 /**
@@ -78,6 +83,7 @@ void app_scales_power_off(void)
  */
 static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 {
+	esp_log_buffer_hex(TAG, data, len);
 	for(unsigned short i=0;i<len;i++){
 		uni_frame_t *frame = &uart_frame;
         if(1 == Comm_frame_parse(data[i],0,frame)){        
@@ -88,8 +94,33 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 			static uint8_t *resp_cnt =NULL;
 			uint8_t *opt = NULL;
 			uint16_t bt_command = 0;
+			opt = &frame->frame_data[1];    //过滤命令id字节
+			switch(frame->frame_cmd){
+				case CMD_FACTORY_SYNC_START:
+						resend_cmd_bit &= ~RESEND_CMD_FACTORY_START_BIT;
+						app_handle_production_response_ack(vesync_get_time(),PRODUCT_TEST_START);
+					return;
+				case CMD_FACTORY_CHARGING:{
+						uint8_t charge_status  = opt[0];
+						uint8_t charge_percent = opt[1];
+						//LOG_I(TAG, "charge_status %d,charge_percent %d ,time %s",charge_status,charge_percent,vesync_get_time());
+						app_handle_production_report_charge(vesync_get_time(),charge_status,charge_percent);
+						resend_cmd_bit &= ~RESEND_CMD_FACTORY_CHARGE_BIT;
+					}
+					return;
+				case CMD_FACTORY_WEIGHT:{
+						uint16_t weight  = *(uint16_t *)&opt[0];
+						uint16_t imped =  *(uint16_t *)&opt[2];
+						//LOG_I(TAG, "weight %d,imped %d,time %s",weight,imped,vesync_get_time());
+						app_handle_production_report_weight(vesync_get_time(),weight,imped);
+						resend_cmd_bit &= ~RESEND_CMD_FACTORY_WEIGHT_BIT;
+					}
+					return;
+				case CMD_FACTORY_SYNC_STOP:
+						resend_cmd_bit &= ~RESEND_CMD_FACTORY_STOP_BIT;
+					return;	
+			}
 			if(frame->frame_data_len >2){  //主机请求效应设备返回的数据或设备主动上传的数据
-				opt = &frame->frame_data[1];    //过滤命令id字节
 				switch(frame->frame_cmd){
 					case CMD_BODY_WEIGHT:{
 						static uint8_t cnt =0;
@@ -107,7 +138,8 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG, "------>the same person! \r\n");
 						}
 						cnt++;
-					}  
+						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
+					}
 					break;
 					case CMD_POWER_BATTERY:{
 						static uint8_t cnt =0;
@@ -128,6 +160,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG, "scales power on!!!");
 							app_scales_power_on();
 						}
+						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 					}
 					break;
 					case CMD_HADRWARE_ERROR:{
@@ -137,19 +170,15 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						res->response_error_notice.error.para = *(uint32_t *)&opt[0];
 						printf("\r\n error type =0x%04x\r\n",res->response_error_notice.error.para);
 						cnt++;
+						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 					}
 					break;
 					default:
 						LOG_E(TAG, "other error cmd\r\n");
 					break;
 				}
-				vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 			}else{	//设备返回的应答
 				static uint8_t *resp_cnt =NULL;
-				opt = &frame->frame_data[1];    //过滤命令id字节
-				uint8_t length = frame->frame_data_len;
-				LOG_I(TAG, "receive buff len %d",length);
-				esp_log_buffer_hex(TAG, data, len);
 				switch(frame->frame_cmd){
 					case CMD_MEASURE_UNIT:{
 							static uint8_t cnt =0;
@@ -168,26 +197,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 					case CMD_BODY_FAT:
 							resend_cmd_bit &= ~RESEND_CMD_BODY_FAT_BIT;
 						break;
-					case CMD_FACTORY_SYNC_START:
-							resend_cmd_bit &= ~RESEND_CMD_FACTORY_START_BIT;
-						break;
-					case CMD_FACTORY_CHARGING:{
-							uint8_t charge_status  = opt[0];
-							uint8_t charge_percent = opt[1];
-							//app_handle_production_report_charge(charge_status,charge_percent);
-							resend_cmd_bit &= ~RESEND_CMD_FACTORY_CHARGE_BIT;
-						}
-						break;
-					case CMD_FACTORY_WEIGHT:{
-							uint16_t weight  = *(uint16_t *)&opt[0];
-							uint16_t imped =  *(uint16_t *)&opt[1];
-							//app_handle_production_report_weight(weight,imped);
-							resend_cmd_bit &= ~RESEND_CMD_FACTORY_WEIGHT_BIT;
-						}
-						break;
-					case CMD_FACTORY_SYNC_STOP:
-							resend_cmd_bit &= ~RESEND_CMD_FACTORY_STOP_BIT;
-						break;	
 					default:
 						break;
 				}
@@ -232,7 +241,8 @@ void app_button_event_handler(void *p_event_data){
 				}else if(vesync_get_production_status() == RPODUCTION_RUNNING){
 					static uint8_t factory_button_cnt =0;
 					if(factory_button_cnt ++ >=3){
-						//app_handle_production_report_button(factory_button_cnt);
+						factory_button_cnt = 0;
+						app_handle_production_report_button(vesync_get_time(),factory_button_cnt);
 					}
 				}
 			return;
@@ -295,13 +305,10 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 		resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
 		return;
 	}
-    ESP_LOGI(TAG, "uart resend timer stop [0x%04x]" ,resend_cmd_bit);
+    ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
 	if(vesync_get_production_status() == RPODUCTION_RUNNING){
 		if((resend_cmd_bit & RESEND_CMD_FACTORY_CHARGE_BIT) == RESEND_CMD_FACTORY_CHARGE_BIT){
 			app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
-		}
-		if((resend_cmd_bit & RESEND_CMD_FACTORY_WEIGHT_BIT) == RESEND_CMD_FACTORY_WEIGHT_BIT){
-			app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
 		}
 		if((resend_cmd_bit & RESEND_CMD_FACTORY_START_BIT) == RESEND_CMD_FACTORY_START_BIT){
 			app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);

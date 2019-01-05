@@ -7,6 +7,7 @@
 #ifndef _APP_HANLDE_PHONE_H
 #define _APP_HANLDE_PHONE_H
 
+#include "vesync_ota.h"
 #include "etekcity_bt_prase.h"
 #include "etekcity_comm.h"
 #include <stdint.h>
@@ -53,6 +54,14 @@
  * @brief 
  */
 void app_ble_init(void);
+
+/**
+ * @brief 初始化广播服务模式
+ */
+void app_product_ble_start(void);
+
+
+void ota_event_handler(vesync_ota_status_t status);
 
 #endif
 

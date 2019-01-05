@@ -10,7 +10,9 @@
 #include "vesync_net_service.h"
 #include "vesync_interface.h"
 #include "vesync_wifi.h"
+#include "vesync_ota.h"
 
+#include "app_handle_phone.h"
 #include "app_handle_server.h"
 #include "app_handle_scales.h"
 #include <time.h>
@@ -18,15 +20,27 @@
 #include "vesync_log.h"
 
 static const char *TAG = "app_handle_server";
+static char trace_time[14] = {'\0'};
+char upgrade_url[128] = {'\0'};
+char new_version[10] = {'\0'};
 
 void app_handle_production_upgrade_response_ack(char *trace_id);
+void app_handle_production_cid_response(void);
+
+/**
+ * @brief 返回trace_id
+ * @param time 
+ */
+char *vesync_get_time(void)
+{
+    return &trace_time[0];
+}
 /**
  * @brief 接收json数据回调函数
  * @param data [原始格式的json数据]
  */
 void vesync_recv_json_data(char *data)
 {
-    char trace_time[14] ={'\0'};
     LOG_I(TAG, "User recv : %s", data);
     cJSON *root = cJSON_Parse(data);
     if(NULL == root){
@@ -54,14 +68,13 @@ void vesync_recv_json_data(char *data)
                 resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
                 resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
-                app_handle_production_response_ack(PRODUCT_TEST_START);
             }
         }
         cJSON *button_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "button");
         if(true == cJSON_IsString(button_item)){
             if(!strcmp(button_item->valuestring, "on")){
                 LOG_I(TAG, "button test start");
-                app_handle_production_report_button(trace_time,3);
+                //app_handle_production_report_button(trace_time,3);
             }
         }
         cJSON *charge_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "charge");
@@ -70,7 +83,7 @@ void vesync_recv_json_data(char *data)
                 LOG_I(TAG, "charge test start!");
                 resend_cmd_bit |= RESEND_CMD_FACTORY_CHARGE_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
-                app_handle_production_report_charge(trace_time,1,80);
+                //app_handle_production_report_charge(trace_time,1,80);
             }
         }
         cJSON *weight_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "weight");
@@ -79,23 +92,21 @@ void vesync_recv_json_data(char *data)
                 LOG_I(TAG, "weight test start!");
                 resend_cmd_bit |= RESEND_CMD_FACTORY_WEIGHT_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
-                app_handle_production_report_weight(trace_time,1000,500);
+                //app_handle_production_report_weight(trace_time,10000,500);
             }
         }
         cJSON *bt_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "bt");
         if(true == cJSON_IsString(bt_item)){
             if(!strcmp(bt_item->valuestring, "on")){
                 LOG_I(TAG, "bt test start!");
-                app_handle_production_response_bt_rssi(trace_time,-10);
-                //app_ble_init();
-                //app_scales_start(); //开启蓝牙广播模式;
+                //app_handle_production_response_bt_rssi(trace_time,-10);
+                app_product_ble_start();
             }
         }
         cJSON *firmware = cJSON_GetObjectItemCaseSensitive(jsonCmd, "firmware");
         if(firmware != NULL){
-            char upgrade_url[128] = {'\0'};
-            char new_version[10] = {'\0'};
             LOG_I(TAG, "upgrade test start!");
+            vesync_set_production_status(RPODUCTION_RUNNING);   //状态调整为产测模式已开始;
             cJSON* newVersion = cJSON_GetObjectItemCaseSensitive(firmware, "newVersion");
             if(cJSON_IsString(newVersion)){
 				strcpy(new_version, newVersion->valuestring);	//记录升级的新版本
@@ -106,30 +117,25 @@ void vesync_recv_json_data(char *data)
 				if(NULL != upgrade_url){
 					strcpy(upgrade_url, url->valuestring);
                     LOG_I(TAG, "upgrade url %s",upgrade_url);
+                    if(strcmp(new_version,FIRM_VERSION) >0){
+                        app_handle_production_upgrade_response_ack(trace_time);
+                        //vesync_ota_init(upgrade_url,ota_event_handler);
+                    }
 				}
 			}
-            app_handle_production_upgrade_response_ack(trace_time);
         }
         cJSON *cid = cJSON_GetObjectItemCaseSensitive(jsonCmd, "cid");
         if(true == cJSON_IsString(cid))
         {
             LOG_I(TAG, "Get cid success !");
-            cJSON *report = cJSON_CreateObject();
-            if(NULL != report){
-                cJSON_AddStringToObject(report, "traceId", trace_time);
-                cJSON_AddNumberToObject(report, "code", 0);
-                cJSON_AddStringToObject(report, "msg", "cid set ok");
+            strcpy((char *)product_config.cid, cid->valuestring);
+            if(vesync_flash_write_product_config(&product_config) == 0){
+                app_handle_production_cid_response();
+                vesync_set_production_status(PRODUCTION_EXIT);   //状态调整为产测模式已结束;
+                resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
             }
-            vesync_set_production_status(PRODUCTION_EXIT);   //状态调整为产测模式已结束;
-            resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
-            app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
-            char* out = cJSON_PrintUnformatted(report);
-            LOG_I(TAG, "Response server : %s",out);
-            vesync_response_production_command(out, MQTT_QOS1, 0);
-            free(out);
-            cJSON_Delete(report);
-        }
-        else
+        }else
             LOG_E(TAG, "Get cid error !");
         
         cJSON_Delete(root);									//务必记得释放资源！
@@ -138,6 +144,31 @@ void vesync_recv_json_data(char *data)
         LOG_E(TAG, "Get jsonCmd error !");
 }
 
+/**
+ * @brief 主动发起升级结果
+ * @param result 
+ * @param trace_id 
+ */
+void app_handle_production_upgrade_response_result(char *trace_id,uint8_t result)
+{
+    cJSON *root = cJSON_CreateObject();
+    if(NULL != root){
+        cJSON* firmware = NULL;
+        cJSON_AddItemToObject(root, "firmware", firmware = cJSON_CreateObject());
+        if(NULL != firmware){
+            cJSON_AddStringToObject(firmware, "newVersion",new_version);
+            cJSON_AddNumberToObject(firmware, "status", result);
+            cJSON_AddStringToObject(firmware, "url", upgrade_url);
+        }
+        cJSON *report = vesync_json_add_method_head(trace_id,"reporttFirmUp",firmware);
+        vesync_printf_cjson(report);
+        char* out = cJSON_PrintUnformatted(report);
+        vesync_publish_production_data(out, MQTT_QOS1, 0);
+        free(out);
+        cJSON_Delete(report);
+    }
+    cJSON_Delete(root);
+}
 /**
  * @brief 应答服务器升级开始
  * @param json 
@@ -154,10 +185,28 @@ void app_handle_production_upgrade_response_ack(char *trace_id)
 }
 
 /**
+ * @brief 应答cid
+ */
+void app_handle_production_cid_response(void)
+{
+    cJSON *report = cJSON_CreateObject();
+    if(NULL != report){
+        cJSON_AddStringToObject(report, "traceId", trace_time);
+        cJSON_AddNumberToObject(report, "code", 0);
+        cJSON_AddStringToObject(report, "msg", "cid set ok");
+    }
+    char* out = cJSON_PrintUnformatted(report);
+    LOG_I(TAG, "Response server : %s",out);
+    vesync_response_production_command(out, MQTT_QOS1, 0);
+    free(out);
+    cJSON_Delete(report);
+}
+
+/**
  * @brief 应答服务器下发
  * @param test_item 
  */
-void app_handle_production_response_ack(uint8_t test_item)
+void app_handle_production_response_ack(char *trace_id,uint8_t test_item)
 {
     cJSON *root = cJSON_CreateObject();
     if(NULL != root)
@@ -173,7 +222,7 @@ void app_handle_production_response_ack(uint8_t test_item)
                 default:
                     break;
             }
-            cJSON *report = vesync_json_add_method_head("updateDevInfo",info);
+            cJSON *report = vesync_json_add_method_head(trace_id,"updateDevInfo",info);
             vesync_printf_cjson(report);
             char* out = cJSON_PrintUnformatted(report);
             vesync_response_production_command(out, MQTT_QOS1, 0);
@@ -198,7 +247,7 @@ void app_handle_production_report_button(char *trace_id,int times)
         if(NULL != info)
         {
             cJSON_AddNumberToObject(info, "button", times);
-            cJSON *report = vesync_json_add_method_head("updateDevInfo",info);
+            cJSON *report = vesync_json_add_method_head(trace_id,"updateDevInfo",info);
             vesync_printf_cjson(report);
             char* out = cJSON_PrintUnformatted(report);
             vesync_response_production_command(out, MQTT_QOS1, 0);
@@ -225,7 +274,7 @@ void app_handle_production_report_charge(char *trace_id,int charge_status, int p
         {
             cJSON_AddNumberToObject(info, "charge", charge_status);
             cJSON_AddNumberToObject(info, "percent", power_percent);
-            cJSON *report = vesync_json_add_method_head("updateDevInfo",info);
+            cJSON *report = vesync_json_add_method_head(trace_id,"updateDevInfo",info);
             vesync_printf_cjson(report);
             char* out = cJSON_PrintUnformatted(report);
             vesync_response_production_command(out, MQTT_QOS1, 0);
@@ -252,7 +301,7 @@ void app_handle_production_report_weight(char *trace_id,int weight, int imped)
         {
             cJSON_AddNumberToObject(info, "weight", weight);
             cJSON_AddNumberToObject(info, "imped", imped);
-            cJSON *report = vesync_json_add_method_head("updateDevInfo",info);
+            cJSON *report = vesync_json_add_method_head(trace_id,"updateDevInfo",info);
             vesync_printf_cjson(report);
             char* out = cJSON_PrintUnformatted(report);
             vesync_response_production_command(out, MQTT_QOS1, 0);
@@ -277,7 +326,7 @@ void app_handle_production_response_bt_rssi(char *trace_id,int rssi)
         if(NULL != info)
         {
             cJSON_AddNumberToObject(info, "bt-rssi", rssi);
-            cJSON *report = vesync_json_add_method_head("updateDevInfo",info);
+            cJSON *report = vesync_json_add_method_head(trace_id,"updateDevInfo",info);
             vesync_printf_cjson(report);
             char* out = cJSON_PrintUnformatted(report);
             vesync_response_production_command(out, MQTT_QOS1, 0);
