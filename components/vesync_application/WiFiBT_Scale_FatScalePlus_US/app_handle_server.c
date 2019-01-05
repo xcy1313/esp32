@@ -65,9 +65,7 @@ void vesync_recv_json_data(char *data)
             if(!strcmp(switch_item->valuestring, "on")){
                 LOG_I(TAG, "project test start!");
                 vesync_set_production_status(RPODUCTION_RUNNING);   //状态调整为产测模式已开始;
-                resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
-                resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
-                app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
+                app_handle_production_response_ack(vesync_get_time(),PRODUCT_TEST_START);
             }
         }
         cJSON *button_item = cJSON_GetObjectItemCaseSensitive(jsonCmd, "button");

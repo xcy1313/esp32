@@ -34,6 +34,8 @@ static bool app_uart_resend_timer_stop(void);
 
 void app_scales_power_on(void)
 {
+	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
+
 	vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
@@ -45,14 +47,14 @@ void app_scales_power_on(void)
 
 	uint8_t wifi_status = vesync_wifi_get_status();
 	uint8_t wifi_conn =0 ;
+	LOG_I(TAG, "power on wifi mode[%d]" ,wifi_status);
 	if(wifi_status == VESYNC_WIFI_GOT_IP){
 		wifi_conn = 2;
 		app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 	}else if(wifi_status == VESYNC_WIFI_CONNECTING){
 		wifi_conn = 1;
 		app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
-	}
-	else if(wifi_status == VESYNC_WIFI_LOST_IP){
+	}else{
 		wifi_conn = 0;
 		app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 	}
@@ -64,6 +66,8 @@ void app_scales_power_on(void)
  */
 void app_scales_power_off(void)
 {
+	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
+
 	vesync_bt_advertise_stop();
 	resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 	app_uart_resend_timer_stop();	//称体休眠 下发数据无效
@@ -72,7 +76,7 @@ void app_scales_power_off(void)
 	vesync_hal_bt_client_deinit();
     //vesync_wifi_deinit();
     vesync_uart_deint();
-    //nvs_flash_deinit();
+	vesync_flash_config(false,"nvs");
 	vesync_power_save_enter(WAKE_UP_PIN);
 }
 /**
@@ -98,7 +102,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 			switch(frame->frame_cmd){
 				case CMD_FACTORY_SYNC_START:
 						resend_cmd_bit &= ~RESEND_CMD_FACTORY_START_BIT;
-						app_handle_production_response_ack(vesync_get_time(),PRODUCT_TEST_START);
 					return;
 				case CMD_FACTORY_CHARGING:{
 						uint8_t charge_status  = opt[0];
@@ -220,6 +223,10 @@ static void app_uart_init(void)
  */
 void app_button_event_handler(void *p_event_data){
 	static uint8_t enter_factory_mode_cnt =0;
+	static uint16_t ochecktime = 0;
+	static uint16_t nchecktime = 0; 
+	static uint16_t lchecktime = 0; 
+
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:
@@ -249,6 +256,16 @@ void app_button_event_handler(void *p_event_data){
 		case Double_key:
 			if(PRODUCTION_EXIT == vesync_get_production_status()){
 				enter_factory_mode_cnt++;
+				if(enter_factory_mode_cnt == 1){
+					ochecktime = xTaskGetTickCount();	//记录当前记录的时间
+				}
+				else if(enter_factory_mode_cnt == 2){
+					nchecktime = xTaskGetTickCount();	//记录当前记录的时间
+					if(abs(nchecktime-ochecktime) > 60){	//连续4次
+						enter_factory_mode_cnt =0;
+					}
+				} 
+				LOG_I(TAG, "ochecktime[%d] nchecktime[%d]\r\n" ,ochecktime,nchecktime);
 			}else{
 				enter_factory_mode_cnt = 0;
 			}
@@ -256,11 +273,18 @@ void app_button_event_handler(void *p_event_data){
 		case Reapet_key:
 			if(PRODUCTION_EXIT == vesync_get_production_status()){
 				if(enter_factory_mode_cnt >=2){
-					enter_factory_mode_cnt =0;
-					ESP_LOGE(TAG, "enter factory mode");
-					vesync_flash_erase("nvs",CONFIG_NAMESPACE);
-					vesync_regist_recvjson_cb(vesync_recv_json_data);
-					vesync_enter_production_testmode(NULL);
+					lchecktime = xTaskGetTickCount();	//记录当前记录的时间
+					LOG_I(TAG, "lchecktime[%d]\r\n" ,lchecktime);
+					if(abs(lchecktime-nchecktime) < 200){
+						enter_factory_mode_cnt =0;
+						ESP_LOGE(TAG, "enter factory mode");
+						vesync_flash_erase("nvs",CONFIG_NAMESPACE);
+						vesync_regist_recvjson_cb(vesync_recv_json_data);
+						vesync_enter_production_testmode(NULL);
+						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
+						resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
+						app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
+					}
 				}
 			}
 			return;
@@ -338,11 +362,11 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 		if(wifi_status == VESYNC_WIFI_GOT_IP){
 			wifi_conn = 2;
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
-		}else if(wifi_status == VESYNC_WIFI_LOST_IP){
-			wifi_conn = 0;
+		}else if(wifi_status == VESYNC_WIFI_CONNECTING){
+			wifi_conn = 1;
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 		}else{
-			wifi_conn = 1;
+			wifi_conn = 0;
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 		}
 	}
@@ -380,21 +404,33 @@ static bool app_uart_resend_timer_init(void)
 }
 
 /**
+ * @brief 
+ */
+void app_uart_start(void)
+{
+	app_uart_init();
+    if(app_uart_resend_timer_init() == false){
+        ESP_LOGE(TAG, "vesync_uart_resend_timer_init fail");
+    }
+}
+/**
+ * @brief 
+ */
+void app_button_start(void)
+{
+	vesync_button_init(BUTTON_KEY,app_button_event_handler);
+}
+/**
  * @brief 体脂称硬件功能初始化
  */
 void app_scales_start(void)
 {
 	uint8_t unit;
-	app_uart_init();
-    if(app_uart_resend_timer_init() == false){
-        ESP_LOGE(TAG, "vesync_uart_resend_timer_init fail");
-    }
 	if(vesync_get_device_status() == DEV_CONFNET_NOT_CON){
 		ESP_LOGE(TAG, "device not config net!");
 	}
 	//vesync_flash_config(true ,USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
-	vesync_button_init(BUTTON_KEY,app_button_event_handler);
 
 	if(ESP_OK == vesync_flash_read_i8(UNIT_NAMESPACE,UNIT_KEY,&unit)){
         switch(unit){

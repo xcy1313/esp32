@@ -200,7 +200,15 @@ typedef struct {
 }hw_info;
 extern hw_info info_str;
 
+/**
+ * @brief 
+ */
+void app_uart_start(void);
 
+/**
+ * @brief 
+ */
+void app_button_start(void);
 /**
  * @brief 启动体脂称硬件接口功能
  */
