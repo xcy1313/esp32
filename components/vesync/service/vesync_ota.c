@@ -21,11 +21,10 @@
 #include "nvs_flash.h"
 
 #define MAX_URL_LEN 128
-#define BUFFSIZE 480
+#define BUFFSIZE 2048
 #define HASH_LEN 32 
 
 static const char *TAG = "vesync_OTA";
-static char ota_write_data[BUFFSIZE + 1] = { 0 };
 
 static vesync_ota_event_cb_t vesync_ota_status_handler_cb = NULL;
 static bool vesync_ota_init_flag = false;
@@ -72,6 +71,9 @@ static void vesync_ota_task_handler(void *pvParameters)
     esp_ota_handle_t update_handle = 0 ;
     static uint8_t time_out =0;
     const esp_partition_t *update_partition = NULL;
+
+    char *ota_write_data = (char *)malloc(BUFFSIZE);
+    memset(ota_write_data ,NULL,BUFFSIZE);
 
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     const esp_partition_t *running = esp_ota_get_running_partition();
@@ -151,6 +153,7 @@ static void vesync_ota_task_handler(void *pvParameters)
     }
     ESP_LOGI(TAG, "Total Write binary data length : %d", binary_file_length);
     free(client_config.url);
+    free(ota_write_data);
 
     if (esp_ota_end(update_handle) != ESP_OK) {
         ESP_LOGE(TAG, "esp_ota_end failed!");
