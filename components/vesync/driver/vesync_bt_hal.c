@@ -961,17 +961,6 @@ void vesync_bt_advertise_stop(void)
 }
 
 /**
- * @brief 
- */
-void vesync_hal_bt_client_deinit(void)
-{
-    ESP_ERROR_CHECK(esp_ble_gatts_app_unregister(ESP_APP_ID));
-    ESP_ERROR_CHECK(esp_bluedroid_disable());
-    ESP_ERROR_CHECK(esp_bluedroid_deinit());
-    ESP_ERROR_CHECK(esp_bt_controller_disable());
-}
-
-/**
  * @brief 蓝牙接收队列任务处理
  * @param pvParameters 
  */
@@ -1026,6 +1015,18 @@ static void vesync_blufi_init(void)
     }
 }
 
+/**
+ * @brief 
+ */
+void vesync_hal_bt_client_deinit(void)
+{
+    ESP_ERROR_CHECK(esp_ble_gatts_app_unregister(ESP_APP_ID));
+    ESP_ERROR_CHECK(esp_bluedroid_disable());
+    ESP_ERROR_CHECK(esp_bluedroid_deinit());
+    ESP_ERROR_CHECK(esp_bt_controller_disable());
+    ESP_ERROR_CHECK(esp_bt_controller_deinit());
+    ESP_LOGI(GATTS_TABLE_TAG,"vesync_hal_bt_client_deinit");
+}
 /**
  * @brief 初始化蓝牙协议栈及配置蓝牙广播参数
  * @param adver_name 蓝牙广播名称
