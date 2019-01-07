@@ -14,7 +14,7 @@
 #define TCP_AES_ENABLE
 
 //==========实际应用项目的相关配置==========
-#define FIRM_VERSION					"1.1.05"
+#define FIRM_VERSION					"0.0.01"
 
 //产品PID
 #define DEV_PID							"v2zm0t0a4l6oylxs"

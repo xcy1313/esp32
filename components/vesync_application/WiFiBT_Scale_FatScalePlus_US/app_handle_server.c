@@ -24,6 +24,8 @@ static char trace_time[14] = {'\0'};
 char upgrade_url[128] = {'\0'};
 char new_version[10] = {'\0'};
 
+static device_net_status_t device_net_status = NET_CONFNET_NOT_CON;		//设备配网状态，默认为离线状态
+
 void app_handle_production_upgrade_response_ack(char *trace_id);
 void app_handle_production_cid_response(void);
 
@@ -117,7 +119,7 @@ void vesync_recv_json_data(char *data)
                     LOG_I(TAG, "upgrade url %s",upgrade_url);
                     if(strcmp(new_version,FIRM_VERSION) >0){
                         app_handle_production_upgrade_response_ack(trace_time);
-                        //vesync_ota_init(upgrade_url,ota_event_handler);
+                        vesync_ota_init(upgrade_url,ota_event_handler);
                     }
 				}
 			}
@@ -335,6 +337,25 @@ void app_handle_production_response_bt_rssi(char *trace_id,int rssi)
     cJSON_Delete(root);
 }
 
+/**
+ * @brief 获取当前设备配网状态
+ * @return device_net_status_t 
+ */
+device_net_status_t app_handle_get_net_status(void)
+{
+    return device_net_status;
+}
+
+/**
+ * @brief 设置当前配网状态
+ * @param new_status 
+ */
+void app_handle_set_net_status(device_net_status_t new_status)
+{
+    if(new_status != device_net_status){
+        device_net_status = new_status;
+    }
+}
 /**
  * @brief
  * @param pvParameters

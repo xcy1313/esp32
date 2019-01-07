@@ -18,6 +18,16 @@
 #define PRODUCT_TEST_START  0x1
 
 /**
+ * @brief 设备配网状态
+ */
+typedef enum
+{
+	NET_CONFNET_NOT_CON = 0,			//未配网
+	NET_CONFNET_ONLINE 	= 1,			//已连接上服务器
+	NET_CONFNET_OFFLINE = 2,			//已配网但未连接上服务器
+}device_net_status_t;
+
+/**
  * @brief 返回trace_id
  * @param time 
  */
@@ -71,5 +81,16 @@ void app_handle_production_response_bt_rssi(char *trace_id,int rssi);
  * @param data 
  */
 void vesync_recv_json_data(char *data);
+
+/**
+ * @brief 获取当前配网状态
+ */
+device_net_status_t app_handle_get_net_status(void);
+
+/**
+ * @brief 设置配网新状态
+ * @param new_status 
+ */
+void app_handle_set_net_status(device_net_status_t new_status);
 
 #endif

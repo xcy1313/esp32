@@ -11,6 +11,8 @@
 #include "vesync_wifi.h"
 #include "vesync_bt_hal.h"
 #include "vesync_uart.h"
+#include "vesync_net_service.h"
+#include "vesync_device.h"
 #include "app_public_events.h"
 #include "vesync_crc8.h"
 #include "vesync_production.h"
@@ -29,12 +31,18 @@ static bt_frame_t  bt_prase ={0};
  */
 void ota_event_handler(vesync_ota_status_t status)
 {
+    ESP_LOGI(TAG, "ota_event_handler %d\r\n" ,status);
+    uint8_t bt_conn;
     switch(status){
         case OTA_TIME_OUT:
 
             break;
         case OTA_BUSY:
-            
+                if(vesync_get_production_status() == PRODUCTION_EXIT){
+                    bt_conn = 3;
+                    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                    app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
+                }
             break;
         case OTA_FAILED:
             if(vesync_get_production_status() == RPODUCTION_RUNNING){
@@ -44,6 +52,10 @@ void ota_event_handler(vesync_ota_status_t status)
         case OTA_SUCCESS:
             if(vesync_get_production_status() == RPODUCTION_RUNNING){
                 app_handle_production_upgrade_response_result(vesync_get_time(),0);
+            }else if(vesync_get_production_status() == PRODUCTION_EXIT){
+                bt_conn = 4;
+                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
             }
             break;
         default:
@@ -93,21 +105,31 @@ bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
     return ret;
 }
 
+/**
+ * @brief app下发升级指令
+ * @param info 
+ * @param opt 
+ * @param len 
+ * @return true 
+ * @return false 
+ */
 bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
     if(opt[0] == 1){    //app下发wifi升级指令
-        // int ret;
+        // int ret =0;
         // char recv_buff[1024];
         // int buff_len = sizeof(recv_buff);
         // ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
         // if(buff_len > 0 && ret == 0){
         //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
         // }
-        //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
-        ret = true;
+        if(app_handle_get_net_status() > NET_CONFNET_NOT_CON){       //设备已配网
+            vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+            vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
+            ret = true;
+        }
     }
-
     return ret;
 }
 
