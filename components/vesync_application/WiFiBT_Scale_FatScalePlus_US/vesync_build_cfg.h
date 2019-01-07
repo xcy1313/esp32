@@ -14,8 +14,6 @@
 #define TCP_AES_ENABLE
 
 //==========实际应用项目的相关配置==========
-//设备类型名称定义
-#define DEVICE_TYPE						"InWallSwitch-3CH"
 #define FIRM_VERSION					"1.1.05"
 
 //产品PID

@@ -107,15 +107,19 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						uint8_t charge_status  = opt[0];
 						uint8_t charge_percent = opt[1];
 						//LOG_I(TAG, "charge_status %d,charge_percent %d ,time %s",charge_status,charge_percent,vesync_get_time());
-						app_handle_production_report_charge(vesync_get_time(),charge_status,charge_percent);
+						if(vesync_get_production_status() == RPODUCTION_RUNNING){
+							app_handle_production_report_charge(vesync_get_time(),charge_status,charge_percent);
+						}
 						resend_cmd_bit &= ~RESEND_CMD_FACTORY_CHARGE_BIT;
 					}
 					return;
 				case CMD_FACTORY_WEIGHT:{
 						uint16_t weight  = *(uint16_t *)&opt[0];
 						uint16_t imped =  *(uint16_t *)&opt[2];
-						//LOG_I(TAG, "weight %d,imped %d,time %s",weight,imped,vesync_get_time());
-						app_handle_production_report_weight(vesync_get_time(),weight,imped);
+						LOG_I(TAG, "weight %d,imped %d,time %s",weight,imped,vesync_get_time());
+						if(vesync_get_production_status() == RPODUCTION_RUNNING){
+							app_handle_production_report_weight(vesync_get_time(),weight,imped);
+						}
 						resend_cmd_bit &= ~RESEND_CMD_FACTORY_WEIGHT_BIT;
 					}
 					return;
@@ -247,9 +251,9 @@ void app_button_event_handler(void *p_event_data){
 					app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 				}else if(vesync_get_production_status() == RPODUCTION_RUNNING){
 					static uint8_t factory_button_cnt =0;
-					if(factory_button_cnt ++ >=3){
-						factory_button_cnt = 0;
+					if(factory_button_cnt++ >=2){
 						app_handle_production_report_button(vesync_get_time(),factory_button_cnt);
+						factory_button_cnt = 0;
 					}
 				}
 			return;
@@ -278,7 +282,6 @@ void app_button_event_handler(void *p_event_data){
 					if(abs(lchecktime-nchecktime) < 200){
 						enter_factory_mode_cnt =0;
 						ESP_LOGE(TAG, "enter factory mode");
-						vesync_flash_erase("nvs",CONFIG_NAMESPACE);
 						vesync_regist_recvjson_cb(vesync_recv_json_data);
 						vesync_enter_production_testmode(NULL);
 						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
@@ -429,6 +432,8 @@ void app_scales_start(void)
 	if(vesync_get_device_status() == DEV_CONFNET_NOT_CON){
 		ESP_LOGE(TAG, "device not config net!");
 	}
+	app_uart_start();
+	app_button_start();
 	//vesync_flash_config(true ,USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
 
