@@ -204,4 +204,19 @@ bool vesync_bt_connected(void);
  */
 uint32_t vesync_blufi_notify(uint8_t *data, uint32_t data_len);
 
+/**
+ * @brief 动态修改广播名称
+ * @param name 
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_dynamic_set_ble_advertise_name(char *name);
+
+/**
+ * @brief 动态修改广播参数
+ * @param product_type 
+ * @param product_num 
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_dynamic_ble_advertise_para(uint8_t product_type,uint8_t product_num);
+
 #endif
