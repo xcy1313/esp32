@@ -21,8 +21,23 @@
 #define USER_MODEL_NAMESPACE "userconfig" //体脂称用户模型保存记录键值
 #define USER_MODEL_KEY 		 "config"
 
-#define USER_HISTORY_DATA_NAMESPACE  "userdata" //体脂称用户测量历史数据记录键值
-#define USER_HISTORY_KEY 			 "history"
+#define USER_HISTORY_DATA_NAMESPACE 	"userdata" //体脂称用户测量历史数据记录键值
+#define USER_HISTORY_USER0_KEY			"history_0"
+#define USER_HISTORY_USER1_KEY			"history_1"
+#define USER_HISTORY_USER2_KEY 			"history_2"
+#define USER_HISTORY_USER3_KEY 			"history_3"
+#define USER_HISTORY_USER4_KEY 			"history_4"
+#define USER_HISTORY_USER5_KEY 			"history_5"
+#define USER_HISTORY_USER6_KEY 			"history_6"
+#define USER_HISTORY_USER7_KEY 			"history_7"
+#define USER_HISTORY_USER8_KEY 			"history_8"
+#define USER_HISTORY_USER9_KEY 			"history_9"
+#define USER_HISTORY_USER10_KEY 		"history_10"
+#define USER_HISTORY_USER11_KEY 		"history_11"
+#define USER_HISTORY_USER12_KEY 		"history_12"
+#define USER_HISTORY_USER13_KEY 		"history_13"
+#define USER_HISTORY_USER14_KEY 		"history_14"
+#define USER_HISTORY_USER15_KEY 		"history_15"
 
 #define UART_TX_PIN		(16)
 #define UART_RX_PIN		(17)
@@ -132,7 +147,7 @@ typedef struct{
 	uint8_t  age;		//年龄;
 	uint8_t  measu_unit;//测量单位
 	uint16_t weight_kg; //体重kg值；
-	uint16_t weight_st; //体重st值；
+	uint16_t weight_lb; //体重st值；
 	uint16_t imped_value; //阻抗值
 	uint8_t  ueser_id;	//用户id
 	uint8_t  user_mode; //用户模式;
@@ -180,13 +195,12 @@ typedef struct{
 //用户沉淀数据
 #pragma pack(1)
 typedef struct{
-	uint32_t				account;		//账户号
 	uint16_t 				imped_value;	//阻抗值;
 	uint32_t  			 	utc_time;		//测量时间戳;
 	int8_t					time_zone;		//测量时区;
 	uint8_t 				measu_unit;		//测量单位
 	uint16_t 				weight_kg; 		//体重kg值；
-	uint16_t 				weight_lb; 		//体重st值；	  
+	uint16_t 				weight_lb; 		//体重lb值；	  
 }user_history_t;
 #pragma pack()			//
 
@@ -196,7 +210,6 @@ typedef struct {
 	response_error_notice_t   response_error_notice;
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
-	user_history_t			  *user_history_data;
 }hw_info;
 extern hw_info info_str;
 

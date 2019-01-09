@@ -74,15 +74,21 @@ bool vesync_config_unit(hw_info *info,uint8_t *opt,uint8_t len)
     bool ret = false;
     if(len > sizeof(info->user_config_data.measu_unit))  return false;
 
-    if(opt[0] != info->user_config_data.measu_unit){
-        memcpy((uint8_t *)&info->user_config_data.measu_unit,(uint8_t *)opt,len);
-        vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info->user_config_data.measu_unit);  
-		resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
-        app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&opt[0],sizeof(uint8_t),true);
-        ret = true;
+    switch(opt[0]){
+        case 0:
+        case 1:
+        case 2:
+            if(vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,opt[0]) == 0){
+                memcpy((uint8_t *)&info->user_config_data.measu_unit,(uint8_t *)opt,len);
+                resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&opt[0],sizeof(uint8_t),true);
+                ret = true;
+            }
+            break;
+        default:
+            break;
     }
     ESP_LOGI(TAG, "unit is %d\r\n" ,opt[0]);
-
     return ret;
 }
 
@@ -148,7 +154,10 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
     rssi = opt[0];
 
     if(vesync_get_production_status() == RPODUCTION_RUNNING){
-        app_handle_production_response_bt_rssi(vesync_get_time(),rssi);
+        if((factory_test_bit & FACTORY_TEST_SYNC_BT_BIT) == FACTORY_TEST_SYNC_BT_BIT){
+            app_handle_production_response_bt_rssi(vesync_get_time(),rssi);
+            factory_test_bit &= ~FACTORY_TEST_SYNC_BT_BIT;
+        }
         ESP_LOGI(TAG, "bt rssi %d,0x%02x\n",rssi,rssi);
         ret = true;
     }
@@ -175,10 +184,9 @@ bool vesync_set_unix_time(uint8_t *opt ,uint8_t len)
  */
 bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
 {
-    bool ret = true;
+    bool ret = false;
     user_config_data_t user_list[MAX_CONUT] ={0};
-    uint16_t length;
-    uint8_t  user_cnt =0;
+    uint16_t length =0;
 
     uint8_t crc8 = vesync_crc8(0,opt,len); //过滤crc字段
     //ESP_LOGI(TAG, "crc8= %d config_crc8:%d",crc8,info->user_config_data.crc8);
@@ -186,30 +194,39 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
     if(len > sizeof(user_config_data_t))    return false;
     
     if(crc8 != info->user_config_data.crc8){
-        memcpy((uint8_t *)&info->user_config_data.action,opt,len);
         info->user_config_data.crc8 = crc8;
         info->user_config_data.length = len;
 
         switch(info->user_config_data.action){
-            case 2: //修改旧账户模型信息
-                vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型 
-                
-                for(uint8_t i=0;i<(length/sizeof(user_config_data_t));i++){
-                    if(user_list[i].account == info->user_config_data.account){
-                        user_cnt++;
-                        memcpy((uint8_t *)&user_list[i].action,(uint8_t *)&info->user_config_data.action,len);        //定位当前修改用户模型在flash中的位置并拷贝数据;
-                        break;
+            case 3: //app同步当前用户配置
+                memcpy((uint8_t *)&info->user_config_data.action,opt,len);                          //内存保存当前使用的用户模型配置
+                break;
+            case 2:{//修改旧账户模型信息
+                    uint8_t  user_cnt =0;
+                    uint32_t if_modyfy_account = *(uint32_t *)&opt[1];
+                    vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型 
+                    
+                    if(length > 0){
+                        for(uint8_t i=0;i<(length/sizeof(user_config_data_t));i++){
+                            if(user_list[i].account == if_modyfy_account){
+                                user_cnt++;
+                                memcpy((uint8_t *)&user_list[i].action,(uint8_t *)&opt[0],len);        //定位当前修改用户模型在flash中的位置并拷贝数据;
+                                break;
+                            }
+                        }
+                        if(user_cnt !=0){
+                            if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)user_list,length)){   //按4字节整数倍保存用户信息
+                                ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,length);
+                                ret = true;     //修改信息完毕;
+                            }
+                        }
                     }
-                }
-                if(user_cnt !=0){
-                    if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)user_list,length)){   //按4字节整数倍保存用户信息
-                        ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,length);
-                        ret = true;
-                    }
-                }
+                } 
                 break;
             case 1:{ //删除对应的旧账户模型信息
                     uint8_t nlen =0;
+                    uint32_t if_delete_account = *(uint32_t *)&opt[1];
+
                     vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
                     nlen = length/sizeof(user_config_data_t)-1;
                     ESP_LOGI(TAG, "nlen[%d]",nlen);
@@ -220,8 +237,8 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                         int8_t j=-1;
 
                         for(uint8_t i=0;i<nlen;i++){
-                            ESP_LOGI(TAG, "user account[0x%04x],delete account[0x%04x]",user_list[i].account,info->user_config_data.account);
-                            if(user_list[i].account == info->user_config_data.account){     //当前欲删除的用户模型
+                            ESP_LOGI(TAG, "user account[0x%04x],delete account[0x%04x]",user_list[i].account,if_delete_account);
+                            if(user_list[i].account == if_delete_account){     //当前欲删除的用户模型
                                 j=(i==0?1:i+1);                                               //记录当前的序列
                             }else{
                                 j= j+1;
@@ -237,23 +254,28 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                         }
                         free(p_buf);
                     }else{
-                        ESP_LOGI(TAG, "user account just one!");
                         vesync_flash_erase(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
+                        ESP_LOGI(TAG, "user account just one!");
                     }
                     ESP_LOGI(TAG, "delete user account config!");
                     ret = true;
                 }
                 break;
-            case 0: //创建新账户模型信息 
-                if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&info->user_config_data.action,sizeof(info->user_config_data))){   //按4字节整数倍保存用户信息
-                    ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,sizeof(info->user_config_data));
-                    ret = true;
-                }else{
-                    ret = false;
-                }
+            case 0:{//创建新账户模型信息
+                    uint8_t nlen =0;
+                    vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
+                    nlen = length/sizeof(user_config_data_t);
+                    ESP_LOGI(TAG, "nlen[%d]",nlen);
+
+                    if(nlen < MAX_CONUT){      
+                        if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&opt[0],len)){   //按4字节整数倍保存用户信息
+                            ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,len);
+                            ret = true;
+                        }
+                    }
+                } 
                 break;
             default:
-                ret = false;
                 break;
         }
     }
@@ -268,12 +290,35 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
  * @return true 
  * @return false 
  */
-bool vesync_inquiry_weight_history(uint32_t account,uint16_t *len)
+static bool vesync_inquiry_weight_history(hw_info *info,uint8_t *opt ,uint8_t len)
 {
-     bool ret = false;
-     
-     *len = 160;
-     return ret;
+    bool ret = false;
+    user_config_data_t user_list[MAX_CONUT] ={0};
+
+    uint8_t nlen =0;
+    uint16_t length =0;
+
+    vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
+    nlen = length/sizeof(user_config_data_t);
+
+    if(nlen >= 1){
+        uint8_t  user_cnt =0;
+        uint32_t if_inquiry_account = *(uint32_t *)&opt[0];
+        for(uint8_t i=0;i<nlen;i++){
+            if(user_list[i].account == if_inquiry_account){
+                user_cnt++;
+                memcpy((uint8_t *)&user_list[i].action,(uint8_t *)&opt[0],len);        //定位当前修改用户模型在flash中的位置并拷贝数据;
+                break;
+            }
+        }
+        if(user_cnt != 0){
+            if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_USER0_KEY,(char *)user_list,&length) == 0){
+                ret = true;
+                
+            }
+        }
+    }
+    return ret;
 }
 /**
  * @brief 删除所有用户模型,执行flash user区用户模型擦除功能
@@ -281,7 +326,7 @@ bool vesync_inquiry_weight_history(uint32_t account,uint16_t *len)
  * @return true 
  * @return false 
  */
-bool vesync_delete_account(uint8_t *opt)
+static bool vesync_delete_account(uint8_t *opt)
 {
     bool ret = false;
     if(opt[0] == 1){    //为1表示删除所有用户模型信息
@@ -462,13 +507,12 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                         break;
                     case CMD_INQUIRY_HISTORY:{
                             uint16_t len = 0;
-                            memcpy((uint8_t *)&info->user_config_data.account,(uint8_t *)opt,sizeof(info->user_config_data.account));
-                            if(vesync_inquiry_weight_history(&info->user_config_data.account,&len)){
+                            if(vesync_inquiry_weight_history(info,opt,len)){
                                 ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY");
                             }else{
-                                resp_strl.buf[0] = 1;   //具体产品对应的错误码
-                                resp_strl.len = 1;
-                                res_ctl.bitN.error_flag = 1;
+                                memcpy(&resp_strl.buf[0],&opt[0],sizeof(uint32_t));
+                                resp_strl.len = sizeof(uint32_t);
+                                res_ctl.bitN.error_flag = 0;
                             }
                         }
                         break;
@@ -552,12 +596,12 @@ void app_ble_init(void)
 	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     //vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     //vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+    vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 }
 /**
  * @brief 初始化产测广播服务模式
  */
 void app_product_ble_start(void)
 {
-    vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
-    vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+    vesync_bt_dynamic_ble_advertise_para(PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM);
 }

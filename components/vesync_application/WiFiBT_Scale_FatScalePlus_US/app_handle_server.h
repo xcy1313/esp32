@@ -27,6 +27,13 @@ typedef enum
 	NET_CONFNET_OFFLINE = 2,			//已配网但未连接上服务器
 }device_net_status_t;
 
+typedef enum{
+	FACTORY_TEST_SYNC_BUTTON_BIT = 0x0001,
+	FACTORY_TEST_SYNC_CHARGE_BIT = 0x0002,
+	FACTORY_TEST_SYNC_WEIGHT_BIT = 0x0004,
+	FACTORY_TEST_SYNC_BT_BIT 	 = 0x0008
+}factory_test_bit_t;
+extern factory_test_bit_t factory_test_bit;
 /**
  * @brief 返回trace_id
  * @param time 

@@ -17,12 +17,14 @@
 #include "app_handle_scales.h"
 #include <time.h>
 
+#include "vesync_build_cfg.h"
 #include "vesync_log.h"
 
 static const char *TAG = "app_handle_server";
 static char trace_time[14] = {'\0'};
 char upgrade_url[128] = {'\0'};
 char new_version[10] = {'\0'};
+factory_test_bit_t factory_test_bit = 0;
 
 static device_net_status_t device_net_status = NET_CONFNET_NOT_CON;		//设备配网状态，默认为离线状态
 
@@ -74,6 +76,7 @@ void vesync_recv_json_data(char *data)
         if(true == cJSON_IsString(button_item)){
             if(!strcmp(button_item->valuestring, "on")){
                 LOG_I(TAG, "button test start");
+                factory_test_bit |= FACTORY_TEST_SYNC_BUTTON_BIT;
                 //app_handle_production_report_button(trace_time,3);
             }
         }
@@ -81,6 +84,7 @@ void vesync_recv_json_data(char *data)
         if(true == cJSON_IsString(charge_item)){
             if(!strcmp(charge_item->valuestring, "on")){
                 LOG_I(TAG, "charge test start!");
+                factory_test_bit |= FACTORY_TEST_SYNC_CHARGE_BIT;
                 resend_cmd_bit |= RESEND_CMD_FACTORY_CHARGE_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
                 //app_handle_production_report_charge(trace_time,1,80);
@@ -91,6 +95,7 @@ void vesync_recv_json_data(char *data)
             if(!strcmp(weight_item->valuestring, "on")){
                 LOG_I(TAG, "weight test start!");
                 resend_cmd_bit |= RESEND_CMD_FACTORY_WEIGHT_BIT;
+                factory_test_bit |= FACTORY_TEST_SYNC_WEIGHT_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
                 //app_handle_production_report_weight(trace_time,10000,500);
             }
@@ -99,6 +104,7 @@ void vesync_recv_json_data(char *data)
         if(true == cJSON_IsString(bt_item)){
             if(!strcmp(bt_item->valuestring, "on")){
                 LOG_I(TAG, "bt test start!");
+                factory_test_bit |= FACTORY_TEST_SYNC_BT_BIT;
                 //app_handle_production_response_bt_rssi(trace_time,-10);
                 app_product_ble_start();
             }
@@ -115,12 +121,14 @@ void vesync_recv_json_data(char *data)
             cJSON* url = cJSON_GetObjectItemCaseSensitive(firmware, "url");
             if(cJSON_IsString(url)){
 				if(NULL != upgrade_url){
+                    uint8_t url_len;
 					strcpy(upgrade_url, url->valuestring);
+                    url_len = strlen(url->valuestring);
+                    sprintf(&upgrade_url[url_len],"%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                     LOG_I(TAG, "upgrade url %s",upgrade_url);
-                    if(strcmp(new_version,FIRM_VERSION) >0){
-                        app_handle_production_upgrade_response_ack(trace_time);
-                        vesync_ota_init(upgrade_url,ota_event_handler);
-                    }
+                    app_handle_production_upgrade_response_ack(trace_time);
+                    
+                    vesync_ota_init(upgrade_url,ota_event_handler);
 				}
 			}
         }

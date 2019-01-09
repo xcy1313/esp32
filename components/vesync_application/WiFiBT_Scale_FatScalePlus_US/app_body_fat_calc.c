@@ -292,7 +292,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                 }
                 if(bt_status == false){
                     user_history_t history = {0};
-                    history.account = user_list[i].account;
+                    //history.account = user_list[i].account;
                     history.imped_value = new_imped;
                     history.utc_time = time((time_t *)NULL);
 
@@ -300,18 +300,18 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     history.weight_kg = p_weitht->weight;
                     history.weight_lb = p_weitht->lb;
                     
-                    ESP_LOGI(TAG, "account [0x%04x],imped_value[0x%02x],utc_time [0x%04x],unit [0x%x] ,kg [0x%02x],lb [0x02%x]",
-                        history.account,history.imped_value,history.utc_time,history.measu_unit,history.weight_kg,history.weight_lb);         //体脂参数计算正确
+                    // ESP_LOGI(TAG, "account [0x%04x],imped_value[0x%02x],utc_time [0x%04x],unit [0x%x] ,kg [0x%02x],lb [0x02%x]",
+                    //     history.account,history.imped_value,history.utc_time,history.measu_unit,history.weight_kg,history.weight_lb);         //体脂参数计算正确
                     
                     if(body_fat_calc(bt_status,ALL_CALC,res,&user_list[i],p_weitht)){
                         ret = true;
                         ESP_LOGI(TAG, "fat calc success");         //体脂参数计算正确
                     }
-                    o_crc8 = crc8;      //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
+                    o_crc8 = crc8;      
                     crc8 = vesync_crc8(0,&p_weitht->weight,sizeof(response_weight_data_t));
                     ESP_LOGE(TAG, "crc8 =%d,ocrc8 =%d",crc8,o_crc8);
-                    if(crc8 != o_crc8){
-                        vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_KEY,(user_history_t *)&history ,sizeof(user_history_t));
+                    if(crc8 != o_crc8){                           //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
+                        vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_USER0_KEY,(user_history_t *)&history ,sizeof(user_history_t));
                     }
                 }
             }

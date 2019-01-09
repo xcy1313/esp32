@@ -36,7 +36,7 @@ void app_scales_power_on(void)
 {
 	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
 
-	vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+	//vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 
@@ -108,7 +108,10 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						uint8_t charge_percent = opt[1];
 						//LOG_I(TAG, "charge_status %d,charge_percent %d ,time %s",charge_status,charge_percent,vesync_get_time());
 						if(vesync_get_production_status() == RPODUCTION_RUNNING){
-							app_handle_production_report_charge(vesync_get_time(),charge_status,charge_percent);
+							if((factory_test_bit & FACTORY_TEST_SYNC_CHARGE_BIT) == FACTORY_TEST_SYNC_CHARGE_BIT){
+								app_handle_production_report_charge(vesync_get_time(),charge_status,charge_percent);
+								factory_test_bit &= ~FACTORY_TEST_SYNC_CHARGE_BIT;
+							}
 						}
 						resend_cmd_bit &= ~RESEND_CMD_FACTORY_CHARGE_BIT;
 					}
@@ -118,7 +121,10 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						uint16_t imped =  *(uint16_t *)&opt[2];
 						LOG_I(TAG, "weight %d,imped %d,time %s",weight,imped,vesync_get_time());
 						if(vesync_get_production_status() == RPODUCTION_RUNNING){
-							app_handle_production_report_weight(vesync_get_time(),weight,imped);
+							if((factory_test_bit & FACTORY_TEST_SYNC_WEIGHT_BIT) == FACTORY_TEST_SYNC_WEIGHT_BIT){
+								app_handle_production_report_weight(vesync_get_time(),weight,imped);
+								factory_test_bit &= ~FACTORY_TEST_SYNC_WEIGHT_BIT;
+							}
 						}
 						resend_cmd_bit &= ~RESEND_CMD_FACTORY_WEIGHT_BIT;
 					}
@@ -234,8 +240,6 @@ void app_button_event_handler(void *p_event_data){
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:
-				//xTaskNotify(app_public_events_task, NET_CONFIG_NOTIFY_BIT, eSetBits);
-				enter_factory_mode_cnt = 0;
 				if(vesync_get_production_status() >= PRODUCTION_EXIT){
 					uint8_t backup_unix = info_str.user_config_data.measu_unit;
 					if(backup_unix == UNIT_LB){
@@ -249,37 +253,38 @@ void app_button_event_handler(void *p_event_data){
 					vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info_str.user_config_data.measu_unit);
 					resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 					app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
+
+					if(enter_factory_mode_cnt == 1){
+						ochecktime = xTaskGetTickCount();	//记录当前记录的时间
+					}else{
+						ochecktime = nchecktime;
+					}
+					nchecktime = xTaskGetTickCount();		//记录当前记录的时间
+					enter_factory_mode_cnt++;
+
+					if(abs(nchecktime-ochecktime) > 200){	//连续4次
+						enter_factory_mode_cnt =0;
+					} 
+					LOG_I(TAG, "ochecktime[%d] nchecktime[%d] time [%d] cnt [%d]\r\n" ,ochecktime,nchecktime,abs(nchecktime-ochecktime),enter_factory_mode_cnt);
 				}else if(vesync_get_production_status() == RPODUCTION_RUNNING){
 					static uint8_t factory_button_cnt =0;
 					if(factory_button_cnt++ >=2){
-						app_handle_production_report_button(vesync_get_time(),factory_button_cnt);
+						if((factory_test_bit & FACTORY_TEST_SYNC_BUTTON_BIT) == FACTORY_TEST_SYNC_BUTTON_BIT){
+							app_handle_production_report_button(vesync_get_time(),factory_button_cnt);
+							factory_test_bit &= ~FACTORY_TEST_SYNC_BUTTON_BIT;
+						}
 						factory_button_cnt = 0;
 					}
 				}
 			return;
 		case Double_key:
-			if(PRODUCTION_EXIT == vesync_get_production_status()){
-				enter_factory_mode_cnt++;
-				if(enter_factory_mode_cnt == 1){
-					ochecktime = xTaskGetTickCount();	//记录当前记录的时间
-				}
-				else if(enter_factory_mode_cnt == 2){
-					nchecktime = xTaskGetTickCount();	//记录当前记录的时间
-					if(abs(nchecktime-ochecktime) > 60){	//连续4次
-						enter_factory_mode_cnt =0;
-					}
-				} 
-				LOG_I(TAG, "ochecktime[%d] nchecktime[%d]\r\n" ,ochecktime,nchecktime);
-			}else{
-				enter_factory_mode_cnt = 0;
-			}
 			return;
 		case Reapet_key:
 			if(PRODUCTION_EXIT == vesync_get_production_status()){
-				if(enter_factory_mode_cnt >=2){
+				if(enter_factory_mode_cnt >= 3){
 					lchecktime = xTaskGetTickCount();	//记录当前记录的时间
 					LOG_I(TAG, "lchecktime[%d]\r\n" ,lchecktime);
-					if(abs(lchecktime-nchecktime) < 200){
+					if(abs(lchecktime-nchecktime) < 250){
 						enter_factory_mode_cnt =0;
 						ESP_LOGE(TAG, "enter factory mode");
 						vesync_regist_recvjson_cb(vesync_recv_json_data);
@@ -432,7 +437,6 @@ void app_scales_start(void)
 	if(vesync_get_device_status() == DEV_CONFNET_NOT_CON){
 		ESP_LOGE(TAG, "device not config net!");
 	}
-	app_uart_start();
 	app_button_start();
 	//vesync_flash_config(true ,USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
