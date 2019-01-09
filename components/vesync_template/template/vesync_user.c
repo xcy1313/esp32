@@ -97,13 +97,13 @@ void vesync_user_entry(void *args)
     LOG_I(TAG, "Application layer start !");
     vesync_client_connect_wifi("R6100-2.4G", "12345678");	// wifi driver初始化，否则无法获取mac地址
 
-    vesync_bt_client_init("vesync_esp32",1,1,0,NULL,true,NULL,NULL);
-    vesync_bt_advertise_start(0);
+    //vesync_bt_client_init("vesync_esp32",1,1,0,NULL,true,NULL,NULL);
+    //vesync_bt_advertise_start(0);
     //vesync_bt_dynamic_set_ble_advertise_name("esp32_test");
-    vesync_bt_dynamic_ble_advertise_para(0x88,0x88);
+    //vesync_bt_dynamic_ble_advertise_para(0x88,0x88);
     //vesync_enter_production_testmode(NULL);
     //vesync_regist_recvjson_cb(vesync_recv_json_data);
     
-    //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
+    vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
     vTaskDelete(NULL);
 }

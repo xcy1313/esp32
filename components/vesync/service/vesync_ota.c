@@ -147,7 +147,6 @@ static void vesync_ota_task_handler(void *pvParameters)
             ESP_LOGD(TAG, "Written image length %d", binary_file_length);
         } else if (data_read == 0) {
             ESP_LOGI(TAG, "Connection closed,all data received");
-            vesync_ota_event_post_to_user(OTA_SUCCESS);
             break;
         }
     }
@@ -162,11 +161,18 @@ static void vesync_ota_task_handler(void *pvParameters)
         task_fatal_error();
     }
 
-    vesync_ota_init_flag = false;
-
     if (esp_partition_check_identity(esp_ota_get_running_partition(), update_partition) == true) {
         ESP_LOGI(TAG, "The current running firmware is same as the firmware just downloaded");
     }
+
+    err = esp_ota_set_boot_partition(update_partition);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
+        http_cleanup(client);
+        task_fatal_error();
+    }
+    vesync_ota_event_post_to_user(OTA_SUCCESS);
+    vesync_ota_init_flag = false;
 
     vTaskDelay(500 / portTICK_PERIOD_MS);
     esp_restart();
