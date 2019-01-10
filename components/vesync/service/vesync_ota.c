@@ -76,16 +76,30 @@ static void vesync_ota_task_handler(void *pvParameters)
     memset(ota_write_data ,NULL,BUFFSIZE);
 
     const esp_partition_t *configured = esp_ota_get_boot_partition();
-    const esp_partition_t *running = esp_ota_get_running_partition();
+    ESP_LOGI(TAG, "configured partition type %d subtype %d (offset 0x%08x)",
+             configured->type, configured->subtype, configured->address);
 
-    if (configured != running) {
-        ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
-                 configured->address, running->address);
-        ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
+    switch(configured->subtype){
+        case ESP_PARTITION_SUBTYPE_APP_FACTORY:
+                update_partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP,ESP_PARTITION_SUBTYPE_APP_OTA_0, NULL);
+                if(update_partition == NULL){
+                    ESP_LOGE(TAG, "Factory update_partition NULL");
+                    update_partition = esp_ota_get_next_update_partition (NULL);
+                }
+                ESP_LOGI(TAG, "ESP_PARTITION_SUBTYPE_APP_FACTORY");
+            break;
+        case ESP_PARTITION_SUBTYPE_APP_OTA_0:
+                update_partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP ,ESP_PARTITION_SUBTYPE_APP_FACTORY ,NULL);
+                if(update_partition == NULL){
+                    ESP_LOGE(TAG, "OTA_0 update_partition NULL");
+                    update_partition = esp_ota_get_next_update_partition (NULL);
+                }
+                ESP_LOGI(TAG, "ESP_PARTITION_SUBTYPE_APP_OTA_0");
+            break;
+        default:
+            break;
     }
-    ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
-             running->type, running->subtype, running->address);
-
+    ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",update_partition->subtype, update_partition->address);
 
     esp_http_client_config_t client_config ={0};
     client_config.url = malloc(strlen(server_url));
@@ -110,17 +124,24 @@ static void vesync_ota_task_handler(void *pvParameters)
     }
     esp_http_client_fetch_headers(client);
 
-    update_partition = esp_ota_get_next_update_partition(NULL);
-    ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
-             update_partition->subtype, update_partition->address);
-         
-    err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
-        http_cleanup(client);
+    if(err != ESP_OK){
+        vesync_ota_event_post_to_user(OTA_FAILED);
+        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+        
+        esp_http_client_cleanup(client);
         task_fatal_error();
     }
-    vesync_ota_event_post_to_user(OTA_BUSY);
+
+    err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
+    if ((err != ESP_OK) && (err != ESP_ERR_INVALID_ARG)){
+        ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+
+        vesync_ota_event_post_to_user(OTA_FAILED);
+        http_cleanup(client);
+        task_fatal_error();
+    }else{
+    	  vesync_ota_event_post_to_user(OTA_BUSY);
+    }
     
     int binary_file_length = 0;
     /*deal with all receive packet*/
@@ -162,13 +183,16 @@ static void vesync_ota_task_handler(void *pvParameters)
         task_fatal_error();
     }
 
+    err = esp_ota_set_boot_partition(update_partition);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
+        http_cleanup(client);
+        task_fatal_error();
+    }
+    vesync_ota_event_post_to_user(OTA_SUCCESS);
     vesync_ota_init_flag = false;
 
-    if (esp_partition_check_identity(esp_ota_get_running_partition(), update_partition) == true) {
-        ESP_LOGI(TAG, "The current running firmware is same as the firmware just downloaded");
-    }
-
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
     esp_restart();
     return ;
 }
