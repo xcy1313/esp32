@@ -168,6 +168,12 @@ int32_t vesync_bt_client_init(char *adver_name,uint8_t version,uint8_t product_t
                                     vesync_bt_status_cb_t bt_status_cb, bt_recv_cb_t cb);
 
 /**
+ * @brief 主动断开蓝牙连接
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_disconnect(void);
+
+/**
  * @brief 开启蓝牙广播，timeout为0表示一直广播
  * @param timeout 
  */

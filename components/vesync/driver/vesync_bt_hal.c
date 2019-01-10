@@ -78,6 +78,8 @@ static prepare_type_env_t prepare_write_env;
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event,esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 static void vesync_blufi_event_handler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param);
 
+esp_bd_addr_t remote_device_addr;
+
 static char advertise_name[30] = {0};
 static uint8_t adver_manufacturer[] ={0xd0,0x6,0x1,0x36,0x35,0x34,0x33,0x32,0x31,0xe0,0xa0};
 
@@ -772,6 +774,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_CONNECT_EVT, conn_id = %d gatts_if =%d", param->connect.conn_id,gatts_if);
             ble_conn_id = p_data->connect.conn_id;
     	    ble_gatts_if = gatts_if;
+            memcpy(remote_device_addr,p_data->connect.remote_bda,ESP_BD_ADDR_LEN);
             vesync_set_bt_status(BT_CONNTED);
             break;
         case ESP_GATTS_DISCONNECT_EVT:
@@ -809,6 +812,14 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     }
 }
 
+/**
+ * @brief 主动断开当前的蓝牙连接
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_disconnect(void)
+{
+    return esp_ble_gap_disconnect(remote_device_addr);
+}
 /**
  * @brief 蓝牙是否连接成功？
  * @return true 
