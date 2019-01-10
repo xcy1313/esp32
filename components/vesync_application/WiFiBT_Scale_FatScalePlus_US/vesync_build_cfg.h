@@ -16,7 +16,7 @@
 //项目名称
 #define PRODUCT_WIFI_NAME               "WiFiBT_Scale_FatScalePlus_US"
 //==========实际应用项目的相关配置==========
-#define FIRM_VERSION					"0.0.01"
+#define FIRM_VERSION					"0.0.02"
 
 //产品PID
 #define DEV_PID							"v2zm0t0a4l6oylxs"
@@ -28,8 +28,7 @@
 // #define RESTORE_DONOT_REBOOT
 
 //产测系统配置，基线内部产测系统使用production名称，factory工厂模式留给应用层使用
-#define PRODUCTION_WIFI_SSID			"VeSync_Pruduction_AP"
-#define PRODUCTION_WIFI_KEY				"VeSync2018@etekcity.com.cn"
+#define PRODUCTION_WIFI_SSID			"R6100-2.4G"//"VeSync_Pruduction_AP"
+#define PRODUCTION_WIFI_KEY				"12345678"//"VeSync2018@etekcity.com.cn"
 #define PRODUCTION_SERVER_ADDR			"192.168.100.67"//"inwallswitch-3ch.us.factory.vesync.com" //产测服务器地址
-
 #endif

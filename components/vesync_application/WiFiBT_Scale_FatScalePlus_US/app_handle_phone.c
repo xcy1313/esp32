@@ -38,20 +38,21 @@ void ota_event_handler(vesync_ota_status_t status)
 
             break;
         case OTA_BUSY:
-                if(vesync_get_production_status() == PRODUCTION_EXIT){
+                if(vesync_get_production_status() == RPODUCTION_RUNNING){
                     bt_conn = 3;
+                    app_handle_production_upgrade_response_result("1547029501512",5); //升级中
                     resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                     app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
                 }
             break;
         case OTA_FAILED:
             if(vesync_get_production_status() == RPODUCTION_RUNNING){
-
+                app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
             }
             break;
         case OTA_SUCCESS:
             if(vesync_get_production_status() == RPODUCTION_RUNNING){
-                app_handle_production_upgrade_response_result(vesync_get_time(),0);
+                app_handle_production_upgrade_response_result("1547029501529",0);     //升级成功
             }else if(vesync_get_production_status() == PRODUCTION_EXIT){
                 bt_conn = 4;
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;

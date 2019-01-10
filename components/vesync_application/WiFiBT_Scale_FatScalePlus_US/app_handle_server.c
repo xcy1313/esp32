@@ -127,7 +127,7 @@ void vesync_recv_json_data(char *data)
                     sprintf(&upgrade_url[url_len],"%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                     LOG_I(TAG, "upgrade url %s",upgrade_url);
                     app_handle_production_upgrade_response_ack(trace_time);
-                    
+                    vesync_hal_bt_client_deinit();
                     vesync_ota_init(upgrade_url,ota_event_handler);
 				}
 			}
@@ -168,7 +168,7 @@ void app_handle_production_upgrade_response_result(char *trace_id,uint8_t result
             cJSON_AddNumberToObject(firmware, "status", result);
             cJSON_AddStringToObject(firmware, "url", upgrade_url);
         }
-        cJSON *report = vesync_json_add_method_head(trace_id,"reporttFirmUp",firmware);
+        cJSON *report = vesync_json_add_method_head(trace_id,"reportFirmUp",firmware);
         vesync_printf_cjson(report);
         char* out = cJSON_PrintUnformatted(report);
         vesync_publish_production_data(out, MQTT_QOS1, 0);
@@ -189,6 +189,9 @@ void app_handle_production_upgrade_response_ack(char *trace_id)
         cJSON_AddNumberToObject(report, "code", 0);
         cJSON_AddStringToObject(report, "msg", "firmware set ok");
     }
+    vesync_printf_cjson(report);
+    char* out = cJSON_PrintUnformatted(report);
+    vesync_response_production_command(out, MQTT_QOS1, 0);
     cJSON_Delete(report);
 }
 

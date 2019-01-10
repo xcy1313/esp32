@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := vesync_sdk_esp32
+PROJECT_NAME := WiFiBT_Scale_FatScalePlus_US.V
 
 include $(IDF_PATH)/make/project.mk
 
