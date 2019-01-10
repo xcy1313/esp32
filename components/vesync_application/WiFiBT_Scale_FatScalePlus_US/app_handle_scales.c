@@ -190,7 +190,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						LOG_E(TAG, "other error cmd\r\n");
 					break;
 				}
-			}else{	//设备返回的应答
+			}else{	//设备返回的应答FACTORY_TEST_SYNC_BUTTON_BIT
 				static uint8_t *resp_cnt =NULL;
 				switch(frame->frame_cmd){
 					case CMD_MEASURE_UNIT:{
@@ -289,9 +289,11 @@ void app_button_event_handler(void *p_event_data){
 						ESP_LOGE(TAG, "enter factory mode");
 						vesync_regist_recvjson_cb(vesync_recv_json_data);
 						vesync_enter_production_testmode(NULL);
+						uint8_t mac_addr[6];
+						esp_wifi_get_mac(ESP_MAC_WIFI_STA, mac_addr);
 						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 						resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
-						app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
+						app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,mac_addr,sizeof(mac_addr),true);
 					}
 				}
 			}
@@ -333,20 +335,23 @@ static bool app_uart_resend_timer_start(void)
 
 static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 {
-	if(info_str.response_hardstate.power == 0){
+	if((info_str.response_hardstate.power == 0 ) && (vesync_get_production_status() == PRODUCTION_EXIT)){
 		resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
 		return;
 	}
-    ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
+    //ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
 	if(vesync_get_production_status() == RPODUCTION_RUNNING){
 		if((resend_cmd_bit & RESEND_CMD_FACTORY_CHARGE_BIT) == RESEND_CMD_FACTORY_CHARGE_BIT){
 			app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
 		}
-		if((resend_cmd_bit & RESEND_CMD_FACTORY_START_BIT) == RESEND_CMD_FACTORY_START_BIT){
-			app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
-		}
 		if((resend_cmd_bit & RESEND_CMD_FACTORY_WEIGHT_BIT) == RESEND_CMD_FACTORY_WEIGHT_BIT){
 			app_uart_encode_send(MASTER_SET,CMD_FACTORY_WEIGHT,0,0,true);
+		}
+	}else if(vesync_get_production_status() == RPODUCTION_START){
+		if((resend_cmd_bit & RESEND_CMD_FACTORY_START_BIT) == RESEND_CMD_FACTORY_START_BIT){
+			uint8_t mac_addr[6];
+			esp_wifi_get_mac(ESP_MAC_WIFI_STA, mac_addr);
+			app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,mac_addr,sizeof(mac_addr),true);
 		}
 	}else if(vesync_get_production_status() == PRODUCTION_EXIT){
 		if((resend_cmd_bit & RESEND_CMD_FACTORY_STOP_BIT) == RESEND_CMD_FACTORY_STOP_BIT){

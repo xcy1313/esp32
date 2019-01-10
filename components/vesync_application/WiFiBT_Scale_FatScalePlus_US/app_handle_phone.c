@@ -57,7 +57,7 @@ void ota_event_handler(vesync_ota_status_t status)
                 bt_conn = 4;
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
-            }
+                }
             break;
         default:
             break;

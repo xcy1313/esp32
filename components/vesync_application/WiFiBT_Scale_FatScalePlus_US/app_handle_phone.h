@@ -20,10 +20,6 @@
 #define PRODUCT_NUM		0xA0
 #define PRODUCT_NAME	"ESF00+"
 
-#define DEVICE_TYPE     "1"
-#define FIRM_VERSION    "2"
-
-
 #define APP_ADVERTISE_TIMEOUT   0
 /**
  * @brief 定义与app交互命令集

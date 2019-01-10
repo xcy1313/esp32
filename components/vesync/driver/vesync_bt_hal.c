@@ -17,6 +17,7 @@
 #include "esp_gatt_common_api.h"
 #include "esp_blufi_api.h"
 #include "blufi_security.h"
+#include "vesync_build_cfg.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
