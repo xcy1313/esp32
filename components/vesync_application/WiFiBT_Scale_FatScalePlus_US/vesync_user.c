@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "vesync_build_cfg.h"
+
 #include "vesync_log.h"
 #include "vesync_api.h"
 
@@ -42,7 +44,7 @@ void vesync_user_entry(void *args)
 		LOG_I(TAG, "first time use!!!!");
 		app_handle_set_net_status(NET_CONFNET_NOT_CON);	//第一次使用，未配网
 	}
-	LOG_I(TAG, "Application layer start with versiom[%s]",FIRM_VERSION);
+	LOG_I(TAG, "Application layer start with versiom[%s]",PRODUCT_FIRM_VERSION);
 	//vesync_client_connect_wifi("R6100-2.4G", "12345678");	// wifi driver初始化，否则无法获取mac地址
 	//vesync_init_sntp_service(1544410822,8,"ntp.vesync.com");
 	app_hadle_server_create();

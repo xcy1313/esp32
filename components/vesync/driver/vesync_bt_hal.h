@@ -24,7 +24,7 @@
 #define QUEUE_LEN                   100
 
 // #define DEVICE_TYPE     "1"
-// #define FIRM_VERSION    "2"
+#define FIRM_VERSION    "2"
 
 #define vesync_blufi_rev_custom_data_evt    0x1
 #define vesync_ble_rev_data_evt      0x2
