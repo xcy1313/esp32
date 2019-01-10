@@ -16,7 +16,7 @@
 //==========实际应用项目的相关配置==========
 //设备类型名称定义
 #define DEVICE_TYPE						"InWallSwitch-3CH"
-#define FIRM_VERSION					"1.1.05"
+#define FIRM_VERSION					"1.1.00"
 
 //产品PID
 #define DEV_PID							"t5932z1opbw289dg"
