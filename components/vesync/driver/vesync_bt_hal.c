@@ -712,6 +712,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 ESP_LOGE(GATTS_TABLE_TAG, "config scan response data failed, error code = %x", ret);
             }
             ESP_LOGI(GATTS_TABLE_TAG, "gatts register with adv data");
+            
             //添加设备属性表 uuid 0x180a
             esp_err_t create_attr_ret = esp_ble_gatts_create_attr_tab(device_info_att_db, gatts_if, DEV_DEV_NB, SVC_INST_ID);
             if (create_attr_ret){
@@ -1016,13 +1017,52 @@ static void vesync_blufi_init(void)
 }
 
 /**
+ * @brief 动态修改蓝牙广播名称
+ * @param name 
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_dynamic_set_ble_advertise_name(char *name)
+{
+    uint32_t ret;
+    //vesync_bt_advertise_stop();
+    strcpy(advertise_name,name);
+    ret = esp_ble_gap_set_device_name(name);
+    if (ret){
+        ESP_LOGE(GATTS_TABLE_TAG, "set device name failed, error code = %x", ret);
+    }
+    ret = esp_ble_gap_config_adv_data(&scan_rsp_data);
+    if (ret){
+        ESP_LOGE(GATTS_TABLE_TAG, "config scan response data failed, error code = %x", ret);
+    }
+    //vesync_bt_advertise_start(0);
+    return ret;
+}
+
+/**
+ * @brief 动态修改广播参数
+ * @param product_type 
+ * @param product_num 
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_dynamic_ble_advertise_para(uint8_t product_type,uint8_t product_num)
+{
+    uint32_t ret;
+    adver_manufacturer[9] = product_type;
+    adver_manufacturer[10] = product_num;
+    ret = esp_ble_gap_config_adv_data(&adv_data);
+    if (ret){
+        ESP_LOGE(GATTS_TABLE_TAG, "config adv data failed, error code = %x", ret);
+    }
+    return ret;
+}
+/**
  * @brief 
  */
 void vesync_hal_bt_client_deinit(void)
 {
     ESP_ERROR_CHECK(esp_ble_gatts_app_unregister(ESP_APP_ID));
     ESP_ERROR_CHECK(esp_bluedroid_disable());
-    ESP_ERROR_CHECK(esp_bluedroid_deinit());
+    ESP_ERROR_CHECK(esp_bluedroid_deinit()); 
     ESP_ERROR_CHECK(esp_bt_controller_disable());
     ESP_ERROR_CHECK(esp_bt_controller_deinit());
     ESP_LOGI(GATTS_TABLE_TAG,"vesync_hal_bt_client_deinit");
