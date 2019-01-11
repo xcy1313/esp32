@@ -19,6 +19,7 @@
 
 #include "sht30.h"
 #include "bu9796a.h"
+#include "buzzer.h"
 
 static const char* TAG = "vesync_user";
 
@@ -33,15 +34,13 @@ void application_task(void *args)
     sht30_init();
     bu9796a_init();
     bu9796a_initialize_sequence();
-    bu9796a_display_on_sequence();
+    bu9796a_display_all_pixels_on();
+    buzzer_init();
 
     while(1)
     {
         sht30_get_temp_and_humi(&temp, &humi);
         LOG_I(TAG, "Get data done, temp : %f, humi : %f", temp, humi);
-        bu9796a_display_all_pixels_on();
-        sleep(1);
-        bu9796a_display_off_sequence();
         sleep(1);
     }
 }

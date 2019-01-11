@@ -60,7 +60,7 @@ int32_t bu9796a_init(void)
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = 1<<BU9796A_BACKLIGHT_GPIO;
+    io_conf.pin_bit_mask = 1ULL << BU9796A_BACKLIGHT_GPIO;
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
@@ -128,11 +128,11 @@ int32_t bu9796a_ram_write_sequence(uint8_t *data, uint8_t len)
         memcpy(&(i2cData[6]), (const void*)data, len);
         error = i2c_master_write_slave(BU9796A_IIC_PORT, SLAVE_ADDRESS, i2cData, 6 + len); //写入以上指令及数据
         bu9796a_backlight_on();                             //开启背光
-    }        
+    }
     else
     {
         error = -1;
-        LOG_E(TAG,"RAM data length is too long !");
+        LOG_E(TAG, "RAM data length is too long !");
     }
 
     return error;
