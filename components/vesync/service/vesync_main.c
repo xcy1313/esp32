@@ -23,7 +23,6 @@ static const char* TAG = "vesync_main";
 //任务句柄定义
 TaskHandle_t event_center_taskhd = NULL;
 
-
 /**
  * @brief vesync事件处理中心
  * @param args [无]
@@ -32,8 +31,6 @@ static void vesync_event_center_thread(void *args)
 {
 	BaseType_t notified_ret;
 	uint32_t notified_value;
-
-	vesync_developer_start();
 
 	while(1)
 	{
