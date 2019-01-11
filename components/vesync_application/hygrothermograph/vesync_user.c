@@ -16,10 +16,12 @@
 #include "vesync_production.h"
 #include "vesync_flash.h"
 #include "vesync_interface.h"
+#include "vesync_developer.h"
 
 #include "sht30.h"
 #include "bu9796a.h"
 #include "buzzer.h"
+#include "touchkey.h"
 
 static const char* TAG = "vesync_user";
 
@@ -36,11 +38,14 @@ void application_task(void *args)
     bu9796a_initialize_sequence();
     bu9796a_display_all_pixels_on();
     buzzer_init();
+    touch_key_init();
 
     while(1)
     {
         sht30_get_temp_and_humi(&temp, &humi);
         LOG_I(TAG, "Get data done, temp : %f, humi : %f", temp, humi);
+        // printf_os_task_manager();
+        LOG_I(TAG, "Get touch status : %d", get_touch_key_status());
         sleep(1);
     }
 }
