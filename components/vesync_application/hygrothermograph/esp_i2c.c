@@ -100,3 +100,17 @@ esp_err_t i2c_master_write_slave(i2c_port_t i2c_num, uint8_t addr, uint8_t *data
     i2c_cmd_link_delete(cmd);
     return ret;
 }
+
+/**
+ * @brief iic总线单独写stop信号到客户端
+ * @param i2c_num [iic编号，0或1]
+ */
+esp_err_t i2c_master_write_slave_stop_condition(i2c_port_t i2c_num)
+{
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_stop(cmd);
+    i2c_master_stop(cmd);           //必须连续两个
+    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    return ret;
+}

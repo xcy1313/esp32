@@ -8,12 +8,14 @@
 #include "esp_i2c.h"
 #include "sht30.h"
 
+#define SHT30_IIC_PORT          0       //SHT30传感器所接的IIC总线端口
+
 /**
  * @brief 计算温度值
  * @param raw_value [传感器原始值]
  * @return float 	[温度值，单位：摄氏度]
  */
-float sht30_calc_temperature(const uint16_t raw_value)
+static float sht30_calc_temperature(const uint16_t raw_value)
 {
     return 175 * (float)raw_value / 65536 - 45;
 }
@@ -23,7 +25,7 @@ float sht30_calc_temperature(const uint16_t raw_value)
  * @param raw_value [传感器原始值]
  * @return float 	[湿度值，单位：百分比]
  */
-float sht30_calc_humidity(const uint16_t raw_value)
+static float sht30_calc_humidity(const uint16_t raw_value)
 {
     return 100 * (float)raw_value / 65536;
 }
@@ -35,7 +37,7 @@ float sht30_calc_humidity(const uint16_t raw_value)
  * @param checksum 		[crc校验值]
  * @return uint32_t 	[校验结果，0为成功]
  */
-uint32_t sht30_check_crc(const uint8_t data[], const uint8_t data_byte, uint8_t const checksum)
+static uint32_t sht30_check_crc(const uint8_t data[], const uint8_t data_byte, uint8_t const checksum)
 {
     uint8_t bit;
     uint8_t crc = 0xFF;
@@ -59,13 +61,13 @@ uint32_t sht30_check_crc(const uint8_t data[], const uint8_t data_byte, uint8_t 
  * @brief 软件复位传感器
  * @return uint32_t [复位结果，0为成功]
  */
-uint32_t sht30_soft_reset(void)
+static uint32_t sht30_soft_reset(void)
 {
     uint32_t error;
     uint8_t i2cData[2];
     i2cData[0] = (eSht30SoftReset >> 8);
     i2cData[1] = (0xFF & eSht30SoftReset);
-    error = i2c_master_write_slave(0, eSht30I2CAddress, i2cData, 2);
+    error = i2c_master_write_slave(SHT30_IIC_PORT, eSht30I2CAddress, i2cData, 2);
     return error;
 }
 
@@ -76,7 +78,7 @@ uint32_t sht30_soft_reset(void)
 uint32_t sht30_init(void)
 {
     uint32_t error;
-    i2c_master_init(0, 21, 19, 100000);
+    i2c_master_init(SHT30_IIC_PORT, 21, 19, 100000);
     error = sht30_soft_reset();
     return error;
 }
@@ -95,10 +97,10 @@ uint32_t sht30_get_temp_and_humi(float *temp, float *humi)
     uint8_t i2cData[6];
     i2cData[0] = (eSht30MeasureTHSingleShotHighRepClockstr >> 8);
     i2cData[1] = (0xFF & eSht30MeasureTHSingleShotHighRepClockstr);
-    error = i2c_master_write_slave(0, eSht30I2CAddress, i2cData, 2);
+    error = i2c_master_write_slave(SHT30_IIC_PORT, eSht30I2CAddress, i2cData, 2);
     if(0 == error)
     {
-        error = i2c_master_read_slave(0, eSht30I2CAddress, i2cData, 6);
+        error = i2c_master_read_slave(SHT30_IIC_PORT, eSht30I2CAddress, i2cData, 6);
     }
 
     if(0 == error)

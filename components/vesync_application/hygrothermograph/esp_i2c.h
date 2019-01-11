@@ -46,4 +46,10 @@ esp_err_t i2c_master_read_slave(i2c_port_t i2c_num, uint8_t addr, uint8_t *data_
  */
 esp_err_t i2c_master_write_slave(i2c_port_t i2c_num, uint8_t addr, uint8_t *data_wr, size_t size);
 
+/**
+ * @brief iic总线单独写stop信号到客户端
+ * @param i2c_num [iic编号，0或1]
+ */
+esp_err_t i2c_master_write_slave_stop_condition(i2c_port_t i2c_num);
+
 #endif

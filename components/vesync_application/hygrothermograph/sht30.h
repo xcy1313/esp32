@@ -1,6 +1,6 @@
 /**
  * @file sht30.h
- * @brief sht30????
+ * @brief sht30驱动接口
  * @author WatWu
  * @date 2019-01-03
  */

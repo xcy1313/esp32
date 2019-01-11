@@ -18,25 +18,31 @@
 #include "vesync_interface.h"
 
 #include "sht30.h"
+#include "bu9796a.h"
 
 static const char* TAG = "vesync_user";
 
 /**
- * @brief 
- * @param args 
+ * @brief 应用层任务入口
+ * @param args [无]
  */
 void application_task(void *args)
 {
-    sht30_init();
-    sleep(1);
     float temp;
     float humi;
+    sht30_init();
+    bu9796a_init();
+    bu9796a_initialize_sequence();
+    bu9796a_display_on_sequence();
 
     while(1)
     {
         sht30_get_temp_and_humi(&temp, &humi);
         LOG_I(TAG, "Get data done, temp : %f, humi : %f", temp, humi);
-        usleep(500*1000);
+        bu9796a_display_all_pixels_on();
+        sleep(1);
+        bu9796a_display_off_sequence();
+        sleep(1);
     }
 }
 
