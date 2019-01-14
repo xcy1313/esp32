@@ -22,8 +22,8 @@
 
 static const char *TAG = "app_handle_server";
 static char trace_time[14] = {'\0'};
-char upgrade_url[100] = {'\0'};
-char new_version[8] = {'\0'};
+static char upgrade_url[100] = {'\0'};
+static char new_version[8] = {'\0'};
 factory_test_bit_t factory_test_bit = 0;
 
 static device_net_status_t device_net_status = NET_CONFNET_NOT_CON;		//设备配网状态，默认为离线状态

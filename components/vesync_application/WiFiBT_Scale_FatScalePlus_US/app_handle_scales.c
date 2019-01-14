@@ -181,8 +181,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						static uint8_t cnt =0;
 						resp_cnt =&cnt;
 						*(uint16_t *)&bt_command = CMD_REPORT_ERRPR;
-						res->response_error_notice.error.para = *(uint32_t *)&opt[0];
-						printf("\r\n error type =0x%04x\r\n",res->response_error_notice.error.para);
 						cnt++;
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 					}

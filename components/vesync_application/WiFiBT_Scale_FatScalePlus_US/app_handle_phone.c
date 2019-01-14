@@ -223,13 +223,13 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
     bool ret = false;
     LOG_I(TAG, "vesync_upgrade_config");
     if(app_handle_get_net_status() > NET_CONFNET_NOT_CON){       //设备已配网
-        // int ret =0;
-        // char recv_buff[1024];
-        // int buff_len = sizeof(recv_buff);
-        // ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
-        // if(buff_len > 0 && ret == 0){
-        //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-        // }
+        int ret =0;
+        char recv_buff[1024];
+        int buff_len = sizeof(recv_buff);
+        ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
+        if(buff_len > 0 && ret == 0){
+            LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        }
         vesync_prase_upgrade_url((char *)opt);
         ret = true;
     }
