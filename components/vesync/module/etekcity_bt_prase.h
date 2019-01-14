@@ -25,7 +25,7 @@ enum{
 #define BT_END           0x5A    //帧结束符
 
 //帧数据域缓存区最大长度定义，可设置的最大值为256
-#define BT_DATA_BUFF_MAX       65535
+#define BT_DATA_BUFF_MAX       300
 
 //ACK错误码
 #define RESP_SUCCESS			  0
