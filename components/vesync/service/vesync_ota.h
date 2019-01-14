@@ -25,6 +25,7 @@ typedef enum{
     OTA_BUSY,
     OTA_TIME_OUT,
     OTA_FAILED,
+    OTA_URL_ERROR,
     OTA_SUCCESS
 }vesync_ota_status_t;
 

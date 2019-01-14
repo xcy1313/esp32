@@ -27,8 +27,6 @@
 static const char *TAG = "vesync_OTA";
 
 static vesync_ota_event_cb_t vesync_ota_status_handler_cb = NULL;
-static bool vesync_ota_init_flag = false;
-static char server_url[MAX_URL_LEN] ={0};
 
 static void http_cleanup(esp_http_client_handle_t client)
 {
@@ -72,6 +70,12 @@ static void vesync_ota_task_handler(void *pvParameters)
     static uint8_t time_out =0;
     const esp_partition_t *update_partition = NULL;
 
+    esp_http_client_config_t client_config ={0};
+    client_config.url = malloc(MAX_URL_LEN);
+    
+    strcpy(client_config.url,(char *)pvParameters);
+    ESP_LOGI(TAG, "remote url is %s" ,client_config.url);
+
     char *ota_write_data = (char *)malloc(BUFFSIZE);
     memset(ota_write_data ,NULL,BUFFSIZE);
 
@@ -100,12 +104,6 @@ static void vesync_ota_task_handler(void *pvParameters)
             break;
     }
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",update_partition->subtype, update_partition->address);
-
-    esp_http_client_config_t client_config ={0};
-    client_config.url = malloc(strlen(server_url));
-    
-    strcpy(client_config.url,server_url);
-    ESP_LOGI(TAG, "remote url is %s" ,client_config.url);
 
     vesync_wait_network_connected(5000);
 
@@ -151,7 +149,7 @@ static void vesync_ota_task_handler(void *pvParameters)
             time_out++;
             if(time_out >=3){
                 time_out = 0; 
-                vesync_ota_event_post_to_user(OTA_TIME_OUT);
+                vesync_ota_event_post_to_user(OTA_URL_ERROR);
                 http_cleanup(client);
                 task_fatal_error();
             }
@@ -190,7 +188,6 @@ static void vesync_ota_task_handler(void *pvParameters)
         task_fatal_error();
     }
     vesync_ota_event_post_to_user(OTA_SUCCESS);
-    vesync_ota_init_flag = false;
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     esp_restart();
@@ -202,9 +199,7 @@ vesync_ota_status_t vesync_ota_init(char *url,vesync_ota_event_cb_t cb)
     uint8_t sha_256[HASH_LEN] = { 0 };
     esp_partition_t partition;
     
-    if (vesync_ota_init_flag) {
-        return OTA_FAILED;
-    }
+    char server_url[MAX_URL_LEN] ={'\0'};
     strcpy(server_url,url);
     ESP_LOGI(TAG, "copy url is %s" ,url);
     // get sha256 digest for the partition table
@@ -226,7 +221,7 @@ vesync_ota_status_t vesync_ota_init(char *url,vesync_ota_event_cb_t cb)
     print_sha256(sha_256, "SHA-256 for current firmware: ");
 
     vesync_ota_status_handler_cb = cb;
-    xTaskCreate(vesync_ota_task_handler, "vesync_ota_task_handler", 8192, NULL, 13, NULL);
+    xTaskCreate(vesync_ota_task_handler, "vesync_ota_task_handler", 8192, server_url, 13, NULL);
     
     return OTA_IDLE;
 }
