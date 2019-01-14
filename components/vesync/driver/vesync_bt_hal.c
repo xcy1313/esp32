@@ -675,7 +675,7 @@ static void vesync_blufi_event_handler(esp_blufi_cb_event_t event, esp_blufi_cb_
             break;
         case ESP_BLUFI_EVENT_REPORT_ERROR:
             ESP_LOGE(GATTS_TABLE_TAG,"BLUFI report error, error code %d\n", param->report_error.state);
-            esp_blufi_send_error_info(param->report_error.state);
+            //esp_blufi_send_error_info(param->report_error.state);
             vesync_reply_response("/report_error",(ERR_TOTAL+param->report_error.state),"report_error");
             break;
         case ESP_BLUFI_EVENT_RECV_SLAVE_DISCONNECT_BLE:

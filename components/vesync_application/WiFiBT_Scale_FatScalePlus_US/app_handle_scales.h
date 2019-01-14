@@ -22,22 +22,6 @@
 #define USER_MODEL_KEY 		 "config"
 
 #define USER_HISTORY_DATA_NAMESPACE 	"userdata" //体脂称用户测量历史数据记录键值
-#define USER_HISTORY_USER0_KEY			"history_0"
-#define USER_HISTORY_USER1_KEY			"history_1"
-#define USER_HISTORY_USER2_KEY 			"history_2"
-#define USER_HISTORY_USER3_KEY 			"history_3"
-#define USER_HISTORY_USER4_KEY 			"history_4"
-#define USER_HISTORY_USER5_KEY 			"history_5"
-#define USER_HISTORY_USER6_KEY 			"history_6"
-#define USER_HISTORY_USER7_KEY 			"history_7"
-#define USER_HISTORY_USER8_KEY 			"history_8"
-#define USER_HISTORY_USER9_KEY 			"history_9"
-#define USER_HISTORY_USER10_KEY 		"history_10"
-#define USER_HISTORY_USER11_KEY 		"history_11"
-#define USER_HISTORY_USER12_KEY 		"history_12"
-#define USER_HISTORY_USER13_KEY 		"history_13"
-#define USER_HISTORY_USER14_KEY 		"history_14"
-#define USER_HISTORY_USER15_KEY 		"history_15"
 
 #define UART_TX_PIN		(16)
 #define UART_RX_PIN		(17)
@@ -136,7 +120,7 @@ enum{
 
 #define MAX_CONUT		16
 
-//20个字节，凑齐4的整数倍;
+//28个字节，凑齐4的整数倍;
 #pragma pack(1)
 typedef struct{
 	uint8_t  action;	//操作类型，3为同步最新的用户模型,2为修改旧账户模型信息，1为删除旧账户模型信息，0为创建新账户模型信息
@@ -151,6 +135,7 @@ typedef struct{
 	uint16_t imped_value; //阻抗值
 	uint8_t  ueser_id;	//用户id
 	uint8_t  user_mode; //用户模式;
+	char     user_store_key[12];	//用于用户分配时创建存储的key键值;
 	uint8_t  crc8;		//crc8;
 	uint8_t  length;	//长度;
 }user_config_data_t;

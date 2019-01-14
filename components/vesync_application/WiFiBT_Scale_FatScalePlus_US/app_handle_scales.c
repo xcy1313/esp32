@@ -31,12 +31,13 @@ uni_frame_t uart_frame = {0};
 hw_info info_str;
 static TimerHandle_t uart_resend_timer;
 static bool app_uart_resend_timer_stop(void);
+static bool bmask_scale = false;
 
 void app_scales_power_on(void)
 {
 	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
 
-	//vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+	vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 
@@ -168,10 +169,10 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 
 						cnt++;
 						if((npwer_status == 0) && (opwer_status == 1)){         //关机
-							app_scales_power_off();
+							//app_scales_power_off();
 						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
 							LOG_I(TAG, "scales power on!!!");
-							app_scales_power_on();
+							//app_scales_power_on();
 						}
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 					}
@@ -196,7 +197,10 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 					case CMD_MEASURE_UNIT:{
 							static uint8_t cnt =0;
 							resp_cnt =&cnt;
-							vesync_bt_notify(res_ctl,resp_cnt,CMD_SET_WEIGHT_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t));
+							if(bmask_scale){
+								bmask_scale = false;
+								vesync_bt_notify(res_ctl,resp_cnt,CMD_SET_WEIGHT_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t));
+							}
 							cnt++;
 							resend_cmd_bit &= ~RESEND_CMD_MEASURE_UNIT_BIT;
 						}
@@ -253,7 +257,7 @@ void app_button_event_handler(void *p_event_data){
 					vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info_str.user_config_data.measu_unit);
 					resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 					app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
-
+					bmask_scale = true;
 					if(enter_factory_mode_cnt == 1){
 						ochecktime = xTaskGetTickCount();	//记录当前记录的时间
 					}else{
@@ -335,7 +339,7 @@ static bool app_uart_resend_timer_start(void)
 
 static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 {
-	if((info_str.response_hardstate.power == 0 ) && (vesync_get_production_status() == PRODUCTION_EXIT)){
+	if(/*(info_str.response_hardstate.power == 0 ) && */(vesync_get_production_status() == PRODUCTION_EXIT)){
 		resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
 		return;
 	}
@@ -445,7 +449,6 @@ void app_scales_start(void)
 	app_button_start();
 	//vesync_flash_config(true ,USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
-
 	if(ESP_OK == vesync_flash_read_i8(UNIT_NAMESPACE,UNIT_KEY,&unit)){
         switch(unit){
             case UNIT_KG:
@@ -459,6 +462,7 @@ void app_scales_start(void)
                 break;
         }
     }
+	app_scales_power_on();
 }
 
 

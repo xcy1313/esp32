@@ -13,10 +13,18 @@
 
 #define TCP_AES_ENABLE
 
+#define PRODUCT_TEST_TYPE 0x88
+#define PRODUCT_TEST_NUM  0x88
+
+#define PRODUCT_VER		                0x1
+#define PRODUCT_TYPE                    0xC0
+#define PRODUCT_NUM		                0xA4
+#define PRODUCT_NAME	                "ESF00+"
+
 //项目名称
 #define PRODUCT_WIFI_NAME               "WiFiBT_Scale_FatScalePlus_US"
 //==========实际应用项目的相关配置==========
-#define FIRM_VERSION			        "0.0.04"
+#define FIRM_VERSION			        "0.0.05"
 
 //产品PID
 #define DEV_PID							"v2zm0t0a4l6oylxs"

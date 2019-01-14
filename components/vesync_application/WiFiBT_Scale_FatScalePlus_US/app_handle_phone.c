@@ -18,11 +18,64 @@
 #include "vesync_production.h"
 #include "vesync_flash.h"
 
+#include "vesync_interface.h"
+#include "vesync_build_cfg.h"
 #include "vesync_log.h"
 
 static const char* TAG = "app_handle_phone";
 
 static bt_frame_t  bt_prase ={0};
+
+static void app_ble_start(void);
+
+/**
+ * @brief 应答app升级状态
+ * @param trace_id 
+ * @param result 
+ */
+static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
+{
+    frame_ctrl_t res_ctl ={     //应答包res状态  
+                .data = 0x10,
+            };
+    struct{                     //应答数据包
+        uint8_t buf[200];
+        uint8_t len;
+    }resp_strl ={{0},0};         
+    static uint8_t cnt = 0;
+    uint16_t upgrade_cmd = CMD_UPGRADE;
+
+    cJSON *report = cJSON_CreateObject();
+    if(NULL != report){
+        cJSON_AddStringToObject(report, "traceId", trace_id);		        //==TODO==，需要修改成毫秒级
+        cJSON_AddStringToObject(report, "cid",  (char)product_config.cid);		//设备cid
+        cJSON_AddNumberToObject(report, "code", result);
+    }
+    switch(result){
+        case RESPONSE_UPGRADE_BUSY:{
+                cJSON* firmware = NULL;
+                res_ctl.data = 0x10;
+                cJSON_AddItemToObject(report, "firmware", firmware = cJSON_CreateObject());
+                if(NULL != firmware){
+                    cJSON_AddStringToObject(firmware, "newVersion",NULL);
+                    cJSON_AddStringToObject(firmware, "url", NULL);
+                }
+            }
+            break;
+        default:
+                res_ctl.data = 0x00;
+            break;
+    }
+    vesync_printf_cjson(report);
+    resp_strl.len = strlen(report);
+
+    memcpy((char *)resp_strl.buf,(char *)report ,resp_strl.len);
+    vesync_bt_notify(res_ctl,cnt,upgrade_cmd,resp_strl.buf,resp_strl.len);  //返回应答设置或查询包
+
+    char* out = cJSON_PrintUnformatted(report);
+    cJSON_Delete(report);
+    cnt++;
+}
 
 
 /**
@@ -38,16 +91,20 @@ void ota_event_handler(vesync_ota_status_t status)
 
             break;
         case OTA_BUSY:
+                bt_conn = 3;
+                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
                 if(vesync_get_production_status() == RPODUCTION_RUNNING){
-                    bt_conn = 3;
                     app_handle_production_upgrade_response_result("1547029501512",5); //升级中
-                    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-                    app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
+                }else if(vesync_get_production_status() == PRODUCTION_EXIT){
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
                 }
             break;
         case OTA_FAILED:
             if(vesync_get_production_status() == RPODUCTION_RUNNING){
                 app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
+            }else if(vesync_get_production_status() == PRODUCTION_EXIT){
+                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL);
             }
             break;
         case OTA_SUCCESS:
@@ -57,7 +114,8 @@ void ota_event_handler(vesync_ota_status_t status)
                 bt_conn = 4;
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
-                }
+                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_SUCCESS);
+            }
             break;
         default:
             break;
@@ -113,6 +171,46 @@ bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
 }
 
 /**
+ * @brief 解析app下发的url链接
+ * @param url 
+ */
+void vesync_prase_upgrade_url(char *url)
+{
+    char upgrade_url[128] = {'\0'};
+    char new_version[10] = {'\0'};
+
+    LOG_I(TAG, "User recv : %s", url);
+    cJSON *root = cJSON_Parse(url);
+    if(NULL == root){
+        LOG_E(TAG, "Parse cjson error !");
+        return;
+    }
+    vesync_printf_cjson(root);
+
+    cJSON *firmware = cJSON_GetObjectItemCaseSensitive(root, "firmware");
+    if(firmware != NULL){
+        LOG_I(TAG, "upgrade test start!");
+        cJSON* newVersion = cJSON_GetObjectItemCaseSensitive(firmware, "newVersion");
+        if(cJSON_IsString(newVersion)){
+            strcpy(new_version, newVersion->valuestring);	//记录升级的新版本
+            LOG_I(TAG, "upgrade new_version %s",new_version);
+        }
+        cJSON* url = cJSON_GetObjectItemCaseSensitive(firmware, "url");
+        if(cJSON_IsString(url)){
+            if(NULL != upgrade_url){
+                uint8_t url_len;
+                strcpy(upgrade_url, url->valuestring);
+                url_len = strlen(url->valuestring);
+                sprintf(&upgrade_url[url_len],"%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
+                LOG_I(TAG, "upgrade url %s",upgrade_url);
+                vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+                vesync_ota_init(upgrade_url,ota_event_handler);
+            }
+        }
+    }
+    cJSON_Delete(root);								
+}
+/**
  * @brief app下发升级指令
  * @param info 
  * @param opt 
@@ -123,7 +221,8 @@ bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
 bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
-    if(opt[0] == 1){    //app下发wifi升级指令
+    LOG_I(TAG, "vesync_upgrade_config");
+    if(app_handle_get_net_status() > NET_CONFNET_NOT_CON){       //设备已配网
         // int ret =0;
         // char recv_buff[1024];
         // int buff_len = sizeof(recv_buff);
@@ -131,11 +230,8 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
         // if(buff_len > 0 && ret == 0){
         //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
         // }
-        if(app_handle_get_net_status() > NET_CONFNET_NOT_CON){       //设备已配网
-            vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-            vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
-            ret = true;
-        }
+        vesync_prase_upgrade_url((char *)opt);
+        ret = true;
     }
     return ret;
 }
@@ -158,6 +254,8 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
         if((factory_test_bit & FACTORY_TEST_SYNC_BT_BIT) == FACTORY_TEST_SYNC_BT_BIT){
             app_handle_production_response_bt_rssi(vesync_get_time(),rssi);
             factory_test_bit &= ~FACTORY_TEST_SYNC_BT_BIT;
+            vesync_bt_disconnect();
+            app_ble_start();
         }
         ESP_LOGI(TAG, "bt rssi %d,0x%02x\n",rssi,rssi);
         ret = true;
@@ -268,9 +366,17 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                     nlen = length/sizeof(user_config_data_t);
                     ESP_LOGI(TAG, "nlen[%d]",nlen);
 
-                    if(nlen < MAX_CONUT){      
-                        if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&opt[0],len)){   //按4字节整数倍保存用户信息
-                            ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,len);
+                    if(nlen < MAX_CONUT){
+                        user_config_data_t    user_config_data = {0};
+                        memcpy((uint8_t *)&user_config_data.action,(uint8_t *)&opt[0],len);
+                        ESP_LOGI(TAG, "account ID[0x%04x]",user_config_data.account);
+                        snprintf((char *)user_config_data.user_store_key,sizeof(user_config_data.user_store_key),"his_%x",user_config_data.account); //根据不同的账号创建存储的用户键值对用来保存沉淀数据
+                        ESP_LOGI(TAG, "create user key_value[%s]",user_config_data.user_store_key);
+                        user_config_data.crc8 = vesync_crc8(0,&user_config_data.action,len);
+                        user_config_data.length = len;
+
+                        if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&user_config_data.action,sizeof(user_config_data_t))){   //按4字节整数倍保存用户信息
+                            ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",user_config_data.crc8 ,user_config_data.length);
                             ret = true;
                         }
                     }
@@ -291,32 +397,34 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
  * @return true 
  * @return false 
  */
-static bool vesync_inquiry_weight_history(hw_info *info,uint8_t *opt ,uint8_t len)
+static bool vesync_inquiry_weight_history(uint32_t user_account ,uint16_t *len)
 {
     bool ret = false;
+    uint32_t ret_value =0;
     user_config_data_t user_list[MAX_CONUT] ={0};
 
     uint8_t nlen =0;
     uint16_t length =0;
 
-    vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
+    ret_value = vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
     nlen = length/sizeof(user_config_data_t);
-
-    if(nlen >= 1){
+    if((nlen >= 1) && (ret_value == 0)){
         uint8_t  user_cnt =0;
-        uint32_t if_inquiry_account = *(uint32_t *)&opt[0];
-        for(uint8_t i=0;i<nlen;i++){
-            if(user_list[i].account == if_inquiry_account){
+        uint8_t i =0;
+        for(;i<nlen;i++){
+            if(user_list[i].account == user_account){
                 user_cnt++;
-                memcpy((uint8_t *)&user_list[i].action,(uint8_t *)&opt[0],len);        //定位当前修改用户模型在flash中的位置并拷贝数据;
+                ESP_LOGI(TAG, "current user ID[0x%04x]",user_list[i].account);
                 break;
             }
         }
         if(user_cnt != 0){
-            if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_USER0_KEY,(char *)user_list,&length) == 0){
-                ret = true;
-                
+            user_history_t user_history; 
+            ESP_LOGI(TAG, "read user key_value[%s]",user_list[i].user_store_key);
+            if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(char *)user_list,&len) == 0){
+                ESP_LOGI(TAG, "read user history len is[%d]",*len);
             }
+            ret = true;
         }
     }
     return ret;
@@ -479,6 +587,10 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                             res_ctl.bitN.error_flag = 1;
                         } 
                         break;
+                    case CMD_RESP_NET_STATUS:
+                            resp_strl.buf[0] = app_handle_get_net_status();  
+                            resp_strl.len = 1;
+                        break;
                     case CMD_SYNC_TIME:
                         if(vesync_set_unix_time(opt,len)){
                             ESP_LOGI(TAG, "CMD_SYNC_TIME");
@@ -508,12 +620,23 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                         break;
                     case CMD_INQUIRY_HISTORY:{
                             uint16_t len = 0;
-                            if(vesync_inquiry_weight_history(info,opt,len)){
-                                ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY");
+                            uint32_t if_inquiry_account = *(uint32_t *)&opt[0];
+                            if(vesync_inquiry_weight_history(if_inquiry_account,&len)){
+                                res_ctl.data = 0x10;
+                                if(len != 0){
+                                    *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id
+                                    *(uint16_t *)&resp_strl.buf[4] = len;               //总长度
+
+                                    ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY");
+                                }else{
+                                    *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id
+                                    *(uint16_t *)&resp_strl.buf[4] = len;               //总长度
+                                    resp_strl.len = 6;
+                                }
                             }else{
-                                memcpy(&resp_strl.buf[0],&opt[0],sizeof(uint32_t));
-                                resp_strl.len = sizeof(uint32_t);
-                                res_ctl.bitN.error_flag = 0;
+                                resp_strl.buf[0] = 1;   //具体产品对应的错误码
+                                resp_strl.len = 1;
+                                res_ctl.bitN.error_flag = 1;
                             }
                         }
                         break;
@@ -597,7 +720,6 @@ void app_ble_init(void)
 	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     //vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     //vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
-    vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 }
 /**
  * @brief 初始化产测广播服务模式
@@ -605,4 +727,12 @@ void app_ble_init(void)
 void app_product_ble_start(void)
 {
     vesync_bt_dynamic_ble_advertise_para(PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM);
+}
+
+/**
+ * @brief 初始化产测广播服务模式
+ */
+static void app_ble_start(void)
+{
+    vesync_bt_dynamic_ble_advertise_para(PRODUCT_TYPE,PRODUCT_NUM);
 }

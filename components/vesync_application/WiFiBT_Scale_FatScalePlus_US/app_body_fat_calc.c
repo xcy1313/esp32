@@ -311,7 +311,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     crc8 = vesync_crc8(0,&p_weitht->weight,sizeof(response_weight_data_t));
                     ESP_LOGE(TAG, "crc8 =%d,ocrc8 =%d",crc8,o_crc8);
                     if(crc8 != o_crc8){                           //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
-                        vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,USER_HISTORY_USER0_KEY,(user_history_t *)&history ,sizeof(user_history_t));
+                        vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t));
                     }
                 }
             }
