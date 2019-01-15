@@ -223,13 +223,16 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
     bool ret = false;
     LOG_I(TAG, "vesync_upgrade_config");
     if(app_handle_get_net_status() > NET_CONFNET_NOT_CON){       //设备已配网
-        int ret =0;
-        char recv_buff[1024];
-        int buff_len = sizeof(recv_buff);
-        ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
-        if(buff_len > 0 && ret == 0){
-            LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-        }
+        // int ret =0;
+        // char recv_buff[1024];
+        // int buff_len = sizeof(recv_buff);
+        // vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+        // ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
+        // if(buff_len > 0 && ret == 0){
+        //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        // }
+        vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+        app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
         vesync_prase_upgrade_url((char *)opt);
         ret = true;
     }
@@ -552,7 +555,24 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
             break;
     }
-#else    
+#else
+    switch(data_buf[0]){
+        case 1:
+            app_handle_net_service_task_notify_bit(NETWORK_CONFIG_REQ);
+            break;
+        case 2:
+            app_handle_net_service_task_notify_bit(REFRESH_TOKEN_REQ);
+            break;
+        case 3:
+            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ);
+            break;
+        case 4:
+            app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
+            break;
+        case 5:
+            app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE);
+            break;
+    }    
     for(unsigned char i=0;i<length;++i){
         if(bt_data_frame_decode(data_buf[i],0,&bt_prase) == 1){
             frame_ctrl_t res_ctl ={     //应答包res状态  

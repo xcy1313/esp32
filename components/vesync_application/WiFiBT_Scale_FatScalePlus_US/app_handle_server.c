@@ -26,6 +26,8 @@ static char upgrade_url[100] = {'\0'};
 static char new_version[8] = {'\0'};
 factory_test_bit_t factory_test_bit = 0;
 
+static TaskHandle_t s_network_service_taskhd = NULL;
+
 static device_net_status_t device_net_status = NET_CONFNET_NOT_CON;		//设备配网状态，默认为离线状态
 
 void app_handle_production_upgrade_response_ack(char *trace_id);
@@ -367,14 +369,136 @@ void app_handle_set_net_status(device_net_status_t new_status)
         device_net_status = new_status;
     }
 }
+
+/**
+ * @brief 应用层网络服务通知
+ */
+void app_handle_net_service_task_notify_bit(uint32_t bit)
+{
+    //vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+    xTaskNotify(s_network_service_taskhd, bit, eSetBits);			//通知事件处理中心任务
+}
+
+static void vesync_json_add_https_req(void *data ,uint16_t len,uint32_t mask)
+{
+    cJSON *root = cJSON_CreateObject();
+    char *req_method = NULL;
+    cJSON* info = NULL;
+    static char token[128];
+
+    int ret =0;
+    char recv_buff[1024];
+    int buff_len = sizeof(recv_buff);
+
+    if(NULL == root)    return;
+    
+    switch(mask){
+        case NETWORK_CONFIG_REQ:
+            cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+            if(NULL != info){
+                char mac[6 * 3];
+                vesync_get_wifi_sta_mac_string(mac);
+                cJSON_AddStringToObject(info, "configKey", "123456");
+                cJSON_AddStringToObject(info, "accountID", "12");
+                cJSON_AddStringToObject(info, "mac", mac);
+                cJSON_AddStringToObject(info, "version", FIRM_VERSION);
+                cJSON_AddNumberToObject(info, "rssi", -56);
+                cJSON_AddStringToObject(info, "timeZone", "8");
+                req_method = "deviceRegister";
+            }
+            break;
+        case REFRESH_TOKEN_REQ:
+                req_method = "refreshDeviceToken";
+            break;
+        case UPLOAD_WEIGHT_DATA_REQ:
+                req_method = "uploadWeighData";
+                cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+                if(NULL != info){
+                    cJSON* user_weight = NULL;
+                    cJSON_AddStringToObject(info, "accountID", "12");
+                    cJSON_AddItemToObject(info,"data",data = cJSON_CreateArray());
+                    if(NULL != data){
+                        user_weight = cJSON_CreateObject();
+                        if(NULL != user_weight){
+                            cJSON_AddItemToObject(user_weight,"weigh_kg",cJSON_CreateNumber(56.4));
+                            cJSON_AddItemToObject(user_weight,"weigh_lb",cJSON_CreateNumber(56.4));
+                            cJSON_AddItemToObject(user_weight,"impedence",cJSON_CreateNumber(4.5));
+                            cJSON_AddItemToObject(user_weight,"weighTime",cJSON_CreateNumber(1542957831));
+                            cJSON_AddItemToObject(user_weight,"unit",cJSON_CreateString("1"));
+                            cJSON_AddItemToObject(user_weight,"timezone15m",cJSON_CreateString("8"));
+                        }
+                        cJSON_AddItemToArray(data, user_weight);
+                    }
+                }
+            break;
+        case UPGRADE_ADDR_REQ:
+                req_method = "getFirmAddr";
+                cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+                if(NULL != info){
+                    cJSON_AddStringToObject(info, "firmVersion", FIRM_VERSION);
+                    cJSON_AddStringToObject(info, "currentVersion", FIRM_VERSION);
+                }
+            break;
+        case REFRESH_DEVICE_ATTRIBUTE:
+                req_method = "updateDevInfo";
+                cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+                if(NULL != info){
+                    cJSON* version = NULL; 
+                    cJSON_AddStringToObject(info, "rssi", "-45");
+                    cJSON_AddItemToObject(info, "version", version = cJSON_CreateObject());
+                    if(NULL != version){
+                        cJSON_AddStringToObject(version, "firmVersion", FIRM_VERSION);
+                    }
+                }
+            break;
+        default:
+            break;
+    }
+    cJSON *report = vesync_json_add_method_head("1540170843000",req_method,info);
+    if(mask != REFRESH_TOKEN_REQ && mask != NETWORK_CONFIG_REQ){
+        cJSON_AddStringToObject(report, "token", token);
+    }
+    vesync_printf_cjson(report);
+    char* out = cJSON_PrintUnformatted(report);
+
+    // ret = vesync_https_client_request(req_method, report, recv_buff, &buff_len, 2 * 1000);
+    // if(buff_len > 0 && ret == 0){
+    //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+    // }
+
+    free(out);
+    cJSON_Delete(report);
+
+    cJSON_Delete(root);
+	return root;
+}
 /**
  * @brief
  * @param pvParameters
  */
 static void app_handle_server_task_handler(void *pvParameters){
+    BaseType_t notified_ret;
+	uint32_t notified_value;
+    
     while(1){
-        if(0 == vesync_wait_network_connected(3000)){
+        notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
 
+        if(notified_value & NETWORK_CONFIG_REQ){
+            LOG_I(TAG, "NETWORK_CONFIG_REQ");
+            vesync_json_add_https_req(NULL ,0,NETWORK_CONFIG_REQ);
+            // vesync_mqtt_client_connect_to_cloud();
+        }
+        if(notified_value & REFRESH_TOKEN_REQ){
+            vesync_json_add_https_req(NULL ,0,REFRESH_TOKEN_REQ);
+		}
+        if(notified_value & UPLOAD_WEIGHT_DATA_REQ){
+            vesync_json_add_https_req(NULL ,0,UPLOAD_WEIGHT_DATA_REQ);
+        }
+        if(notified_value & UPGRADE_ADDR_REQ){
+            vesync_json_add_https_req(NULL ,0,UPGRADE_ADDR_REQ);
+        }
+        if(notified_value & REFRESH_DEVICE_ATTRIBUTE){
+            vesync_json_add_https_req(NULL ,0,REFRESH_DEVICE_ATTRIBUTE);
         }
     }
     vTaskDelete(NULL);
@@ -385,5 +509,5 @@ static void app_handle_server_task_handler(void *pvParameters){
 void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
-    //xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, NULL);
+    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, &s_network_service_taskhd);
 }

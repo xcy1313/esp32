@@ -38,7 +38,7 @@ void vesync_user_entry(void *args)
 
 	if(vesync_flash_read_net_info(&net_info) == true){
 		app_handle_set_net_status(NET_CONFNET_OFFLINE);		//已配网但未连接上服务器
-		//vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+		vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
 	}else{
 		LOG_I(TAG, "first time use!!!!");
 		app_handle_set_net_status(NET_CONFNET_NOT_CON);	//第一次使用，未配网

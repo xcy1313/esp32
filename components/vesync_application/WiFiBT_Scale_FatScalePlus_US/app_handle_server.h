@@ -17,6 +17,12 @@
 
 #define PRODUCT_TEST_START  0x1
 
+//vesync事件处理中心任务的事件标志位定义，高8位用于存放自定义参数，即事件位共24位
+#define NETWORK_CONFIG_REQ				0x00000001
+#define REFRESH_TOKEN_REQ				0x00000002
+#define UPLOAD_WEIGHT_DATA_REQ			0x00000004
+#define UPGRADE_ADDR_REQ				0x00000008
+#define REFRESH_DEVICE_ATTRIBUTE		0x00000010
 /**
  * @brief 设备配网状态
  */
@@ -100,4 +106,9 @@ device_net_status_t app_handle_get_net_status(void);
  */
 void app_handle_set_net_status(device_net_status_t new_status);
 
+/**
+ * @brief 应用层网络服务通知
+ * @param bit 
+ */
+void app_handle_net_service_task_notify_bit(uint32_t bit);
 #endif
