@@ -94,9 +94,11 @@ int vesync_wait_network_disconnected(uint32_t	wait_time);
  * @return int 
  */
 int vesync_wait_network_connected(uint32_t	wait_time);
+
 /**
  * @brief 获取wifi状态
  * @return vesync_wifi_status_e 
  */
 vesync_wifi_status_e vesync_wifi_get_status(void);
+
 #endif
