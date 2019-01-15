@@ -15,5 +15,4 @@ uint16_t blufi_crc_checksum(uint8_t iv8, uint8_t *data, int len);
 int blufi_security_init(void);
 void blufi_security_deinit(void);
 
-
 #endif
