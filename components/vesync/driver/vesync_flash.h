@@ -14,9 +14,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "nvs.h"
 #include "vesync_bt_hal.h"
-
-#define NVS_DEFAULT_PARTITON_NAME           "nvs"   /*!< Default partition name of the NVS partition in the partition table */
 
 #define CONFIG_NAMESPACE "product"
 #define CONFIG_CID_HOLDER_KEY "config_holder"
