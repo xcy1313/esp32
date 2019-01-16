@@ -110,5 +110,5 @@ void app_handle_set_net_status(device_net_status_t new_status);
  * @brief 应用层网络服务通知
  * @param bit 
  */
-void app_handle_net_service_task_notify_bit(uint32_t bit);
+void app_handle_net_service_task_notify_bit(uint32_t bit ,void *data,uint16_t len);
 #endif

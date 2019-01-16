@@ -171,10 +171,7 @@ typedef struct{
 }response_hardstate_t;
 
 typedef struct{
-	union{
-		uint32_t para;
-		uint8_t  type[4];
-	}error;
+	uint8_t  type[4];
 }response_error_notice_t;
 
 //用户沉淀数据
@@ -192,6 +189,7 @@ typedef struct{
 typedef struct {
 	response_weight_data_t    response_weight_data;			
 	response_hardstate_t 	  response_hardstate;
+	response_error_notice_t   response_error_notice;
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
 }hw_info;

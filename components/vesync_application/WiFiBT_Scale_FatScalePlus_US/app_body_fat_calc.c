@@ -5,6 +5,8 @@
  * @date 2018-12-18
  */
 #include "app_body_fat_calc.h"
+#include "app_handle_server.h"
+
 #include "vesync_uart.h"
 #include "vesync_flash.h"
 #include "esp_log.h"
@@ -79,57 +81,67 @@ bool body_fat_para_if_null(response_weight_data_t *p_weitht)
  * @return true     
  * @return false 
  */
-bool body_fat_calc(bool bt_status,uint16_t mask ,hw_info *res,user_config_data_t *config,response_weight_data_t *p_weitht)
+static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_data_t *config,response_weight_data_t *p_weitht)
 {    
-    ESP_LOGI(TAG, "body_fat_calc bt:%d,weight[%d] gender[%d] height[%d] account[0x%04x]",bt_status,p_weitht->weight,config->gender,config->height,config->account);
-    user_fat_data_t  resp_fat_data ={0};
+    ESP_LOGI(TAG, "==============================");
+    ESP_LOGI(TAG, "account : 0x%04x", config->account);
+    ESP_LOGI(TAG, "gender : 0x%x", config->gender);
+    ESP_LOGI(TAG, "height_unit : 0x%x", config->height_unit);
+    ESP_LOGI(TAG, "height : 0x%x", config->height);
+    ESP_LOGI(TAG, "age : %d", config->age);
+    ESP_LOGI(TAG, "measu_unit : %d", config->measu_unit);
+    ESP_LOGI(TAG, "weight_kg : %d", config->weight_kg);
+    ESP_LOGI(TAG, "weight_lb : %d", config->weight_lb);
+    ESP_LOGI(TAG, "imped_value : %d", config->imped_value);
+    ESP_LOGI(TAG, "user_store_key : %s", config->user_store_key);
+    ESP_LOGI(TAG, "==============================");
 
     if(false == body_fat_para_if_null(p_weitht)) return false;
-    resp_fat_data.bmi = BMI(p_weitht->weight,config->height);
+    fat_data->bmi = BMI(p_weitht->weight,config->height);
 
     switch(config->gender){
         case 0: //男人
             if(mask & 0x0001){    //仅仅处理部分
                 if(config->user_mode == NORMAL_MODE){   //普通人模式
                     if(config->age >= 16){
-                        resp_fat_data.fat = FAT_HIGH_16_MAN(p_weitht->imped_value,config->age,resp_fat_data.bmi);
+                        fat_data->fat = FAT_HIGH_16_MAN(p_weitht->imped_value,config->age,fat_data->bmi);
                     }else{
-                        resp_fat_data.fat = FAT_LOW_16_MAN(p_weitht->imped_value,config->age,resp_fat_data.bmi);
+                        fat_data->fat = FAT_LOW_16_MAN(p_weitht->imped_value,config->age,fat_data->bmi);
                     }
                 }else{
                     if(config->age >= 16){
-                        resp_fat_data.fat = FAT_HIGH_16_SPORT_MAN(p_weitht->imped_value,p_weitht->weight,config->height);
+                        fat_data->fat = FAT_HIGH_16_SPORT_MAN(p_weitht->imped_value,p_weitht->weight,config->height);
                     }else{
-                        resp_fat_data.fat = FAT_LOW_16_MAN(p_weitht->imped_value,config->age,resp_fat_data.bmi);    //同普通人模式
+                        fat_data->fat = FAT_LOW_16_MAN(p_weitht->imped_value,config->age,fat_data->bmi);    //同普通人模式
                     }
                 }
             }
             if(mask & 0x0002){
-                resp_fat_data.muscle = MUSCLE(resp_fat_data.fat);
+                fat_data->muscle = MUSCLE(fat_data->fat);
             }
             if(mask & 0x0004){
                 if(config->user_mode == NORMAL_MODE){   //普通人模式
                     if(config->age >= 16){
-                        resp_fat_data.water = WATER_HIGH_16_MAN(p_weitht->imped_value,p_weitht->weight,config->height);
+                        fat_data->water = WATER_HIGH_16_MAN(p_weitht->imped_value,p_weitht->weight,config->height);
                     }else{
-                        resp_fat_data.water = WATER_LOW_16(resp_fat_data.fat);
+                        fat_data->water = WATER_LOW_16(fat_data->fat);
                     }
                 }else{
                     if(config->age >= 16){
-                        resp_fat_data.water = WATER_HIGH_16_SPORT_MAN(p_weitht->imped_value,p_weitht->weight,config->height);
+                        fat_data->water = WATER_HIGH_16_SPORT_MAN(p_weitht->imped_value,p_weitht->weight,config->height);
                     }else{
-                        resp_fat_data.water = WATER_LOW_16(resp_fat_data.fat);
+                        fat_data->water = WATER_LOW_16(fat_data->fat);
                     }
                 }
             }
             if(mask & 0x0008){
-                    resp_fat_data.bone = BONE_MAN(resp_fat_data.fat);
+                    fat_data->bone = BONE_MAN(fat_data->fat);
             }
             if(mask & 0x0010){
                 if(config->user_mode == NORMAL_MODE){   //普通人模式
-                    resp_fat_data.bmr = BMR_MAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
+                    fat_data->bmr = BMR_MAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
                 }else{
-                    resp_fat_data.bmr = BMR_SPORT_MAM(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
+                    fat_data->bmr = BMR_SPORT_MAM(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
                 }
             }
             break;
@@ -137,95 +149,79 @@ bool body_fat_calc(bool bt_status,uint16_t mask ,hw_info *res,user_config_data_t
             if(mask & 0x0001){
                 if(config->user_mode == NORMAL_MODE){   //普通人模式
                     if(config->age >= 16){
-                        resp_fat_data.fat = FAT_HIGH_16_WOMAN(p_weitht->imped_value,config->age,resp_fat_data.bmi);
+                        fat_data->fat = FAT_HIGH_16_WOMAN(p_weitht->imped_value,config->age,fat_data->bmi);
                     }else{
-                        resp_fat_data.fat = FAT_LOW_16_WOMAN(p_weitht->imped_value,config->age,resp_fat_data.bmi);
+                        fat_data->fat = FAT_LOW_16_WOMAN(p_weitht->imped_value,config->age,fat_data->bmi);
                     }
                 }else{
                     if(config->age >= 16){
-                        resp_fat_data.fat = FAT_HIGH_16_SPORT_WOMAN(p_weitht->imped_value,p_weitht->weight,config->height);
+                        fat_data->fat = FAT_HIGH_16_SPORT_WOMAN(p_weitht->imped_value,p_weitht->weight,config->height);
                     }else{
-                        resp_fat_data.fat = FAT_LOW_16_WOMAN(p_weitht->imped_value,config->age,resp_fat_data.bmi);    //同普通人模式
+                        fat_data->fat = FAT_LOW_16_WOMAN(p_weitht->imped_value,config->age,fat_data->bmi);    //同普通人模式
                     }
                 }
             }
             if(mask & 0x0002){
-                resp_fat_data.muscle = MUSCLE(resp_fat_data.fat);
+                fat_data->muscle = MUSCLE(fat_data->fat);
             }
             if(mask & 0x0004){
                 if(config->user_mode == NORMAL_MODE){   //普通人模式
                     if(config->age >= 16){
-                        resp_fat_data.water = WATER_HIGH_16_WOMAN(p_weitht->imped_value,p_weitht->weight,config->height);
+                        fat_data->water = WATER_HIGH_16_WOMAN(p_weitht->imped_value,p_weitht->weight,config->height);
                     }else{
-                        resp_fat_data.water = WATER_LOW_16(resp_fat_data.fat);
+                        fat_data->water = WATER_LOW_16(fat_data->fat);
                     }
                 }else{
                     if(config->age >= 16){
-                        resp_fat_data.water = WATER_HIGH_16_SPORT_WOMAN(p_weitht->imped_value,p_weitht->weight,config->height);
+                        fat_data->water = WATER_HIGH_16_SPORT_WOMAN(p_weitht->imped_value,p_weitht->weight,config->height);
                     }else{
-                        resp_fat_data.water = WATER_LOW_16(resp_fat_data.fat);
+                        fat_data->water = WATER_LOW_16(fat_data->fat);
                     }
                 }
             }
             if(mask & 0x0008){
-                resp_fat_data.bone = BONE_WOMAN(resp_fat_data.fat);
+                fat_data->bone = BONE_WOMAN(fat_data->fat);
             }
             if(mask & 0x0010){
                 if(config->user_mode == NORMAL_MODE){
-                    resp_fat_data.bmr = BMR_WOMAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
+                    fat_data->bmr = BMR_WOMAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
                 }else{
-                    resp_fat_data.bmr = BMR_SPORT_WOMAM(p_weitht->imped_value,config->age,p_weitht->weight,config->height); 
+                    fat_data->bmr = BMR_SPORT_WOMAM(p_weitht->imped_value,config->age,p_weitht->weight,config->height); 
                 }
             }
             break;
     }
 
-    if(resp_fat_data.fat < 40) 
-        resp_fat_data.fat =40;
-    else if(resp_fat_data.fat > 750) 
-        resp_fat_data.fat =750;
+    if(fat_data->fat < 40) 
+        fat_data->fat =40;
+    else if(fat_data->fat > 750) 
+        fat_data->fat =750;
 
-    if(resp_fat_data.muscle < 10)
-         resp_fat_data.muscle =10;
-    else if(resp_fat_data.muscle > 900) 
-        resp_fat_data.muscle =900;
+    if(fat_data->muscle < 10)
+         fat_data->muscle =10;
+    else if(fat_data->muscle > 900) 
+        fat_data->muscle =900;
 
-    if(resp_fat_data.water < 10)
-         resp_fat_data.water = 10;
-    else if(resp_fat_data.water > 300) 
-        resp_fat_data.water =300;
+    if(fat_data->water < 10)
+         fat_data->water = 10;
+    else if(fat_data->water > 300) 
+        fat_data->water =300;
 
-    if(resp_fat_data.bone< 10)
-         resp_fat_data.bone =10;
-    else if(resp_fat_data.bone > 300) 
-        resp_fat_data.bone =300;
+    if(fat_data->bone< 10)
+         fat_data->bone =10;
+    else if(fat_data->bone > 300) 
+        fat_data->bone =300;
 
-    if(resp_fat_data.bmr< 200)
-         resp_fat_data.bmr =200;
-    else if(resp_fat_data.bmr > 9000) 
-        resp_fat_data.bmr =9000;
+    if(fat_data->bmr< 200)
+         fat_data->bmr =200;
+    else if(fat_data->bmr > 9000) 
+        fat_data->bmr =9000;
 
-    if(resp_fat_data.bmi< 50)
-         resp_fat_data.bmi =50;
-    else if(resp_fat_data.bmi > 800) 
-        resp_fat_data.bmi =800;
+    if(fat_data->bmi< 50)
+         fat_data->bmi =50;
+    else if(fat_data->bmi > 800) 
+        fat_data->bmi =800;
 
-    if(false == bt_status){ //蓝牙断开 由固件下发体脂计算参数至称体;
-        uint8_t rmask =1;
-        uint8_t len =2;
-        for(uint8_t i=0;i<5;i++,len +=2){
-            rmask <<=1;
-            if(rmask == mask){
-                break;
-            }            
-        }
-        ESP_LOGI(TAG, "fat:%d,muscle:%d,water:%d,bone=%d,bmr=%d,bmi=%d\n" ,resp_fat_data.fat,resp_fat_data.muscle,resp_fat_data.water,
-                       resp_fat_data.bone,resp_fat_data.bmr,resp_fat_data.bmi);
-        memcpy((user_fat_data_t *)&res->user_fat_data,(user_fat_data_t *)&resp_fat_data,sizeof(user_fat_data_t));
-
-        resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
-        app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&resp_fat_data,len,true); 
-    }
     return true;
 }
 
@@ -239,85 +235,90 @@ bool body_fat_calc(bool bt_status,uint16_t mask ,hw_info *res,user_config_data_t
 bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weitht)
 {
     bool ret = false;
-    static uint16_t oweight = 0;
-    static uint16_t nweight = 0;
-    static uint16_t o_imped_value = 0;
-    static uint16_t n_imped_value = 0;
     static uint8_t o_crc8 =0;
     static uint8_t crc8 =0;
 
-    if(bt_status == true) return false;
     if((1 == p_weitht->if_stabil) && (p_weitht->imped_value !=0)){    //判断是否稳定体重;
         user_config_data_t user_list[MAX_CONUT] ={0};        
         uint16_t len =0;
-        
-        if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
-            ESP_LOGE(TAG, "user module NULL");
-            return false;
-        }
-        ESP_LOGI(TAG, "flash user count:%d" ,len/sizeof(user_config_data_t));
-        if(len == 0){                          //第一次使用
-            oweight = nweight;
-            nweight = (uint16_t)(p_weitht->weight);
+        o_crc8 = crc8;
+        crc8 = vesync_crc8(0,&p_weitht->weight,sizeof(response_weight_data_t));
 
-            o_imped_value = n_imped_value;
-            n_imped_value = p_weitht->imped_value;
-
-            ESP_LOGI(TAG, "unit is %d",p_weitht->measu_unit);
-            ESP_LOGI(TAG, "oweight=%d kg,nweight=%d kg ,o_imped_value=%d ohm,n_imped_value=%d ohm",oweight,nweight,o_imped_value,n_imped_value);
-
-            if(((abs(o_imped_value - n_imped_value) <= MAX_IMPED) &&
-                (abs(oweight - nweight) <= MAX_WEIGHT))||
-                ((oweight == 0) && (nweight !=0))){               
-                ret = true;
+        if(crc8 != o_crc8){                           //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
+            if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
+                ESP_LOGE(TAG, "user module NULL");
+                return false;
             }
-        }else{
-            uint16_t new_imped = 32;//p_weitht->imped_value; 调试屏蔽注释
-            uint16_t new_kg = 6165;//(uint16_t)(p_weitht->weight);调试屏蔽注释
-            uint8_t user_cnt =0;
-            uint8_t i=0;
+            ESP_LOGI(TAG, "valid weight kg[%d] imped_value[%d]",p_weitht->weight,p_weitht->imped_value);
+            if(len == 0){                           //第一次使用
+                static uint16_t oweight = 0;
+                static uint16_t nweight = 0;
+                static uint16_t o_imped_value = 0;
+                static uint16_t n_imped_value = 0;
 
-            for(;i<(len/sizeof(user_config_data_t));i++){
-                ESP_LOGI(TAG, "store flash user config account:[0x%04x],kg:[%d],imped:[%d]",user_list[i].account,user_list[i].weight_kg,user_list[i].imped_value);
-                if((abs(user_list[i].imped_value - new_imped) <= MAX_IMPED) &&          //前后两次阻抗小于30 ohm
-                    (abs(user_list[i].weight_kg - new_kg) <= MAX_WEIGHT)){              //前后两次体重小于3kg
-                    user_cnt++;
-                    break;
-                }
-            }
-            ESP_LOGI(TAG, "user_cnt =%d" ,user_cnt);
-            if(user_cnt !=0){
-                for(uint8_t k=0;k<user_cnt;k++){
-                    ESP_LOGI(TAG, "match user is [0x%04x]",user_list[i].account);         //定位当前账户 并推送至云端
-                }
-                if(bt_status == false){
-                    user_history_t history = {0};
-                    //history.account = user_list[i].account;
-                    history.imped_value = new_imped;
-                    history.utc_time = time((time_t *)NULL);
+                oweight = nweight;
+                nweight = (uint16_t)(p_weitht->weight);
 
-                    history.measu_unit = p_weitht->measu_unit;
-                    history.weight_kg = p_weitht->weight;
-                    history.weight_lb = p_weitht->lb;
-                    
-                    // ESP_LOGI(TAG, "account [0x%04x],imped_value[0x%02x],utc_time [0x%04x],unit [0x%x] ,kg [0x%02x],lb [0x02%x]",
-                    //     history.account,history.imped_value,history.utc_time,history.measu_unit,history.weight_kg,history.weight_lb);         //体脂参数计算正确
-                    
-                    if(body_fat_calc(bt_status,ALL_CALC,res,&user_list[i],p_weitht)){
-                        ret = true;
-                        ESP_LOGI(TAG, "fat calc success");         //体脂参数计算正确
-                    }
-                    o_crc8 = crc8;      
-                    crc8 = vesync_crc8(0,&p_weitht->weight,sizeof(response_weight_data_t));
-                    ESP_LOGE(TAG, "crc8 =%d,ocrc8 =%d",crc8,o_crc8);
-                    if(crc8 != o_crc8){                           //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
-                        vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t));
+                o_imped_value = n_imped_value;
+                n_imped_value = p_weitht->imped_value;
+
+                ESP_LOGI(TAG, "unit is %d",p_weitht->measu_unit);
+                ESP_LOGI(TAG, "oweight=%d kg,nweight=%d kg ,o_imped_value=%d ohm,n_imped_value=%d ohm",oweight,nweight,o_imped_value,n_imped_value);
+
+                if(((abs(o_imped_value - n_imped_value) <= MAX_IMPED) &&
+                    (abs(oweight - nweight) <= MAX_WEIGHT))||
+                    ((oweight == 0) && (nweight !=0))){               
+                    ret = true;
+                }
+            }else{
+                uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
+                uint16_t new_kg = (uint16_t)(p_weitht->weight);//调试屏蔽注释 85
+                uint8_t user_cnt =0;
+                uint8_t i=0;
+
+                ESP_LOGI(TAG, "flash user count:%d" ,len/sizeof(user_config_data_t));
+                for(;i<(len/sizeof(user_config_data_t));i++){
+                    ESP_LOGI(TAG, "store flash user config account:[0x%04x],kg:[%d],imped:[%d]",user_list[i].account,user_list[i].weight_kg,user_list[i].imped_value);
+                    if((abs(user_list[i].imped_value - new_imped) <= MAX_IMPED) &&          //前后两次阻抗小于30 ohm
+                        (abs(user_list[i].weight_kg - new_kg) <= MAX_WEIGHT)){              //前后两次体重小于3kg
+                        user_cnt++;
+                        break;
                     }
                 }
+                ESP_LOGI(TAG, "user_cnt =%d" ,user_cnt);
+
+                if(user_cnt !=0){
+                    if(bt_status == false){
+                        user_fat_data_t  resp_fat_data ={0};
+                        // ESP_LOGI(TAG, "account [0x%04x],imped_value[0x%02x],utc_time [0x%04x],unit [0x%x] ,kg [0x%02x],lb [0x02%x]",
+                        //     history.account,history.imped_value,history.utc_time,history.measu_unit,history.weight_kg,history.weight_lb);         //体脂参数计算正确
+                        if(body_fat_calc(&resp_fat_data,ALL_CALC,&user_list[i],p_weitht)){
+                            ESP_LOGI(TAG, "fat:%d,muscle:%d,water:%d,bone=%d,bmr=%d,bmi=%d\n" ,resp_fat_data.fat,resp_fat_data.muscle,resp_fat_data.water,
+                                        resp_fat_data.bone,resp_fat_data.bmr,resp_fat_data.bmi);
+                            memcpy((user_fat_data_t *)&res->user_fat_data,(user_fat_data_t *)&resp_fat_data,sizeof(user_fat_data_t));
+                            resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
+                            app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&resp_fat_data,sizeof(user_fat_data_t),true); 
+                            ret = true;
+                            ESP_LOGI(TAG, "flash store user success");         //体脂参数计算正确
+                        }
+                        if(app_handle_get_net_status() == NET_CONFNET_NOT_CON){ //设备未配网
+                            user_history_t history = {0};
+                            //history.account = user_list[i].account;
+                            history.imped_value = new_imped;
+                            history.utc_time = time((time_t *)NULL);
+                            history.measu_unit = p_weitht->measu_unit;
+                            history.weight_kg = p_weitht->weight;
+                            history.weight_lb = p_weitht->lb;
+                            vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t));
+                        }else{                                         //称重数据转储
+                            //app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ);
+                        }
+                    }
+                }else{
+                    ESP_LOGE(TAG, "flash store not match user");         //未匹配到用户
+                }
             }
         }
-    }else{
-        o_crc8 = crc8 = 0;  //防止相同的用户参数两次称重结果相同造成不写入
-    }    
+    }   
     return ret;
 }

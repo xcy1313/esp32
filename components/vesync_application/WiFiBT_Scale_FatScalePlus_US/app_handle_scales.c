@@ -88,7 +88,6 @@ void app_scales_power_off(void)
  */
 static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 {
-	esp_log_buffer_hex(TAG, data, len);
 	for(unsigned short i=0;i<len;i++){
 		uni_frame_t *frame = &uart_frame;
         if(1 == Comm_frame_parse(data[i],0,frame)){        
@@ -141,7 +140,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						resp_cnt =&cnt;
 						*(uint16_t *)&bt_command = CMD_REPORT_WEIGHT;
 						memcpy((uint8_t *)&res->response_weight_data.weight,opt,frame->frame_data_len-1);
-						printf("\r\n weight =%d ,lb = %d,if =0x%x ,unit =0x%x,imped =0x%04x\r\n",res->response_weight_data.weight,\
+						printf("\r\n weight =%d ,lb = %d,if =%x ,unit =%x,imped =%d\r\n",res->response_weight_data.weight,\
 																					res->response_weight_data.lb,\
 																					res->response_weight_data.if_stabil,\
 																					res->response_weight_data.measu_unit,\
@@ -169,9 +168,14 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 
 						cnt++;
 						if((npwer_status == 0) && (opwer_status == 1)){         //关机
+							LOG_I(TAG,"[-----------------------");
+							LOG_I(TAG, "scales power off!!!");
+							LOG_I(TAG,"------------------------]");
 							//app_scales_power_off();
 						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
+							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power on!!!");
+							LOG_I(TAG,"------------------------]");
 							//app_scales_power_on();
 						}
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
@@ -180,9 +184,17 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 					case CMD_HADRWARE_ERROR:{
 						static uint8_t cnt =0;
 						resp_cnt =&cnt;
+						res_ctl.data = 0;       //表示设备主动上传
 						*(uint16_t *)&bt_command = CMD_REPORT_ERRPR;
+						memcpy(res->response_error_notice.type,(uint8_t *)opt,sizeof(response_error_notice_t));
+						LOG_E(TAG,"------------------------");
+						LOG_E(TAG,"weight error [%d] ,",res->response_error_notice.type[0]);
+						LOG_E(TAG,"zero error [%d] ,",res->response_error_notice.type[1]);
+						LOG_E(TAG,"battery low error [%d] ,",res->response_error_notice.type[2]);
+						LOG_E(TAG,"imped error [%d] ,",res->response_error_notice.type[3]);
+						LOG_E(TAG,"------------------------");
+						vesync_bt_notify(res_ctl,resp_cnt,bt_command,res->response_error_notice.type ,sizeof(response_error_notice_t));  //透传控制码
 						cnt++;
-						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 					}
 					break;
 					default:
@@ -197,7 +209,8 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							resp_cnt =&cnt;
 							if(bmask_scale){
 								bmask_scale = false;
-								vesync_bt_notify(res_ctl,resp_cnt,CMD_SET_WEIGHT_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t));
+								*(uint16_t *)&bt_command = CMD_SET_WEIGHT_UNIT;
+								vesync_bt_notify(res_ctl,resp_cnt,bt_command,&info_str.user_config_data.measu_unit,sizeof(uint8_t));
 							}
 							cnt++;
 							resend_cmd_bit &= ~RESEND_CMD_MEASURE_UNIT_BIT;
@@ -337,11 +350,11 @@ static bool app_uart_resend_timer_start(void)
 
 static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 {
-	if(/*(info_str.response_hardstate.power == 0 ) && */(vesync_get_production_status() == PRODUCTION_EXIT)){
-		resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
-		return;
-	}
-    //ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
+	ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
+	// if(/*(info_str.response_hardstate.power == 0 ) && */(vesync_get_production_status() == PRODUCTION_EXIT)){
+	// 	resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
+	// 	return;
+	// }
 	if(vesync_get_production_status() == RPODUCTION_RUNNING){
 		if((resend_cmd_bit & RESEND_CMD_FACTORY_CHARGE_BIT) == RESEND_CMD_FACTORY_CHARGE_BIT){
 			app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);

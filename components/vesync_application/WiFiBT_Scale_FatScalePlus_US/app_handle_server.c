@@ -26,6 +26,14 @@ static char upgrade_url[100] = {'\0'};
 static char new_version[8] = {'\0'};
 factory_test_bit_t factory_test_bit = 0;
 
+#define HTTPS_QUEUE_LEN 300
+typedef struct{
+    uint16_t len;
+    uint8_t  buff[HTTPS_QUEUE_LEN];
+}https_send_frame_t;
+
+static xQueueHandle htttps_message_send_queue = NULL;
+
 static TaskHandle_t s_network_service_taskhd = NULL;
 
 static device_net_status_t device_net_status = NET_CONFNET_NOT_CON;		//设备配网状态，默认为离线状态
@@ -373,9 +381,15 @@ void app_handle_set_net_status(device_net_status_t new_status)
 /**
  * @brief 应用层网络服务通知
  */
-void app_handle_net_service_task_notify_bit(uint32_t bit)
+void app_handle_net_service_task_notify_bit(uint32_t bit ,void *data,uint16_t len)
 {
+    https_send_frame_t https_send_frame ={0};
+
+    https_send_frame.len = len;
+    memcpy((char *)https_send_frame.buff,(char *)data,len);
+
     //vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+    xQueueSend(htttps_message_send_queue,&https_send_frame,portTICK_PERIOD_MS);
     xTaskNotify(s_network_service_taskhd, bit, eSetBits);			//通知事件处理中心任务
 }
 
@@ -399,7 +413,7 @@ static void vesync_json_add_https_req(void *data ,uint16_t len,uint32_t mask)
                 char mac[6 * 3];
                 vesync_get_wifi_sta_mac_string(mac);
                 cJSON_AddStringToObject(info, "configKey", "123456");
-                cJSON_AddStringToObject(info, "accountID", "12");
+                cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
                 cJSON_AddStringToObject(info, "mac", mac);
                 cJSON_AddStringToObject(info, "version", FIRM_VERSION);
                 cJSON_AddNumberToObject(info, "rssi", -56);
@@ -415,7 +429,7 @@ static void vesync_json_add_https_req(void *data ,uint16_t len,uint32_t mask)
                 cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
                 if(NULL != info){
                     cJSON* user_weight = NULL;
-                    cJSON_AddStringToObject(info, "accountID", "12");
+                    cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
                     cJSON_AddItemToObject(info,"data",data = cJSON_CreateArray());
                     if(NULL != data){
                         user_weight = cJSON_CreateObject();
@@ -461,10 +475,15 @@ static void vesync_json_add_https_req(void *data ,uint16_t len,uint32_t mask)
     vesync_printf_cjson(report);
     char* out = cJSON_PrintUnformatted(report);
 
-    // ret = vesync_https_client_request(req_method, report, recv_buff, &buff_len, 2 * 1000);
-    // if(buff_len > 0 && ret == 0){
-    //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-    // }
+    strcpy((char *)net_info.station_config.server_url,"test-online.vesync.com");
+    LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
+    LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
+
+    vesync_set_https_server_address((char *)net_info.station_config.server_url);
+    ret = vesync_https_client_request(req_method, report, recv_buff, &buff_len, 2 * 1000);
+    if(buff_len > 0 && ret == 0){
+        LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+    }
 
     free(out);
     cJSON_Delete(report);
@@ -479,35 +498,52 @@ static void vesync_json_add_https_req(void *data ,uint16_t len,uint32_t mask)
 static void app_handle_server_task_handler(void *pvParameters){
     BaseType_t notified_ret;
 	uint32_t notified_value;
-    
+    https_send_frame_t send_frame ={0};
+
     while(1){
         notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
-
+        LOG_I(TAG, "app_handle_server_task_handler 0x%08x", notified_ret);
+        if(htttps_message_send_queue !=0){
+            if(xQueueReceive(htttps_message_send_queue, &send_frame, portMAX_DELAY)) {
+                esp_log_buffer_hex(TAG,send_frame.buff,send_frame.len);
+            }
+        }
         if(notified_value & NETWORK_CONFIG_REQ){
-            LOG_I(TAG, "NETWORK_CONFIG_REQ");
-            vesync_json_add_https_req(NULL ,0,NETWORK_CONFIG_REQ);
+            vesync_json_add_https_req(send_frame.buff ,send_frame.len,NETWORK_CONFIG_REQ);
             // vesync_mqtt_client_connect_to_cloud();
         }
         if(notified_value & REFRESH_TOKEN_REQ){
-            vesync_json_add_https_req(NULL ,0,REFRESH_TOKEN_REQ);
+            vesync_json_add_https_req(send_frame.buff ,send_frame.len,REFRESH_TOKEN_REQ);
 		}
         if(notified_value & UPLOAD_WEIGHT_DATA_REQ){
-            vesync_json_add_https_req(NULL ,0,UPLOAD_WEIGHT_DATA_REQ);
+            vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPLOAD_WEIGHT_DATA_REQ);
         }
         if(notified_value & UPGRADE_ADDR_REQ){
-            vesync_json_add_https_req(NULL ,0,UPGRADE_ADDR_REQ);
+            vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPGRADE_ADDR_REQ);
         }
         if(notified_value & REFRESH_DEVICE_ATTRIBUTE){
-            vesync_json_add_https_req(NULL ,0,REFRESH_DEVICE_ATTRIBUTE);
+            vesync_json_add_https_req(send_frame.buff ,send_frame.len,REFRESH_DEVICE_ATTRIBUTE);
         }
     }
     vTaskDelete(NULL);
 }
+/**
+ * @brief 创建https数据发送队列
+ */
+static void app_handle_https_message_queue_create(void)
+{
+    htttps_message_send_queue = xQueueCreate(HTTPS_QUEUE_LEN, sizeof(https_send_frame_t));
+    if(htttps_message_send_queue == 0){
+        ESP_LOGE(TAG, "create https message fail!");
+    }
+}
+
 /**
  * @brief app端创建通知任务
  */
 void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
+    app_handle_https_message_queue_create();
     xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, &s_network_service_taskhd);
 }

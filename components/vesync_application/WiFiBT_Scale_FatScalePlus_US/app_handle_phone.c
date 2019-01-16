@@ -232,7 +232,7 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
         //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
         // }
         vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-        app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
+        //app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
         vesync_prase_upgrade_url((char *)opt);
         ret = true;
     }
@@ -556,23 +556,23 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
             break;
     }
 #else
-    switch(data_buf[0]){
-        case 1:
-            app_handle_net_service_task_notify_bit(NETWORK_CONFIG_REQ);
-            break;
-        case 2:
-            app_handle_net_service_task_notify_bit(REFRESH_TOKEN_REQ);
-            break;
-        case 3:
-            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ);
-            break;
-        case 4:
-            app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
-            break;
-        case 5:
-            app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE);
-            break;
-    }    
+    // switch(data_buf[0]){
+    //     case 1:
+    //         app_handle_net_service_task_notify_bit(NETWORK_CONFIG_REQ);
+    //         break;
+    //     case 2:
+    //         app_handle_net_service_task_notify_bit(REFRESH_TOKEN_REQ);
+    //         break;
+    //     case 3:
+    //         app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ);
+    //         break;
+    //     case 4:
+    //         app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
+    //         break;
+    //     case 5:
+    //         app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE);
+    //         break;
+    // }    
     for(unsigned char i=0;i<length;++i){
         if(bt_data_frame_decode(data_buf[i],0,&bt_prase) == 1){
             frame_ctrl_t res_ctl ={     //应答包res状态  
@@ -628,8 +628,7 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                         }
                         break;
                     case CMD_DELETE_ACCOUNT:{
-                            uint8_t action = opt;
-                            if(vesync_delete_account(&action)){
+                            if(vesync_delete_account(opt)){
                                 ESP_LOGI(TAG, "CMD_DELETE_ACCOUNT");
                             }else{
                                 resp_strl.buf[0] = 1;   //具体产品对应的错误码
@@ -646,7 +645,6 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                                 if(len != 0){
                                     *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id
                                     *(uint16_t *)&resp_strl.buf[4] = len;               //总长度
-
                                     ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY");
                                 }else{
                                     *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id

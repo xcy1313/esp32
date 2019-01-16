@@ -361,7 +361,7 @@ uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const unsig
     if(vesync_get_bt_status() != BT_CONNTED)    return 1;
     sendlen = bt_data_frame_encode(ctl,cnt,cmd,notify_data,len,sendbuf);
 
-    //esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
+    esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
     ret = esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
                                         (uint16_t)sendlen, (uint8_t *)sendbuf, false);
 
