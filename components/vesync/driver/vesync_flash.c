@@ -20,17 +20,44 @@ static const char *TAG = "vesync_FLASH";
  * @param label_name 
  * @param key_name 
  */
-void vesync_flash_erase(const char *label_name,const char *key_name)
+void vesync_flash_erase_all_key(const char *label_name,const char *key_name)
 {
     esp_err_t err =0;
     nvs_handle fp;
 
     err = nvs_open_from_partition(label_name,key_name, NVS_READWRITE, &fp);
-    ESP_LOGI(TAG, "NVS read err:%d",err);
-    ESP_ERROR_CHECK(err);
-    ESP_ERROR_CHECK(nvs_erase_all(fp));
-
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS open partition err:%d",err);
+    }
+    err = nvs_erase_all(fp);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS erase key err:%d",err);
+    }
     nvs_close(fp);
+}
+
+/**
+ * @brief 使用给定的名称擦除键值对。
+ * @param label_name 
+ * @param key_name 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_erase_key(const char *label_name,const char *key_name)
+{
+    esp_err_t err =0;
+    nvs_handle fp;
+
+    err = nvs_open_from_partition(label_name,key_name, NVS_READWRITE, &fp);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS open partition err:%d",err);
+    }
+    err = nvs_erase_key(fp,key_name);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS erase key err:%d",err);
+    }
+    nvs_close(fp);
+
+    return err;
 }
 /**
  * @brief 
