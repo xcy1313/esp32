@@ -16,11 +16,22 @@ static const char *TAG = "vesync_FLASH";
 #define CONFIG_FILE_MAX_SIZE             (4096)//1.5k
 
 /**
+ * @brief 擦除对应分区的所有数据内容
+ * @param part_name 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_erase_partiton(const char *part_name)
+{
+    esp_err_t err = nvs_flash_erase_partition(part_name);
+
+    return  err;
+}
+/**
  * @brief 擦除当前key_name对应的flash区域
  * @param label_name 
  * @param key_name 
  */
-void vesync_flash_erase_all_key(const char *label_name,const char *key_name)
+uint32_t vesync_flash_erase_all_key(const char *label_name,const char *key_name)
 {
     esp_err_t err =0;
     nvs_handle fp;
@@ -34,6 +45,8 @@ void vesync_flash_erase_all_key(const char *label_name,const char *key_name)
         ESP_LOGE(TAG, "NVS erase key err:%d",err);
     }
     nvs_close(fp);
+
+    return err;
 }
 
 /**

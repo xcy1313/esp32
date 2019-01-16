@@ -16,6 +16,8 @@
 
 #include "vesync_bt_hal.h"
 
+#define NVS_DEFAULT_PARTITON_NAME           "nvs"   /*!< Default partition name of the NVS partition in the partition table */
+
 #define CONFIG_NAMESPACE "product"
 #define CONFIG_CID_HOLDER_KEY "config_holder"
 #define CONFIG_CID_CID_KEY "config_cid"
@@ -36,6 +38,12 @@
 #define INFO_DNS_KEY "vesync_dns"
 
 /**
+ * @brief 擦除对应分区的所有数据内容
+ * @param part_name 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_erase_partiton(const char *part_name);
+/**
  * @brief 使用给定的名称擦除键值对
  * @param label_name 
  * @param key_name 
@@ -44,11 +52,11 @@
 uint32_t vesync_flash_erase_key(const char *label_name,const char *key_name);
 
 /**
- * @brief 擦除当前label_name区域对应的key_name存储内容
+ * @brief 擦除当前label_name区域对应的所有key_name存储内容
  * @param label_name 
  * @param key_name 
  */
-void vesync_flash_erase(const char *label_name,const char *key_name);
+uint32_t vesync_flash_erase_all_key(const char *label_name,const char *key_name);
 
 /**
  * @brief 写入当前所在key_name的存储内容
