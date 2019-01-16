@@ -189,21 +189,25 @@ uint32_t vesync_flash_read(const char *label_name,const char *key_name,const voi
 
     err = nvs_open_from_partition(label_name,key_name, NVS_READONLY, &fp);
     if(err != ESP_OK){
-        ESP_LOGI(TAG, "NVS read err:%d",err);
+        ESP_LOGE(TAG, "vesync flash fine partion err:0x%04x",err);
         return err;
     }
 
-    err = nvs_get_blob(fp, key_name, NULL, &required_size);     //获取当前键值对存储的数据总长度 
-    ESP_ERROR_CHECK(err);
-
-    ESP_LOGI(TAG, "vesync flash read len %s,%s,%d",label_name,key_name,required_size);
-
+    err = nvs_get_blob(fp, key_name, NULL, &required_size);     //获取当前键值对存储的数据长度 
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "vesync flash read size err:0x%04x",err);
+        return err;
+    }
+    ESP_LOGI(TAG, "vesync flash read data %s,%s,%d",label_name,key_name,required_size);
     if(required_size == 0){      
         *len = 0;
     }else{
-        *len = required_size;
         err = nvs_get_blob(fp, key_name, (char *)data, &required_size); //获取当前键值对存储的数据内容
-        ESP_ERROR_CHECK(err);
+        if(err != ESP_OK){
+            ESP_LOGE(TAG, "vesync flash read data err:0x%04x",err);
+            return err;
+        }
+        *len = required_size;
     }
     
     nvs_close(fp);
@@ -643,7 +647,3 @@ void vesync_flash_config(bool enable ,const char *part_name)
 	}
     ESP_ERROR_CHECK( ret );
 }
-
-
-
-

@@ -38,7 +38,7 @@
 #define INFO_DNS_KEY "vesync_dns"
 
 /**
- * @brief 擦除对应分区的所有数据内容
+ * @brief 
  * @param part_name 
  * @return uint32_t 
  */

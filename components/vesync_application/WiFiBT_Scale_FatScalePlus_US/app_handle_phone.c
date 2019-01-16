@@ -347,7 +347,7 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                             }
                             memcpy((user_config_data_t *)&p_buf[i],(user_config_data_t *)&user_list[j],sizeof(user_config_data_t));
                         }
-                        vesync_flash_erase(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
+                        vesync_flash_erase_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
                         if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&p_buf[0].action,nlen*sizeof(user_config_data_t))){   //按4字节整数倍保存用户信息
                             ESP_LOGI(TAG, "store user re-flash ok!");
                             ret = true;
@@ -356,7 +356,7 @@ bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                         }
                         free(p_buf);
                     }else{
-                        vesync_flash_erase(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
+                        vesync_flash_erase_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
                         ESP_LOGI(TAG, "user account just one!");
                     }
                     ESP_LOGI(TAG, "delete user account config!");
@@ -442,8 +442,9 @@ static bool vesync_delete_account(uint8_t *opt)
 {
     bool ret = false;
     if(opt[0] == 1){    //为1表示删除所有用户模型信息
-        vesync_flash_erase(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
-        ret = true;
+        if(0 ==vesync_flash_erase_partiton(USER_MODEL_NAMESPACE)){
+            ret = true;
+        }
     }
     return ret;
 }
