@@ -34,6 +34,15 @@
 #define INFO_static_IP_KEY  "vesync_ip"
 #define INFO_gateWay_KEY  "vesync_gate_way"
 #define INFO_DNS_KEY "vesync_dns"
+
+/**
+ * @brief 使用给定的名称擦除键值对
+ * @param label_name 
+ * @param key_name 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_erase_key(const char *label_name,const char *key_name);
+
 /**
  * @brief 擦除当前label_name区域对应的key_name存储内容
  * @param label_name 
