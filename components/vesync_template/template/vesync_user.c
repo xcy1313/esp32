@@ -17,6 +17,7 @@
 #include "vesync_flash.h"
 #include "vesync_interface.h"
 #include "vesync_ota.h"
+#include "vesync_build_cfg.h"
 
 static const char* TAG = "vesync_user";
 
@@ -95,7 +96,7 @@ static void ota_event_handler(vesync_ota_status_t status)
 void vesync_user_entry(void *args)
 {
     LOG_I(TAG, "Application layer start !");
-    LOG_E(TAG, "Application layer start 10");
+    LOG_E(TAG, "Application layer start version with[%s]",FIRM_VERSION);
     vesync_client_connect_wifi("R6100-2.4G", "12345678");	// wifi driver初始化，否则无法获取mac地址
 
     //vesync_bt_client_init("vesync_esp32",1,1,0,NULL,true,NULL,NULL);

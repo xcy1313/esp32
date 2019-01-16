@@ -23,9 +23,6 @@
 
 #define QUEUE_LEN                   100
 
-// #define DEVICE_TYPE     "1"
-// #define FIRM_VERSION    "2"
-
 #define vesync_blufi_rev_custom_data_evt    0x1
 #define vesync_ble_rev_data_evt      0x2
 
@@ -169,6 +166,12 @@ void vesync_hal_bt_client_deinit(void);
  */
 int32_t vesync_bt_client_init(char *adver_name,uint8_t version,uint8_t product_type,uint8_t product_num,uint8_t *custom,bool enable_blufi,
                                     vesync_bt_status_cb_t bt_status_cb, bt_recv_cb_t cb);
+
+/**
+ * @brief 主动断开蓝牙连接
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_disconnect(void);
 
 /**
  * @brief 开启蓝牙广播，timeout为0表示一直广播

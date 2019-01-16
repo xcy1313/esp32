@@ -232,7 +232,9 @@ cJSON* vesync_json_add_method_head(char *trace_id,char *method,cJSON *body)
 		cJSON_AddStringToObject(root, "method", method);
 		cJSON_AddStringToObject(root, "pid", DEV_PID);
 		cJSON_AddStringToObject(root, "cid", (const char*)(product_config.cid));
-		cJSON_AddItemReferenceToObject(root, body->string, body);
+		if(NULL != body){
+			cJSON_AddItemReferenceToObject(root, body->string, body);
+		}
 	}
 
 	return root;

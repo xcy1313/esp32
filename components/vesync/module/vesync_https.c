@@ -35,18 +35,7 @@
 #define WEB_URL "https://www.howsmyssl.com/a/check"
 
 static const char *TAG = "vesync_https";
-
-static const char *REQUEST = "POST " "%s" " HTTP/1.0\r\n"
-                             "Host: %s \r\n"
-                             "User-Agent: esp-idf esp8266\r\n"
-                             "\r\n"
-                             "%s";
-
-static mbedtls_entropy_context 	s_entropy;
-static mbedtls_ctr_drbg_context s_ctr_drbg;
 static mbedtls_ssl_context 		s_ssl_context;
-static mbedtls_x509_crt 		s_cacert;
-static mbedtls_ssl_config 		s_ssl_conf;
 static mbedtls_net_context 		s_server_fd;
 
 /**
@@ -56,6 +45,10 @@ static mbedtls_net_context 		s_server_fd;
 int vesync_init_https_module(const char * ca_cert)
 {
     int ret;
+    mbedtls_entropy_context 	s_entropy;
+    mbedtls_ctr_drbg_context    s_ctr_drbg;
+    mbedtls_x509_crt 		    s_cacert;
+    mbedtls_ssl_config 		    s_ssl_conf;
 
     mbedtls_ssl_init(&s_ssl_context);
     mbedtls_x509_crt_init(&s_cacert);
@@ -132,6 +125,12 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
 {
     char https_buffer[1024];
     int ret, flags, len;
+
+    char *REQUEST = "POST " "%s" " HTTP/1.0\r\n"
+                             "Host: %s \r\n"
+                             "User-Agent: esp-idf esp8266\r\n"
+                             "\r\n"
+                             "%s";
 
     LOG_D(TAG, "Waiting for network connected...");
     if(vesync_wait_network_connected(wait_time_ms) != 0)

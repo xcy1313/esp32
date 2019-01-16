@@ -11,12 +11,12 @@
 //固件开启开发者模式， 方便固件调试，不受配网影响，产品发布时关闭。
 //#define TCP_DEBUG_ENABLE
 
-#define TCP_AES_ENABLE
+#define xTCP_AES_ENABLE
 
 //==========实际应用项目的相关配置==========
 //设备类型名称定义
 #define DEVICE_TYPE						"InWallSwitch-3CH"
-#define FIRM_VERSION					"1.1.05"
+#define FIRM_VERSION					"1.1.00"
 
 //产品PID
 #define DEV_PID							"t5932z1opbw289dg"
