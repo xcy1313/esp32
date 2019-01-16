@@ -24,7 +24,7 @@
 #define ICSET_SOFT_RESET                0x6A        //软件复位指令
 #define ICSET_INTERNAL_OSC              0x68        //使能内部时钟
 #define MODESET_DIS_OFF                 0x40        //关闭显示指令
-#define MODESET_DIS_ON                  0x48        //开启显示指令
+#define MODESET_DIS_ON                  0x4C        //开启显示指令
 #define ADSET_ZERO                      0x00        //设置显示地址
 #define DISCTL_FR_FRAME_NORMAL          0x2F        //设置显示控制，Power save mode FR=3，Frame inversion，Power save mode SR=Normal mode
 #define BLKCTL_DO_NOT_BLINK             0x70        //不闪烁
@@ -32,7 +32,12 @@
 #define APCTL_ALL_PIXELS_ON             0x7E        //全部像素点亮
 #define APCTL_ALL_PIXELS_OFF            0x7D        //全部像素关闭
 
+#define DISPLAY_RAM_SIZE                6
+
 static const char *TAG = "BU9796A";
+
+static uint8_t display_ram[DISPLAY_RAM_SIZE] = {0}; //屏幕显示缓存
+static unsigned char code_distab[10] = {0x5f, 0x06, 0x3d, 0x2f, 0x66, 0x6b, 0x7b, 0x0e, 0x7f, 0x6f};
 
 /**
  * @brief 开启背光
@@ -123,7 +128,7 @@ int32_t bu9796a_ram_write_sequence(uint8_t *data, uint8_t len)
     i2cData[3] = APCTL_NORMAL | NEXT_IS_COMMAND;            //全部像素正常显示
     i2cData[4] = MODESET_DIS_ON | NEXT_IS_COMMAND;          //开启显示
     i2cData[5] = ADSET_ZERO & NEXT_IS_DATA;                 //设置初始地址
-    if(len < 12)
+    if(len <= DISPLAY_RAM_SIZE)
     {
         memcpy(&(i2cData[6]), (const void*)data, len);
         error = i2c_master_write_slave(BU9796A_IIC_PORT, SLAVE_ADDRESS, i2cData, 6 + len); //写入以上指令及数据
@@ -171,4 +176,23 @@ int32_t bu9796a_display_all_pixels_on(void)
     bu9796a_backlight_on();                                 //开启背光
 
     return error;
+}
+
+/**
+ * @brief 屏幕显示数字，写到显示内存
+ * @param num_pos   [数字位置，0-4]
+ * @param number    [待显示的数字,0-9]
+ */
+void bu9796a_display_number_to_ram(uint8_t num_pos, uint8_t number)
+{
+    if(number < 10)
+        display_ram[num_pos] = code_distab[number];
+}
+
+/**
+ * @brief 刷新显示
+ */
+void bu9796a_update_display(void)
+{
+    bu9796a_ram_write_sequence(display_ram, DISPLAY_RAM_SIZE);
 }

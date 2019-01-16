@@ -46,4 +46,16 @@ int32_t bu9796a_display_off_sequence(void);
  */
 int32_t bu9796a_display_all_pixels_on(void);
 
+/**
+ * @brief 屏幕显示数字，写到显示内存
+ * @param num_pos   [数字位置，0-4]
+ * @param number    [待显示的数字，0-9]
+ */
+void bu9796a_display_number_to_ram(uint8_t num_pos, uint8_t number);
+
+/**
+ * @brief 刷新显示
+ */
+void bu9796a_update_display(void);
+
 #endif

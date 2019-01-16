@@ -15,11 +15,11 @@
 
 //==========实际应用项目的相关配置==========
 //设备类型名称定义
-#define DEVICE_TYPE						"InWallSwitch-3CH"
-#define FIRM_VERSION					"1.1.05"
+#define DEVICE_TYPE						"WiFiBT_Hygrometer_SmartHygrometer_US"
+#define FIRM_VERSION					"0.0.01"
 
 //产品PID
-#define DEV_PID							"t5932z1opbw289dg"
+#define DEV_PID							"2b9lja6xd0yd40jc"
 
 //产品authkey
 #define DEV_AUTHKEY						"ww6zvzwtaa6hqjl991g0w1obkeo0sd44"

@@ -10,6 +10,30 @@
 
 #define SHT30_IIC_PORT          0       //SHT30传感器所接的IIC总线端口
 
+#define SHT30_POLYNOMIAL        0x131 // P(x) = x^8 + x^5 + x^4 + 1 = 100110001
+// ID register mask (bits 0...5 are SHT30-specific product code
+#define SHT30_PRODUCT_ID_MASK	0x003F // SHT30-product ID = xxxx'xxxx'xx00'0111 (where x=unspecific information)
+
+// Sensor Commands
+typedef enum
+{
+    eSht30SoftReset = 0x30A2, // soft reset
+    eSht30MeasureTHSingleShotHighRepClockstr = 0x2C06, // meas. read T first, clock stretching disabled, high repeatibility
+    eSht30MeasureTHSingleShotMedRepClockstr = 0x2C0D, // meas. read T first, clock stretching disabled, high repeatibility
+    eSht30MeasureTHSingleShotLowRepClockstr = 0x2C10, // meas. read T first, clock stretching disabled, high repeatibility
+    eSht30MeasureTHSingleShotHighRep = 0x2400, // meas. read T first, clock stretching disabled, high repeatibility
+    eSht30MeasureTHSingleShotMedRep = 0x240B, // meas. read T first, clock stretching disabled, high repeatibility
+    eSht30MeasureTHSingleShotLowRep = 0x2416, // meas. read T first, clock stretching disabled, high repeatibility
+} eSht30Commands_t;
+
+// I2C address
+typedef enum
+{
+    eSht30I2CAddress = 0x44, // sensor I2C address (7-bit)
+    eSht30I2cAddressAndWriteBit = 0x88, // sensor I2C address + write bit
+    eSht30I2cAddressAndReadBit = 0x89 // sensor I2C address + read bit
+} eSht30I2cAddress_t;
+
 /**
  * @brief 计算温度值
  * @param raw_value [传感器原始值]
