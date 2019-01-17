@@ -50,7 +50,6 @@ void vesync_user_entry(void *args)
 	app_ble_init();
 	app_uart_start();
 	app_scales_start();
-
 	app_hadle_server_create();
 	
 	vTaskDelete(NULL);

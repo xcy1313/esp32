@@ -122,11 +122,13 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						LOG_I(TAG, "weight %d,imped %d,time %s",weight,imped,vesync_get_time());
 						if(vesync_get_production_status() == RPODUCTION_RUNNING){
 							if((factory_test_bit & FACTORY_TEST_SYNC_WEIGHT_BIT) == FACTORY_TEST_SYNC_WEIGHT_BIT){
-								app_handle_production_report_weight(vesync_get_time(),weight,imped);
-								factory_test_bit &= ~FACTORY_TEST_SYNC_WEIGHT_BIT;
+								if(weight > 500){		//5kg
+									app_handle_production_report_weight(vesync_get_time(),weight,imped);
+									factory_test_bit &= ~FACTORY_TEST_SYNC_WEIGHT_BIT;
+									resend_cmd_bit &= ~RESEND_CMD_FACTORY_WEIGHT_BIT;
+								}
 							}
 						}
-						resend_cmd_bit &= ~RESEND_CMD_FACTORY_WEIGHT_BIT;
 					}
 					return;
 				case CMD_FACTORY_SYNC_STOP:
@@ -171,7 +173,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power off!!!");
 							LOG_I(TAG,"------------------------]");
-							//app_scales_power_off();
+							app_scales_power_off();
 						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power on!!!");
@@ -300,14 +302,15 @@ void app_button_event_handler(void *p_event_data){
 					lchecktime = xTaskGetTickCount();	//记录当前记录的时间
 					LOG_I(TAG, "lchecktime[%d]\r\n" ,lchecktime);
 					if(abs(lchecktime-nchecktime) < 250){
+						uint8_t mac_addr[6];
 						enter_factory_mode_cnt =0;
 						ESP_LOGE(TAG, "enter factory mode");
-						vesync_regist_recvjson_cb(vesync_recv_json_data);
-						vesync_enter_production_testmode(NULL);
-						uint8_t mac_addr[6];
-						esp_wifi_get_mac(ESP_MAC_WIFI_STA, mac_addr);
 						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 						resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
+
+						vesync_regist_recvjson_cb(vesync_recv_json_data);
+						vesync_enter_production_testmode(NULL);
+						esp_wifi_get_mac(ESP_MAC_WIFI_STA, mac_addr);
 						app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,mac_addr,sizeof(mac_addr),true);
 					}
 				}

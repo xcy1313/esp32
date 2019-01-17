@@ -32,7 +32,7 @@ typedef struct{
     uint8_t  buff[HTTPS_QUEUE_LEN];
 }https_send_frame_t;
 
-static xQueueHandle htttps_message_send_queue = NULL;
+static xQueueHandle https_message_send_queue = NULL;
 
 static TaskHandle_t s_network_service_taskhd = NULL;
 
@@ -389,11 +389,11 @@ void app_handle_net_service_task_notify_bit(uint32_t bit ,void *data,uint16_t le
     memcpy((char *)https_send_frame.buff,(char *)data,len);
 
     //vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-    xQueueSend(htttps_message_send_queue,&https_send_frame,portTICK_PERIOD_MS);
+    xQueueSend(https_message_send_queue,&https_send_frame,portTICK_PERIOD_MS);
     xTaskNotify(s_network_service_taskhd, bit, eSetBits);			//通知事件处理中心任务
 }
 
-static void vesync_json_add_https_req(void *data ,uint16_t len,uint32_t mask)
+static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
 {
     cJSON *root = cJSON_CreateObject();
     char *req_method = NULL;
@@ -429,6 +429,7 @@ static void vesync_json_add_https_req(void *data ,uint16_t len,uint32_t mask)
                 cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
                 if(NULL != info){
                     cJSON* user_weight = NULL;
+                    cJSON* data = NULL;
                     cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
                     cJSON_AddItemToObject(info,"data",data = cJSON_CreateArray());
                     if(NULL != data){
@@ -503,8 +504,8 @@ static void app_handle_server_task_handler(void *pvParameters){
     while(1){
         notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
         LOG_I(TAG, "app_handle_server_task_handler 0x%08x", notified_ret);
-        if(htttps_message_send_queue !=0){
-            if(xQueueReceive(htttps_message_send_queue, &send_frame, portMAX_DELAY)) {
+        if(https_message_send_queue !=0){
+            if(xQueueReceive(https_message_send_queue, &send_frame, portMAX_DELAY)) {
                 esp_log_buffer_hex(TAG,send_frame.buff,send_frame.len);
             }
         }
@@ -532,8 +533,8 @@ static void app_handle_server_task_handler(void *pvParameters){
  */
 static void app_handle_https_message_queue_create(void)
 {
-    htttps_message_send_queue = xQueueCreate(HTTPS_QUEUE_LEN, sizeof(https_send_frame_t));
-    if(htttps_message_send_queue == 0){
+    https_message_send_queue = xQueueCreate(HTTPS_QUEUE_LEN, sizeof(https_send_frame_t));
+    if(https_message_send_queue == 0){
         ESP_LOGE(TAG, "create https message fail!");
     }
 }
@@ -545,5 +546,5 @@ void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
     app_handle_https_message_queue_create();
-    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 13, &s_network_service_taskhd);
+    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 2048, NULL, 10, &s_network_service_taskhd);
 }

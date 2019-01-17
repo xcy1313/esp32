@@ -12,6 +12,13 @@
 #include "etekcity_comm.h"
 #include <stdint.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_event_loop.h"
+
+#define READY_READ_FLASH   BIT0
+
 #define APP_ADVERTISE_TIMEOUT   0
 /**
  * @brief 定义与app交互命令集

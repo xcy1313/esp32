@@ -28,6 +28,7 @@ static bt_frame_t  bt_prase ={0};
 
 static void app_ble_start(void);
 
+static EventGroupHandle_t ble_event_group;
 /**
  * @brief 应答app升级状态
  * @param trace_id 
@@ -39,8 +40,8 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
                 .data = 0x10,
             };
     struct{                     //应答数据包
-        uint8_t buf[200];
-        uint8_t len;
+        uint8_t buf[300];
+        uint16_t len;
     }resp_strl ={{0},0};         
     static uint8_t cnt = 0;
     uint16_t upgrade_cmd = CMD_UPGRADE;
@@ -280,116 +281,172 @@ bool vesync_set_unix_time(uint8_t *opt ,uint8_t len)
 
 /**
  * @brief 配置用户模型
+ * @param info 
  * @param opt 
- * @return true 
- * @return false 
+ * @param len 
+ * @return uint8_t 0为操作成功，
  */
-bool vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
+static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
 {
-    bool ret = false;
+    uint8_t ret = 0;
     user_config_data_t user_list[MAX_CONUT] ={0};
     uint16_t length =0;
 
-    uint8_t crc8 = vesync_crc8(0,opt,len); //过滤crc字段
-    //ESP_LOGI(TAG, "crc8= %d config_crc8:%d",crc8,info->user_config_data.crc8);
-
-    if(len > sizeof(user_config_data_t))    return false;
+    if(len > (sizeof(user_config_data_t)-2))    return false;
     
-    if(crc8 != info->user_config_data.crc8){
-        info->user_config_data.crc8 = crc8;
-        info->user_config_data.length = len;
+    switch(opt[0]){
+        case 3:{ //app同步当前用户配置
+                uint8_t nlen =0;
+                ESP_LOGI(TAG, "sync user\n");
+                vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型 
+                nlen = length/sizeof(user_config_data_t);
+                ESP_LOGI(TAG, "nlen[%d]",nlen);
+                if(nlen >= 0 && nlen <= MAX_CONUT){
+                    memcpy((uint8_t *)&info->user_config_data.action,opt,len);                          //内存保存当前使用的用户模型配置
+                    ret = 0;     //修改信息完毕;
+                }else{
+                    ret = 2;    //超过最大用户下限(0)
+                    ESP_LOGE(TAG, "sync user account config is NULL");
+                }
+            }
+            break;
+        case 2:{//修改旧账户模型信息
+                uint8_t  user_cnt =0;
+                uint8_t nlen =0;
+                uint32_t if_modyfy_account = *(uint32_t *)&opt[1];
+                ESP_LOGI(TAG, "modify user\n");
 
-        switch(info->user_config_data.action){
-            case 3: //app同步当前用户配置
-                memcpy((uint8_t *)&info->user_config_data.action,opt,len);                          //内存保存当前使用的用户模型配置
-                break;
-            case 2:{//修改旧账户模型信息
-                    uint8_t  user_cnt =0;
-                    uint32_t if_modyfy_account = *(uint32_t *)&opt[1];
-                    vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型 
-                    
-                    if(length > 0){
-                        for(uint8_t i=0;i<(length/sizeof(user_config_data_t));i++){
-                            if(user_list[i].account == if_modyfy_account){
-                                user_cnt++;
-                                memcpy((uint8_t *)&user_list[i].action,(uint8_t *)&opt[0],len);        //定位当前修改用户模型在flash中的位置并拷贝数据;
-                                break;
-                            }
-                        }
-                        if(user_cnt !=0){
-                            if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)user_list,length)){   //按4字节整数倍保存用户信息
-                                ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,length);
-                                ret = true;     //修改信息完毕;
-                            }
+                vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型 
+                nlen = length/sizeof(user_config_data_t);
+                ESP_LOGI(TAG, "nlen[%d]",nlen);
+
+                if(nlen > 0){
+                    for(uint8_t i=0;i< nlen;i++){
+                        if(user_list[i].account == if_modyfy_account){
+                            user_cnt++;
+                            memcpy((uint8_t *)&user_list[i].action,(uint8_t *)&opt[0],len);        //定位当前修改用户模型在flash中的位置并拷贝数据;
+                            break;
                         }
                     }
-                } 
-                break;
-            case 1:{ //删除对应的旧账户模型信息
-                    uint8_t nlen =0;
-                    uint32_t if_delete_account = *(uint32_t *)&opt[1];
+                    if(user_cnt !=0){
+                        if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)user_list,length)){   //按4字节整数倍保存用户信息
+                            ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,length);
+                            ret = 0;     //修改信息完毕;
+                        }else{
+                            ret = 1;     //写入flash信息出错;
+                        }
+                    }else{
+                        ret = 3;    //表示当前固件本地用户模型无此用户
+                        ESP_LOGE(TAG, "flash user mode not match");
+                    }
+                }else{
+                    ret = 2;    //超过最大用户下限(0)
+                    ESP_LOGE(TAG, "change user account config is NULL");
+                }
+            } 
+            break;
+        case 1:{ //删除对应的旧账户模型信息
+                uint8_t nlen =0;
+                uint32_t if_delete_account = *(uint32_t *)&opt[1];
+                ESP_LOGI(TAG, "delete user\n");
 
-                    vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
-                    nlen = length/sizeof(user_config_data_t)-1;
-                    ESP_LOGI(TAG, "nlen[%d]",nlen);
+                vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
+                nlen = length/sizeof(user_config_data_t);
+                ESP_LOGI(TAG, "nlen[%d]",nlen);
 
-                    if(1< nlen){
+                if(1< nlen && nlen<= MAX_CONUT){
+                    uint8_t i=0;
+                    bool find = false;
+                    for(;i<nlen;i++){
+                        if(user_list[i].account == if_delete_account){                    
+                            ESP_LOGI(TAG, "delete account[0x%04x]",if_delete_account);    //记录当前的删除位置
+                            find = true;
+                            break;
+                        }
+                    }
+                    if(find){
                         user_config_data_t *p_buf = (user_config_data_t *)malloc(nlen*sizeof(user_config_data_t));          //当前存储账户大于1个
                         memset(p_buf,0,nlen*sizeof(user_config_data_t));
-                        int8_t j=-1;
 
-                        for(uint8_t i=0;i<nlen;i++){
-                            ESP_LOGI(TAG, "user account[0x%04x],delete account[0x%04x]",user_list[i].account,if_delete_account);
-                            if(user_list[i].account == if_delete_account){     //当前欲删除的用户模型
-                                j=(i==0?1:i+1);                                               //记录当前的序列
-                            }else{
-                                j= j+1;
+                        for(uint8_t j=0,k=0;j<nlen;j++,k++){
+                            if(j == i){
+                                k = k+1;
                             }
-                            memcpy((user_config_data_t *)&p_buf[i],(user_config_data_t *)&user_list[j],sizeof(user_config_data_t));
+                            memcpy((user_config_data_t *)&p_buf[j],(user_config_data_t *)&user_list[k],sizeof(user_config_data_t));
                         }
-                        vesync_flash_erase_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
-                        if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&p_buf[0].action,nlen*sizeof(user_config_data_t))){   //按4字节整数倍保存用户信息
+                        vesync_flash_erase_all_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
+                        if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&p_buf[0].action,(nlen-1)*sizeof(user_config_data_t))){   //按4字节整数倍保存用户信息
                             ESP_LOGI(TAG, "store user re-flash ok!");
-                            ret = true;
+                            ret = 0;
                         }else{
-                            ret = false;
+                            ret = 1;
+                            ESP_LOGE(TAG, "delete user and write flash error");
                         }
                         free(p_buf);
                     }else{
-                        vesync_flash_erase_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
-                        ESP_LOGI(TAG, "user account just one!");
+                        ret = 3;    //表示当前固件本地用户模型无此用户
+                        ESP_LOGE(TAG, "flash store user mode not match");
                     }
-                    ESP_LOGI(TAG, "delete user account config!");
-                    ret = true;
+                }else if(nlen == 1){
+                    vesync_flash_erase_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
+                    ESP_LOGI(TAG, "user account just one!");
+                    ret = 0;
+                }else{
+                    ESP_LOGE(TAG, "delete user account config is NULL");
+                    ret = 2;
                 }
-                break;
-            case 0:{//创建新账户模型信息
-                    uint8_t nlen =0;
-                    vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
-                    nlen = length/sizeof(user_config_data_t);
-                    ESP_LOGI(TAG, "nlen[%d]",nlen);
+            }
+            break;
+        case 0:{//创建新账户模型信息
+                uint8_t nlen =0;
+                uint8_t  add_cnt =0;
+                uint32_t if_add_account = *(uint32_t *)&opt[1];
 
+                ESP_LOGI(TAG, "add user\n");
+                vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
+                nlen = length/sizeof(user_config_data_t);
+                ESP_LOGI(TAG, "nlen[%d]",nlen);
+
+                if(nlen >= 0){
                     if(nlen < MAX_CONUT){
-                        user_config_data_t    user_config_data = {0};
-                        memcpy((uint8_t *)&user_config_data.action,(uint8_t *)&opt[0],len);
-                        ESP_LOGI(TAG, "account ID[0x%04x]",user_config_data.account);
-                        snprintf((char *)user_config_data.user_store_key,sizeof(user_config_data.user_store_key),"his_%x",user_config_data.account); //根据不同的账号创建存储的用户键值对用来保存沉淀数据
-                        ESP_LOGI(TAG, "create user key_value[%s]",user_config_data.user_store_key);
-                        user_config_data.crc8 = vesync_crc8(0,&user_config_data.action,len);
-                        user_config_data.length = len;
-
-                        if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&user_config_data.action,sizeof(user_config_data_t))){   //按4字节整数倍保存用户信息
-                            ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",user_config_data.crc8 ,user_config_data.length);
-                            ret = true;
+                        for(uint8_t i=0;i<nlen;i++){
+                            if(user_list[i].account == if_add_account){
+                                add_cnt++;
+                                ESP_LOGI(TAG, "match userID[0x%04x],add_cnt=%d,i=%d",user_list[i].account,add_cnt,i);
+                                break;
+                            }
                         }
+                        if(add_cnt ==0){    //当前存储的用户模型与下发的模型没有重合
+                            user_config_data_t    user_config_data = {0};
+                            memcpy((uint8_t *)&user_config_data.action,(uint8_t *)&opt[0],len);
+                            ESP_LOGI(TAG, "account ID[0x%04x]",user_config_data.account);
+                            snprintf((char *)user_config_data.user_store_key,sizeof(user_config_data.user_store_key),"his_%x",user_config_data.account); //根据不同的账号创建存储的用户键值对用来保存沉淀数据
+                            ESP_LOGI(TAG, "create user key_value[%s]",user_config_data.user_store_key);
+
+                            user_config_data.crc8 = vesync_crc8(0,&user_config_data.action,len);
+                            user_config_data.length = len;
+
+                            if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)&user_config_data.action,sizeof(user_config_data_t))){   //按4字节整数倍保存用户信息
+                                ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",user_config_data.crc8 ,user_config_data.length);
+                                ret = 0;         //添加新用户完成
+                            }else{
+                                ret = 1;         //写flash出错
+                                ESP_LOGE(TAG, "user mode ok!store flash error,account:[0x%04x]",if_add_account);
+                            }
+                        }else{
+                            ret = 3;             //下发的用户模型有重合
+                            ESP_LOGE(TAG, "user mode is same ,account:[0x%04x]",if_add_account);
+                        }
+                    }else{
+                        ret = 2;                //超过最大用户添加配置
+                        ESP_LOGE(TAG, "store flash overflow with len[%d]",nlen);
                     }
-                } 
-                break;
-            default:
-                break;
-        }
+                }
+            } 
+            break;
+        default:
+            break;
     }
-    LOG_I(TAG, "action[0x%02x],account[0x%04x]",info->user_config_data.action,info->user_config_data.account);
    
     return ret;
 }
@@ -411,6 +468,7 @@ static bool vesync_inquiry_weight_history(uint32_t user_account ,uint16_t *len)
 
     ret_value = vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
     nlen = length/sizeof(user_config_data_t);
+    ESP_LOGI(TAG, "history data len %d",nlen);
     if((nlen >= 1) && (ret_value == 0)){
         uint8_t  user_cnt =0;
         uint8_t i =0;
@@ -422,13 +480,18 @@ static bool vesync_inquiry_weight_history(uint32_t user_account ,uint16_t *len)
             }
         }
         if(user_cnt != 0){
+            uint16_t ret_len =0;
+            xEventGroupSetBits(ble_event_group, READY_READ_FLASH);
             user_history_t user_history; 
             ESP_LOGI(TAG, "read user key_value[%s]",user_list[i].user_store_key);
-            if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(char *)user_list,&len) == 0){
-                ESP_LOGI(TAG, "read user history len is[%d]",*len);
+            if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(char *)user_list,&ret_len) == 0){
+                *len = 0;
+                ESP_LOGI(TAG, "read user history total len is[%d]",ret_len);
             }
-            ret = true;
+        }else{
+            *len = 0;
         }
+        ret = true;
     }
     return ret;
 }
@@ -442,7 +505,7 @@ static bool vesync_delete_account(uint8_t *opt)
 {
     bool ret = false;
     if(opt[0] == 1){    //为1表示删除所有用户模型信息
-        if(0 ==vesync_flash_erase_partiton(USER_MODEL_NAMESPACE)){
+        if(0 == vesync_flash_erase_partiton(USER_MODEL_NAMESPACE)){
             ret = true;
         }
     }
@@ -580,8 +643,8 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                 .data =0,
             };
             struct{                     //应答数据包
-                uint8_t buf[20];
-                uint8_t len;
+                uint8_t  buf[20];
+                uint16_t len;
             }resp_strl ={{0},0};         
             uint8_t *cnt = NULL;
             hw_info *info = &info_str;     
@@ -619,13 +682,14 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                             res_ctl.bitN.error_flag = 1;
                         }
                         break;
-                    case CMD_CONFIG_ACCOUNT:
-                        if(vesync_config_account(info,opt,len)){
-                            ESP_LOGI(TAG, "CMD_CONFIG_ACCOUNT");
-                        }else{
-                            resp_strl.buf[0] = 1;   //具体产品对应的错误码
-                            resp_strl.len = 1;
-                            res_ctl.bitN.error_flag = 1;
+                    case CMD_CONFIG_ACCOUNT:{
+                            uint8_t ret;
+                            ret = vesync_config_account(info,opt,len);
+                            if(ret != 0){
+                                resp_strl.buf[0] = ret;   //具体产品对应的错误码
+                                resp_strl.len = 1;
+                                res_ctl.bitN.error_flag = 1;
+                            }
                         }
                         break;
                     case CMD_DELETE_ACCOUNT:{
@@ -646,11 +710,13 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                                 if(len != 0){
                                     *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id
                                     *(uint16_t *)&resp_strl.buf[4] = len;               //总长度
-                                    ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY");
+                                    resp_strl.len = len+6;
+                                    ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY len %d",resp_strl.len);
                                 }else{
                                     *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id
                                     *(uint16_t *)&resp_strl.buf[4] = len;               //总长度
                                     resp_strl.len = 6;
+                                    ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY len NULL");
                                 }
                             }else{
                                 resp_strl.buf[0] = 1;   //具体产品对应的错误码
@@ -706,6 +772,10 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                         case CMD_REPORT_VESION:
                             ESP_LOGI(TAG, "CMD_REPORT_VESION");
                             break;
+                        case CMD_INQUIRY_HISTORY:
+                            ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY");
+
+                            break;
                         case CMD_REPORT_CODING:
                             ESP_LOGI(TAG, "CMD_REPORT_CODING");
                             break;
@@ -732,13 +802,31 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 }
 
 /**
+ * @brief 蓝牙数据发送任务
+ * @param pvParameters 
+ */
+static void app_handle_ble_send_task_handler(void *pvParameters){
+    while(1){
+        int bits = xEventGroupWaitBits(ble_event_group, READY_READ_FLASH,
+	 			true, false, portMAX_DELAY);	//第一个在返回之前需要将WR_SD_BIT清除, 第二个false 不用等待所有的bit都要置位;
+        if(bits & READY_READ_FLASH){
+            ESP_LOGI(TAG, "ready read flash");
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);	//正常使用10ms；
+     }
+    vTaskDelete(NULL);
+}
+
+/**
  * @brief 初始化蓝牙广播,使能蓝牙配网服务
  */
 void app_ble_init(void)
 {
 	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
-    //vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TEST_TYPE,PRODUCT_TEST_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
-    //vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+    vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+
+    ble_event_group= xEventGroupCreate();
+    xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 1024, NULL, 8, NULL);
 }
 /**
  * @brief 初始化产测广播服务模式

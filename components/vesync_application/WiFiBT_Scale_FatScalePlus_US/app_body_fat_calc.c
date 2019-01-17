@@ -239,57 +239,60 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
     static uint8_t crc8 =0;
 
     if((1 == p_weitht->if_stabil) && (p_weitht->imped_value !=0)){    //判断是否稳定体重;
-        user_config_data_t user_list[MAX_CONUT] ={0};        
-        uint16_t len =0;
-        o_crc8 = crc8;
-        crc8 = vesync_crc8(0,&p_weitht->weight,sizeof(response_weight_data_t));
+        if(bt_status == false){
+            user_config_data_t user_list[MAX_CONUT] ={0};        
+            uint16_t len =0;
 
-        if(crc8 != o_crc8){                           //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
-            if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
-                ESP_LOGE(TAG, "user module NULL");
-                return false;
-            }
-            ESP_LOGI(TAG, "valid weight kg[%d] imped_value[%d]",p_weitht->weight,p_weitht->imped_value);
-            if(len == 0){                           //第一次使用
-                static uint16_t oweight = 0;
-                static uint16_t nweight = 0;
-                static uint16_t o_imped_value = 0;
-                static uint16_t n_imped_value = 0;
-
-                oweight = nweight;
-                nweight = (uint16_t)(p_weitht->weight);
-
-                o_imped_value = n_imped_value;
-                n_imped_value = p_weitht->imped_value;
-
-                ESP_LOGI(TAG, "unit is %d",p_weitht->measu_unit);
-                ESP_LOGI(TAG, "oweight=%d kg,nweight=%d kg ,o_imped_value=%d ohm,n_imped_value=%d ohm",oweight,nweight,o_imped_value,n_imped_value);
-
-                if(((abs(o_imped_value - n_imped_value) <= MAX_IMPED) &&
-                    (abs(oweight - nweight) <= MAX_WEIGHT))||
-                    ((oweight == 0) && (nweight !=0))){               
-                    ret = true;
+            o_crc8 = crc8;
+            crc8 = vesync_crc8(0,&p_weitht->weight,sizeof(response_weight_data_t));
+            if(crc8 != o_crc8){                           //防止称体mcu单次称重重复发送多次相同的数据造成多次写入
+                if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
+                    ESP_LOGE(TAG, "user module NULL");
+                    return false;
                 }
-            }else{
-                uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
-                uint16_t new_kg = (uint16_t)(p_weitht->weight);//调试屏蔽注释 85
-                uint8_t user_cnt =0;
-                uint8_t i=0;
+                ESP_LOGI(TAG, "valid weight kg[%d] imped_value[%d]",p_weitht->weight,p_weitht->imped_value);
+                if(len == 0){                           //第一次使用
+                    static uint16_t oweight = 0;
+                    static uint16_t nweight = 0;
+                    static uint16_t o_imped_value = 0;
+                    static uint16_t n_imped_value = 0;
 
-                ESP_LOGI(TAG, "flash user count:%d" ,len/sizeof(user_config_data_t));
-                for(;i<(len/sizeof(user_config_data_t));i++){
-                    ESP_LOGI(TAG, "store flash user config account:[0x%04x],kg:[%d],imped:[%d]",user_list[i].account,user_list[i].weight_kg,user_list[i].imped_value);
-                    if((abs(user_list[i].imped_value - new_imped) <= MAX_IMPED) &&          //前后两次阻抗小于30 ohm
-                        (abs(user_list[i].weight_kg - new_kg) <= MAX_WEIGHT)){              //前后两次体重小于3kg
-                        user_cnt++;
-                        break;
+                    oweight = nweight;
+                    nweight = (uint16_t)(p_weitht->weight);
+
+                    o_imped_value = n_imped_value;
+                    n_imped_value = p_weitht->imped_value;
+
+                    ESP_LOGI(TAG, "unit is %d",p_weitht->measu_unit);
+                    ESP_LOGI(TAG, "oweight=%d kg,nweight=%d kg ,o_imped_value=%d ohm,n_imped_value=%d ohm",oweight,nweight,o_imped_value,n_imped_value);
+
+                    if(((abs(o_imped_value - n_imped_value) <= MAX_IMPED) &&
+                        (abs(oweight - nweight) <= MAX_WEIGHT))||
+                        ((oweight == 0) && (nweight !=0))){               
+                        ret = true;
                     }
-                }
-                ESP_LOGI(TAG, "user_cnt =%d" ,user_cnt);
+                }else{
+                    p_weitht->imped_value = 37;
+                    p_weitht->weight = 87;
+                    uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
+                    uint16_t new_kg = (uint16_t)(p_weitht->weight);//调试屏蔽注释 85
+                    uint8_t user_cnt =0;
+                    uint8_t i=0;
 
-                if(user_cnt !=0){
-                    if(bt_status == false){
+                    ESP_LOGI(TAG, "flash user count:%d" ,len/sizeof(user_config_data_t));
+                    for(;i<(len/sizeof(user_config_data_t));i++){
+                        ESP_LOGI(TAG, "store flash user config account:[0x%04x],kg:[%d],imped:[%d]",user_list[i].account,user_list[i].weight_kg,user_list[i].imped_value);
+                        if((abs(user_list[i].imped_value - new_imped) <= MAX_IMPED) &&          //前后两次阻抗小于30 ohm
+                            (abs(user_list[i].weight_kg - new_kg) <= MAX_WEIGHT)){              //前后两次体重小于3kg
+                            user_cnt++;
+                            break;
+                        }
+                    }
+                    ESP_LOGI(TAG, "user_cnt =%d" ,user_cnt);
+
+                    if(user_cnt !=0){
                         user_fat_data_t  resp_fat_data ={0};
+                        user_history_t history = {0};
                         // ESP_LOGI(TAG, "account [0x%04x],imped_value[0x%02x],utc_time [0x%04x],unit [0x%x] ,kg [0x%02x],lb [0x02%x]",
                         //     history.account,history.imped_value,history.utc_time,history.measu_unit,history.weight_kg,history.weight_lb);         //体脂参数计算正确
                         if(body_fat_calc(&resp_fat_data,ALL_CALC,&user_list[i],p_weitht)){
@@ -301,23 +304,33 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                             ret = true;
                             ESP_LOGI(TAG, "flash store user success");         //体脂参数计算正确
                         }
+                        //history.account = user_list[i].account;
+                        history.imped_value = new_imped;
+                        history.utc_time = time((time_t *)NULL);
+                        history.measu_unit = p_weitht->measu_unit;
+                        history.weight_kg = p_weitht->weight;
+                        history.weight_lb = p_weitht->lb;
+
+                        ESP_LOGI(TAG, "[history:imped[0x%04x]]" ,history.imped_value); 
+                        ESP_LOGI(TAG, "[history:utc_time[0x%04x]]" ,history.utc_time);
+                        ESP_LOGI(TAG, "[history:measu_unit:[0x%02x]]" ,history.measu_unit);
+                        ESP_LOGI(TAG, "[history:weight_kg:[0x%04x]]" ,history.weight_kg);
+                        ESP_LOGI(TAG, "[history:weight_lb:[0x%04x]]" ,history.weight_lb);
+
                         if(app_handle_get_net_status() == NET_CONFNET_NOT_CON){ //设备未配网
-                            user_history_t history = {0};
-                            //history.account = user_list[i].account;
-                            history.imped_value = new_imped;
-                            history.utc_time = time((time_t *)NULL);
-                            history.measu_unit = p_weitht->measu_unit;
-                            history.weight_kg = p_weitht->weight;
-                            history.weight_lb = p_weitht->lb;
-                            vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t));
+                            if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t))){
+                                ESP_LOGE(TAG, "store history data error!!"); 
+                            }
                         }else{                                         //称重数据转储
-                            //app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ);
+                            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,(uint8_t *)&history,sizeof(user_history_t));
                         }
+                    }else{
+                        ESP_LOGI(TAG, "bt is connected!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理
                     }
-                }else{
-                    ESP_LOGE(TAG, "flash store not match user");         //未匹配到用户
                 }
             }
+        }else{
+            ESP_LOGE(TAG, "flash store not match user");         //未匹配到用户
         }
     }   
     return ret;
