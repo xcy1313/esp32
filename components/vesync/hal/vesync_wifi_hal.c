@@ -177,7 +177,7 @@ uint8_t vesync_hal_get_wifi_mode(void)
  * @param ssid 
  * @param pwd 
  */
-void vesync_hal_connect_wifi(char *ssid ,char *pwd ,bool power_save)
+void vesync_hal_connect_wifi(char *ssid ,char *pwd)
 {
 	static wifi_config_t wifi_config ={0};
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -187,21 +187,15 @@ void vesync_hal_connect_wifi(char *ssid ,char *pwd ,bool power_save)
 		LOG_E(TAG, "pwd is NULL");
 		return;
 	}
+	ESP_ERROR_CHECK( esp_wifi_stop() );
 
 	strcpy((char *)wifi_config.sta.ssid,(char *)ssid);
 	strcpy((char *)wifi_config.sta.password,(char *)pwd);
 	ESP_LOGI(TAG, "Setting WiFi configuration SSID [%s],pwd [%s]",ssid,pwd);
-
-	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-	ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-
 	ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
+	
 	ESP_ERROR_CHECK( esp_wifi_start() );
 
-	if(power_save){
-		ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MODEM));			//开启wifi省电模式;
-	}
 	ESP_ERROR_CHECK( esp_wifi_connect() );
 	ESP_LOGI(TAG, "wifi connect...........");
 }
@@ -255,11 +249,24 @@ int vesync_hal_scan_stop(void)
 
 /**
  * @brief 硬件抽象层初始化wifi模块
+ * @param callback 
+ * @param power_save 是否使能低功耗模式
  */
-void vesync_hal_init_wifi_module(vesync_wifi_cb callback)
+void vesync_hal_init_wifi_module(vesync_wifi_cb callback,bool power_save)
 {
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+
 	tcpip_adapter_init();
 	vesync_hal_register_cb(callback);
 	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+
+	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+	ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+
+	if(power_save){
+		ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MODEM));			//开启wifi省电模式;
+	}
+	ESP_ERROR_CHECK( esp_wifi_start() );
 	LOG_I(TAG,"vesync wifi hal init\n");
 }

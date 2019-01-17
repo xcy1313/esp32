@@ -554,7 +554,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
     if((mask & 0x7ff) == 0x7ff){
         vesync_reply_response("/beginConfigRequest",ERR_CONFIG_CMD_SUCCESS,"CONFIG_CMD_SUCCESS");
         vesync_flash_write_net_info(info);
-        vesync_connect_wifi((char *)info->station_config.wifiSSID,(char *)info->station_config.wifiPassword,true);
+        vesync_connect_wifi((char *)info->station_config.wifiSSID,(char *)info->station_config.wifiPassword);
     }else{
         if(strlen((char *)product_config.cid) != CID_LENGTH){
             BLUFI_ERROR("CID was missed !\r\n");

@@ -75,7 +75,7 @@ void vesync_mqtt_client_disconnet_from_cloud(void);
 /**
  * @brief 用户调用初始化wifi模块
  */
-void vesync_clinet_wifi_module_init(void);
+void vesync_clinet_wifi_module_init(bool power_save);
 
 /**
  * @brief 设置https服务器地址

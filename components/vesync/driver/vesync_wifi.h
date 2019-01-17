@@ -20,7 +20,7 @@ int vesync_wait_network_connected(uint32_t	wait_time);
 /**
  * @brief 初始化wifi模块
  */
-void vesync_init_wifi_module(vesync_wifi_cb callback);
+void vesync_init_wifi_module(vesync_wifi_cb callback,bool power_save);
 
 /**
  * @brief 设置设备为开放热点
@@ -53,7 +53,7 @@ uint8_t vesync_get_wifi_mode(void);
  * @param wifi_key 	[WiFi密码]
  * @param callback 	[WiFi连接回调函数]
  */
-void vesync_connect_wifi(char *wifi_ssid, char *wifi_password, bool power_save);
+void vesync_connect_wifi(char *wifi_ssid, char *wifi_password);
 
 /**
  * @brief 获取设备WiFi客户端模式下的mac地址字符串
