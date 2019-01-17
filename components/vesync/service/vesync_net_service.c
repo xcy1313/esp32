@@ -146,7 +146,7 @@ vesync_mqtt_client_t* vesync_get_cloud_mqtt_client(void)
  */
 void vesync_client_connect_wifi(char *wifi_ssid, char *wifi_password)
 {
-	vesync_connect_wifi(wifi_ssid, wifi_password, true);
+	vesync_connect_wifi(wifi_ssid, wifi_password);
 }
 
 /**
@@ -208,9 +208,9 @@ void vesync_mqtt_client_disconnet_from_cloud(void)
 /**
  * @brief 用户调用初始化wifi模块
  */
-void vesync_clinet_wifi_module_init(void)
+void vesync_clinet_wifi_module_init(bool power_save)
 {
-	vesync_init_wifi_module(vesync_connect_wifi_callback);
+	vesync_init_wifi_module(vesync_connect_wifi_callback,power_save);
 }
 
 /**

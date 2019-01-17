@@ -80,7 +80,7 @@ static void vesync_event_center_thread(void *args)
  */
 void vesync_entry(void *args)
 {
-	vesync_clinet_wifi_module_init();
+	vesync_clinet_wifi_module_init(true);
 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
 	if(pdPASS != xTaskCreate(vesync_event_center_thread,
 	                         EVENT_TASK_NAME,

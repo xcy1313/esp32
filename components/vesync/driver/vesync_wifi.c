@@ -211,11 +211,13 @@ static void vesync_driver_register_cb(vesync_wifi_cb callback)
 
 /**
  * @brief 初始化wifi模块
+ * @param callback 
+ * @param power_save 
  */
-void vesync_init_wifi_module(vesync_wifi_cb callback)
+void vesync_init_wifi_module(vesync_wifi_cb callback,bool power_save)
 {
 	vesync_driver_register_cb(callback);
-	vesync_hal_init_wifi_module(hal_connect_wifi_callback);
+	vesync_hal_init_wifi_module(hal_connect_wifi_callback,power_save);
 
 	s_network_event_group = xEventGroupCreate();
 	
@@ -285,14 +287,14 @@ uint8_t vesync_get_wifi_config(wifi_interface_t interface,wifi_config_t *cfg){
  * @param wifi_key 	[WiFi密码]
  * @param callback 	[WiFi连接回调函数]
  */
-void vesync_connect_wifi(char *wifi_ssid, char *wifi_password, bool power_save)
+void vesync_connect_wifi(char *wifi_ssid, char *wifi_password)
 {
 	if(VESYNC_WIFI_GOT_IP == vesync_wifi_get_status()){	//如果之前设备是连接状态 需要主动断开
 		ESP_LOGI(TAG, "wifi disconnect......");
 		ESP_ERROR_CHECK(esp_wifi_disconnect());
 		vesync_wait_network_disconnected(3000);
 	}
-	vesync_hal_connect_wifi(wifi_ssid, wifi_password, power_save);
+	vesync_hal_connect_wifi(wifi_ssid, wifi_password);
 	LOG_I(TAG, "Connect to ap ssid : %s, password : %s ", wifi_ssid, wifi_password);
 }
 
