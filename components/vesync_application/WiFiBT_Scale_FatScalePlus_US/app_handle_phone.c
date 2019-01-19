@@ -212,8 +212,8 @@ void vesync_prase_upgrade_url(char *url)
                 sprintf(&upgrade_url[url_len],"/%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                 LOG_I(TAG, "upgrade url %s",upgrade_url);
                 app_set_upgrade_source(UPGRADE_APP);
-                vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-                //vesync_client_connect_wifi("R6100-2.4G", "12345678");
+                //vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+                vesync_client_connect_wifi("R6100-2.4G", "12345678");
                 vesync_ota_init(upgrade_url,ota_event_handler);
                 //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
             }

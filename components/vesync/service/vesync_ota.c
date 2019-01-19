@@ -16,15 +16,12 @@
 #include "esp_http_client.h"
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
-#include "esp_task_wdt.h"
-
-#include "esp_task_wdt.h"
 
 #include "nvs.h"
 #include "nvs_flash.h"
 
 #define MAX_URL_LEN 128
-#define BUFFSIZE 1024
+#define BUFFSIZE 2048
 #define HASH_LEN 32 
 
 static const char *TAG = "vesync_OTA";
@@ -147,7 +144,6 @@ static void vesync_ota_task_handler(void *pvParameters)
     int binary_file_length = 0;
     /*deal with all receive packet*/
     while (1) {
-        esp_task_wdt_reset();
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
         if (data_read < 0) {
             time_out++;
