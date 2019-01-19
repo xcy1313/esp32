@@ -22,7 +22,7 @@
 
 static const char *TAG = "app_handle_server";
 static char trace_time[14] = {'\0'};
-static char upgrade_url[100] = {'\0'};
+static char production_upgrade_url[128] = {'\0'};
 static char new_version[8] = {'\0'};
 factory_test_bit_t factory_test_bit = 0;
 
@@ -41,6 +41,24 @@ static device_net_status_t device_net_status = NET_CONFNET_NOT_CON;		//设备配
 void app_handle_production_upgrade_response_ack(char *trace_id);
 void app_handle_production_cid_response(void);
 
+static uint8_t upgrade_souce = UPGRADE_APP;
+
+/**
+ * @brief 设置升级来源
+ * @param source 
+ */
+void app_set_upgrade_source(uint8_t source)
+{
+    upgrade_souce = source;
+}
+/**
+ * @brief 获取升级来源
+ * @return uint8_t 
+ */
+uint8_t app_get_upgrade_source(void)
+{
+    return upgrade_souce;
+}
 /**
  * @brief 返回trace_id
  * @param time 
@@ -122,7 +140,6 @@ void vesync_recv_json_data(char *data)
         cJSON *firmware = cJSON_GetObjectItemCaseSensitive(jsonCmd, "firmware");
         if(firmware != NULL){
             LOG_I(TAG, "upgrade test start!");
-            vesync_set_production_status(RPODUCTION_RUNNING);   //状态调整为产测模式已开始;
             cJSON* newVersion = cJSON_GetObjectItemCaseSensitive(firmware, "newVersion");
             if(cJSON_IsString(newVersion)){
 				strcpy(new_version, newVersion->valuestring);	//记录升级的新版本
@@ -130,15 +147,16 @@ void vesync_recv_json_data(char *data)
 			}
             cJSON* url = cJSON_GetObjectItemCaseSensitive(firmware, "url");
             if(cJSON_IsString(url)){
-				if(NULL != upgrade_url){
+				if(NULL != production_upgrade_url){
                     uint8_t url_len;
-					strcpy(upgrade_url, url->valuestring);
+                    app_set_upgrade_source(UPGRADE_PRODUCTION);
+					strcpy(production_upgrade_url, url->valuestring);
                     url_len = strlen(url->valuestring);
-                    sprintf(&upgrade_url[url_len],"%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
-                    LOG_I(TAG, "upgrade url %s",upgrade_url);
+                    sprintf(&production_upgrade_url[url_len],"%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
+                    LOG_I(TAG, "upgrade url %s",production_upgrade_url);
                     app_handle_production_upgrade_response_ack(trace_time);
                     vesync_hal_bt_client_deinit();
-                    vesync_ota_init(upgrade_url,ota_event_handler);
+                    vesync_ota_init(production_upgrade_url,ota_event_handler);
 				}
 			}
         }
@@ -176,7 +194,7 @@ void app_handle_production_upgrade_response_result(char *trace_id,uint8_t result
         if(NULL != firmware){
             cJSON_AddStringToObject(firmware, "newVersion",new_version);
             cJSON_AddNumberToObject(firmware, "status", result);
-            cJSON_AddStringToObject(firmware, "url", upgrade_url);
+            cJSON_AddStringToObject(firmware, "url", production_upgrade_url);
         }
         cJSON *report = vesync_json_add_method_head(trace_id,"reportFirmUp",firmware);
         vesync_printf_cjson(report);
@@ -194,6 +212,7 @@ void app_handle_production_upgrade_response_result(char *trace_id,uint8_t result
 void app_handle_production_upgrade_response_ack(char *trace_id)
 {
     cJSON *report = cJSON_CreateObject();
+    LOG_I(TAG, "response trace_id : %s",trace_id);
     if(NULL != report){
         cJSON_AddStringToObject(report, "traceId", trace_id);		//==TODO==，需要修改成毫秒级
         cJSON_AddNumberToObject(report, "code", 0);
@@ -202,6 +221,8 @@ void app_handle_production_upgrade_response_ack(char *trace_id)
     vesync_printf_cjson(report);
     char* out = cJSON_PrintUnformatted(report);
     vesync_response_production_command(out, MQTT_QOS1, 0);
+    free(out);
+
     cJSON_Delete(report);
 }
 
@@ -545,6 +566,6 @@ static void app_handle_https_message_queue_create(void)
 void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
-    app_handle_https_message_queue_create();
-    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 2048, NULL, 10, &s_network_service_taskhd);
+    //app_handle_https_message_queue_create();
+    //xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 2048, NULL, 10, &s_network_service_taskhd);
 }

@@ -29,6 +29,10 @@ static bt_frame_t  bt_prase ={0};
 static void app_ble_start(void);
 
 static EventGroupHandle_t ble_event_group;
+
+static char upgrade_url[128] = {'\0'};
+static char new_version[10] = {'\0'};
+
 /**
  * @brief 应答app升级状态
  * @param trace_id 
@@ -43,13 +47,13 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
         uint8_t buf[300];
         uint16_t len;
     }resp_strl ={{0},0};         
-    static uint8_t cnt = 0;
+    static uint8_t cnt = 1;
     uint16_t upgrade_cmd = CMD_UPGRADE;
 
     cJSON *report = cJSON_CreateObject();
     if(NULL != report){
         cJSON_AddStringToObject(report, "traceId", trace_id);		        //==TODO==，需要修改成毫秒级
-        cJSON_AddStringToObject(report, "cid",  (char)product_config.cid);		//设备cid
+        cJSON_AddStringToObject(report, "cid",  (char *)product_config.cid);		//设备cid
         cJSON_AddNumberToObject(report, "code", result);
     }
     switch(result){
@@ -58,26 +62,26 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
                 res_ctl.data = 0x10;
                 cJSON_AddItemToObject(report, "firmware", firmware = cJSON_CreateObject());
                 if(NULL != firmware){
-                    cJSON_AddStringToObject(firmware, "newVersion",NULL);
-                    cJSON_AddStringToObject(firmware, "url", NULL);
+                    cJSON_AddStringToObject(firmware, "newVersion",new_version);
+                    cJSON_AddStringToObject(firmware, "url", upgrade_url);
                 }
             }
             break;
         default:
                 res_ctl.data = 0x00;
             break;
-    }
-    vesync_printf_cjson(report);
-    resp_strl.len = strlen(report);
-
-    memcpy((char *)resp_strl.buf,(char *)report ,resp_strl.len);
-    vesync_bt_notify(res_ctl,cnt,upgrade_cmd,resp_strl.buf,resp_strl.len);  //返回应答设置或查询包
-
-    char* out = cJSON_PrintUnformatted(report);
+    }    
+    char *out = cJSON_PrintUnformatted(report);
+    resp_strl.len = strlen(out);
+    LOG_I("JSON", "\n%s", out);
+    ESP_LOGI(TAG, "BT send len[%d]\r\n" ,resp_strl.len);
+    memcpy(resp_strl.buf,(char *)out ,resp_strl.len);
+    free(out);
+    
+    vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&resp_strl.buf[0],resp_strl.len);  //返回应答设置或查询包
+    
     cJSON_Delete(report);
-    cnt++;
 }
-
 
 /**
  * @brief 
@@ -87,6 +91,7 @@ void ota_event_handler(vesync_ota_status_t status)
 {
     ESP_LOGI(TAG, "ota_event_handler %d\r\n" ,status);
     uint8_t bt_conn;
+    uint8_t ota_souce = app_get_upgrade_source();
     switch(status){
         case OTA_TIME_OUT:
 
@@ -95,26 +100,31 @@ void ota_event_handler(vesync_ota_status_t status)
                 bt_conn = 3;
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
-                if(vesync_get_production_status() == RPODUCTION_RUNNING){
+
+                if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result("1547029501512",5); //升级中
-                }else if(vesync_get_production_status() == PRODUCTION_EXIT){
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
+                }else if(ota_souce == UPGRADE_APP){
+                    //app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
                 }
             break;
         case OTA_FAILED:
-            if(vesync_get_production_status() == RPODUCTION_RUNNING){
-                app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
-            }else if(vesync_get_production_status() == PRODUCTION_EXIT){
-                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL);
-            }
+                if(ota_souce == UPGRADE_PRODUCTION){
+                    app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
+                }else if(ota_souce == UPGRADE_APP){
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL);
+                }
             break;
         case OTA_SUCCESS:
-            if(vesync_get_production_status() == RPODUCTION_RUNNING){
+            bt_conn = 4;
+            resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+            app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
+
+            if(ota_souce == UPGRADE_PRODUCTION){
+                resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);      //发送称体产测结束指令
+
                 app_handle_production_upgrade_response_result("1547029501529",0);     //升级成功
-            }else if(vesync_get_production_status() == PRODUCTION_EXIT){
-                bt_conn = 4;
-                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
+            }else if(ota_souce == UPGRADE_APP){
                 app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_SUCCESS);
             }
             break;
@@ -177,9 +187,6 @@ bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
  */
 void vesync_prase_upgrade_url(char *url)
 {
-    char upgrade_url[128] = {'\0'};
-    char new_version[10] = {'\0'};
-
     LOG_I(TAG, "User recv : %s", url);
     cJSON *root = cJSON_Parse(url);
     if(NULL == root){
@@ -202,10 +209,13 @@ void vesync_prase_upgrade_url(char *url)
                 uint8_t url_len;
                 strcpy(upgrade_url, url->valuestring);
                 url_len = strlen(url->valuestring);
-                sprintf(&upgrade_url[url_len],"%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
+                sprintf(&upgrade_url[url_len],"/%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                 LOG_I(TAG, "upgrade url %s",upgrade_url);
+                app_set_upgrade_source(UPGRADE_APP);
                 vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+                //vesync_client_connect_wifi("R6100-2.4G", "12345678");
                 vesync_ota_init(upgrade_url,ota_event_handler);
+                //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
             }
         }
     }
@@ -224,17 +234,11 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
     bool ret = false;
     LOG_I(TAG, "vesync_upgrade_config");
     if(app_handle_get_net_status() > NET_CONFNET_NOT_CON){       //设备已配网
-        // int ret =0;
-        // char recv_buff[1024];
-        // int buff_len = sizeof(recv_buff);
-        // vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-        // ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
-        // if(buff_len > 0 && ret == 0){
-        //     LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-        // }
-        vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-        //app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
-        vesync_prase_upgrade_url((char *)opt);
+        static bool status = false;
+        if(!status){
+            status = true;
+            vesync_prase_upgrade_url((char *)opt);
+        }
         ret = true;
     }
     return ret;
@@ -600,10 +604,7 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
     //esp_log_buffer_hex(TAG, data_buf, length);
     switch(data_buf[0]){
         case 1:
-                vesync_set_production_status(RPODUCTION_RUNNING);   //状态调整为产测模式已开始;
-                resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
-                resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
-                app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,0,0,true);
+                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
             break;
         case 2:
                 resend_cmd_bit |= RESEND_CMD_FACTORY_CHARGE_BIT;

@@ -322,7 +322,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                                 ESP_LOGE(TAG, "store history data error!!"); 
                             }
                         }else{                                         //称重数据转储
-                            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,(uint8_t *)&history,sizeof(user_history_t));
+                            //app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,(uint8_t *)&history,sizeof(user_history_t));
                         }
                     }else{
                         ESP_LOGI(TAG, "bt is connected!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理

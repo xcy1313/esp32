@@ -17,6 +17,9 @@
 
 #define PRODUCT_TEST_START  0x1
 
+#define UPGRADE_APP				0
+#define UPGRADE_PRODUCTION		1
+
 //vesync事件处理中心任务的事件标志位定义，高8位用于存放自定义参数，即事件位共24位
 #define NETWORK_CONFIG_REQ				0x00000001
 #define REFRESH_TOKEN_REQ				0x00000002
@@ -111,4 +114,16 @@ void app_handle_set_net_status(device_net_status_t new_status);
  * @param bit 
  */
 void app_handle_net_service_task_notify_bit(uint32_t bit ,void *data,uint16_t len);
+
+/**
+ * @brief 设置升级来源
+ * @param source 
+ */
+void app_set_upgrade_source(uint8_t source);
+
+/**
+ * @brief 获取升级来源
+ */
+uint8_t app_get_upgrade_source(void);
+
 #endif

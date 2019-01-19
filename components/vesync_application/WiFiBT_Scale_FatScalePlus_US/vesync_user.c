@@ -32,19 +32,21 @@ static const char* TAG = "vesync_user";
 void vesync_user_entry(void *args)
 {
 	vesync_flash_read_product_config(&product_config);
+	uint8_t test_cid[] = "-LBjKhfYG-U1i3TvOrshQNN5StRl3uT1";
+	strcpy((char *)product_config.cid,(char *)test_cid);
 	LOG_I(TAG, "find product test cid ok[%s]",product_config.cid);
 
 	vesync_set_production_status(PRODUCTION_EXIT);		//状态调整为未进入产测模式;
 
 	if(vesync_flash_read_net_info(&net_info) == true){
 		app_handle_set_net_status(NET_CONFNET_OFFLINE);		//已配网但未连接上服务器
-		vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+		//vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
 	}else{
 		LOG_I(TAG, "first time use!!!!");
 		app_handle_set_net_status(NET_CONFNET_NOT_CON);	//第一次使用，未配网
 	}
-	LOG_I(TAG, "Application layer start with versiom[%s]",FIRM_VERSION);
-	//vesync_client_connect_wifi("R6100-2.4G", "12345678");	// wifi driver初始化，否则无法获取mac地址
+	LOG_E(TAG, "Application layer start with versiom[%s]",FIRM_VERSION);
+	//vesync_client_connect_wifi("R6100-5.8G", "12345678");	// wifi driver初始化，否则无法获取mac地址
 	//vesync_init_sntp_service(1544410822,8,"ntp.vesync.com");
 
 	app_ble_init();
