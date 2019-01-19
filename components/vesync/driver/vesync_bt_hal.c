@@ -355,7 +355,7 @@ uint32_t vesync_blufi_notify(uint8_t *data, uint32_t data_len)
 uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const unsigned char *notify_data ,unsigned short len)
 {
     uint32_t ret = 0;
-    uint8_t sendbuf[200] ={0};
+    uint8_t sendbuf[300] ={0};
     uint8_t sendlen =0;
 
     if(vesync_get_bt_status() != BT_CONNTED)    return 1;
