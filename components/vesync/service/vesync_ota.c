@@ -166,7 +166,6 @@ static void vesync_ota_task_handler(void *pvParameters)
             }
             binary_file_length += data_read;
             vesync_ota_event_post_to_user(binary_file_length,OTA_PROCESS);       //下载固件进度条显示
-            ESP_LOGI(TAG, "Written image length %d", binary_file_length);
             data_read_cnt = 0;
         }else if (data_read == 0){         //固件下载完成
             ESP_LOGI(TAG, "Connection closed,all data received");
