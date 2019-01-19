@@ -68,7 +68,7 @@ void app_ble_init(void);
 void app_product_ble_start(void);
 
 
-void ota_event_handler(vesync_ota_status_t status);
+void ota_event_handler(uint32_t len,vesync_ota_status_t status);
 
 #endif
 

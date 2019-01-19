@@ -87,7 +87,7 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
  * @brief 
  * @param status 
  */
-void ota_event_handler(vesync_ota_status_t status)
+void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 {
     ESP_LOGI(TAG, "ota_event_handler %d\r\n" ,status);
     uint8_t bt_conn;
@@ -104,7 +104,7 @@ void ota_event_handler(vesync_ota_status_t status)
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result("1547029501512",5); //升级中
                 }else if(ota_souce == UPGRADE_APP){
-                    //app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
                 }
             break;
         case OTA_FAILED:

@@ -361,7 +361,7 @@ uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const unsig
     if(vesync_get_bt_status() != BT_CONNTED)    return 1;
     sendlen = bt_data_frame_encode(ctl,cnt,cmd,notify_data,len,sendbuf);
 
-    esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
+    //esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
     ret = esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
                                         (uint16_t)sendlen, (uint8_t *)sendbuf, false);
 
@@ -675,7 +675,7 @@ static void vesync_blufi_event_handler(esp_blufi_cb_event_t event, esp_blufi_cb_
             break;
         case ESP_BLUFI_EVENT_REPORT_ERROR:
             ESP_LOGE(GATTS_TABLE_TAG,"BLUFI report error, error code %d\n", param->report_error.state);
-            //esp_blufi_send_error_info(param->report_error.state);
+            esp_blufi_send_error_info(param->report_error.state);
             vesync_reply_response("/report_error",(ERR_TOTAL+param->report_error.state),"report_error");
             break;
         case ESP_BLUFI_EVENT_RECV_SLAVE_DISCONNECT_BLE:
