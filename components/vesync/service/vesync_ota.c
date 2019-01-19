@@ -21,7 +21,7 @@
 #include "nvs_flash.h"
 
 #define MAX_URL_LEN 128
-#define BUFFSIZE 2048
+#define BUFFSIZE 4096
 #define HASH_LEN 32 
 
 static const char *TAG = "vesync_OTA";
@@ -37,7 +37,7 @@ static void http_cleanup(esp_http_client_handle_t client)
 static void __attribute__((noreturn)) task_fatal_error()
 {
     ESP_LOGE(TAG, "Exiting task due to fatal error...");
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);  //升级失败，2s后重启
     esp_restart();
     (void)vTaskDelete(NULL);
 
@@ -56,10 +56,10 @@ void print_sha256 (const uint8_t *image_hash, const char *label)
     ESP_LOGI(TAG, "%s: %s", label, hash_print);
 }
 
-static void vesync_ota_event_post_to_user(vesync_ota_status_t status)
+static void vesync_ota_event_post_to_user(uint32_t len,vesync_ota_status_t status)
 {
     if (vesync_ota_status_handler_cb) {
-        return (*vesync_ota_status_handler_cb)(status);
+        return (*vesync_ota_status_handler_cb)(len,status);
     }
 }
 
@@ -69,6 +69,7 @@ static void vesync_ota_task_handler(void *pvParameters)
     esp_ota_handle_t update_handle = 0 ;
     static uint8_t time_out =0;
     const esp_partition_t *update_partition = NULL;
+    static uint8_t data_read_cnt =0;
 
     esp_http_client_config_t client_config ={0};
     client_config.url = malloc(MAX_URL_LEN);
@@ -114,7 +115,7 @@ static void vesync_ota_task_handler(void *pvParameters)
     }
     err = esp_http_client_open(client, 0);
     if (err != ESP_OK) {
-        vesync_ota_event_post_to_user(OTA_FAILED);
+        vesync_ota_event_post_to_user(0,OTA_URL_ERROR);
         ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
         
         esp_http_client_cleanup(client);
@@ -123,7 +124,7 @@ static void vesync_ota_task_handler(void *pvParameters)
     esp_http_client_fetch_headers(client);
 
     if(err != ESP_OK){
-        vesync_ota_event_post_to_user(OTA_FAILED);
+        vesync_ota_event_post_to_user(0,OTA_URL_ERROR);
         ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
         
         esp_http_client_cleanup(client);
@@ -134,11 +135,11 @@ static void vesync_ota_task_handler(void *pvParameters)
     if ((err != ESP_OK) && (err != ESP_ERR_INVALID_ARG)){
         ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
 
-        vesync_ota_event_post_to_user(OTA_FAILED);
+        vesync_ota_event_post_to_user(0,OTA_FAILED);
         http_cleanup(client);
         task_fatal_error();
     }else{
-    	  vesync_ota_event_post_to_user(OTA_BUSY);
+    	  vesync_ota_event_post_to_user(0,OTA_BUSY);
     }
     
     int binary_file_length = 0;
@@ -149,47 +150,53 @@ static void vesync_ota_task_handler(void *pvParameters)
             time_out++;
             if(time_out >=3){
                 time_out = 0; 
-                vesync_ota_event_post_to_user(OTA_URL_ERROR);
+                vesync_ota_event_post_to_user(0,OTA_URL_ERROR);       //超过3次请求失败，发送url请求失败;
                 http_cleanup(client);
                 task_fatal_error();
             }
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             ESP_LOGE(TAG, "Error: SSL data read error");
-        } else if (data_read > 0) {
+        }else if(data_read > 0){            //固件下载中
             err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
             if (err != ESP_OK) {
-                vesync_ota_event_post_to_user(OTA_FAILED);
+                ESP_LOGE(TAG, "write flash error");
+                vesync_ota_event_post_to_user(0,OTA_FLASH_ERROR);
                 http_cleanup(client);
                 task_fatal_error();
             }
             binary_file_length += data_read;
-            ESP_LOGD(TAG, "Written image length %d", binary_file_length);
-        } else if (data_read == 0) {
+            vesync_ota_event_post_to_user(binary_file_length,OTA_PROCESS);       //下载固件进度条显示
+            ESP_LOGI(TAG, "Written image length %d", binary_file_length);
+            data_read_cnt = 0;
+        }else if (data_read == 0){         //固件下载完成
             ESP_LOGI(TAG, "Connection closed,all data received");
-            vesync_ota_event_post_to_user(OTA_SUCCESS);
-            break;
-        }
+            if(data_read_cnt++ >=5){
+                data_read_cnt = 0;
+                ESP_LOGE(TAG, "esp_ota_end data_read_cnt %d",data_read_cnt);  
+                if (esp_ota_end(update_handle) != ESP_OK){
+                    ESP_LOGE(TAG, "esp_ota_end failed!");
+                    vesync_ota_event_post_to_user(0,OTA_TIME_OUT);
+                    http_cleanup(client);
+                    task_fatal_error();
+                }else{
+                    err = esp_ota_set_boot_partition(update_partition);
+                    if (err != ESP_OK) {
+                        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
+                        http_cleanup(client);
+                        task_fatal_error();
+                    }else{
+                        vesync_ota_event_post_to_user(binary_file_length,OTA_SUCCESS);
+                        vTaskDelay(3000 / portTICK_PERIOD_MS);
+                        break;
+                    }
+                }
+            }
+        }   
     }
     ESP_LOGI(TAG, "Total Write binary data length : %d", binary_file_length);
     free(client_config.url);
     free(ota_write_data);
 
-    if (esp_ota_end(update_handle) != ESP_OK) {
-        ESP_LOGE(TAG, "esp_ota_end failed!");
-        vesync_ota_event_post_to_user(OTA_FAILED);
-        http_cleanup(client);
-        task_fatal_error();
-    }
-
-    err = esp_ota_set_boot_partition(update_partition);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
-        http_cleanup(client);
-        task_fatal_error();
-    }
-    vesync_ota_event_post_to_user(OTA_SUCCESS);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
     esp_restart();
     return ;
 }
