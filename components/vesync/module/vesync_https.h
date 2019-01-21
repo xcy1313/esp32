@@ -8,6 +8,7 @@
 #ifndef VESYNC_HTTPS_H
 #define VESYNC_HTTPS_H
 
+#include "vesync_ca_cert.h"
 /**
  * @brief 初始化https模块
  * @return int [初始化结果，0为成功]
