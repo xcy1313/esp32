@@ -54,12 +54,12 @@ static void vesync_event_center_thread(void *args)
 			if(notified_value & NETWORK_CONNECTED)
 			{
 				// vesync_mqtt_client_connect_to_cloud();
-				xTaskCreate(&vesync_https_req_task, "vesync_https_req_task", 4096, NULL, 5, https_task_handler);
+				//xTaskCreate(&vesync_https_req_task, "vesync_https_req_task", 4096, NULL, 5, https_task_handler);
 			}
 
 			if(notified_value & NETWORK_DISCONNECTED)
 			{
-				vTaskDelete(https_task_handler);
+				//vTaskDelete(https_task_handler);
 			}
 
 			if(notified_value & RECEIVE_UART_DATA)
@@ -94,6 +94,8 @@ void vesync_entry(void *args)
 {
 	vesync_clinet_wifi_module_init(true);
 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
+	//vesync_init_https_module(vesync_https_ca_cert_pem);
+
 	if(pdPASS != xTaskCreate(vesync_event_center_thread,
 	                         EVENT_TASK_NAME,
 	                         EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),
