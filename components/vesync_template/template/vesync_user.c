@@ -103,7 +103,7 @@ void vesync_user_entry(void *args)
 {
     LOG_I(TAG, "Application layer start !");
     LOG_E(TAG, "Application layer start version with[%s]",FIRM_VERSION);
-    vesync_client_connect_wifi("R6100-2.4G", "12345678");	// wifi driver初始化，否则无法获取mac地址
+    vesync_client_connect_wifi("R6100-2.4G", "123456789");	// wifi driver初始化，否则无法获取mac地址
 
     vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,NULL);
     vesync_bt_advertise_start(0);
