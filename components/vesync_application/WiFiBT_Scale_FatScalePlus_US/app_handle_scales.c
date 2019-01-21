@@ -140,6 +140,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 					case CMD_BODY_WEIGHT:{
 						static uint8_t cnt =0;
 						resp_cnt =&cnt;
+						res_ctl.data = 0x0;       //表示设备主动上传
 						*(uint16_t *)&bt_command = CMD_REPORT_WEIGHT;
 						memcpy((uint8_t *)&res->response_weight_data.weight,opt,frame->frame_data_len-1);
 						printf("\r\n weight =%d ,lb = %d,if =%x ,unit =%x,imped =%d\r\n",res->response_weight_data.weight,\
@@ -148,7 +149,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 																					res->response_weight_data.measu_unit,\
 																					res->response_weight_data.imped_value);                                  
 						// 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
-						res_ctl.data = 0;       //表示设备主动上传
 						if(body_fat_person(vesync_bt_connected(),res,&res->response_weight_data)){
 							LOG_I(TAG, "------>the same person! \r\n");
 						}
@@ -162,7 +162,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						static uint8_t npwer_status =0;
 						resp_cnt =&cnt;
 
-						res_ctl.data = 0;       //表示设备主动上传
+						res_ctl.data = 0x0;       //表示设备主动上传
 						*(uint16_t *)&bt_command = CMD_REPORT_POWER;
 						memcpy((uint8_t *)&res->response_hardstate.power,opt,frame->frame_data_len-1);
 						opwer_status = npwer_status;
@@ -186,7 +186,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 					case CMD_HADRWARE_ERROR:{
 						static uint8_t cnt =0;
 						resp_cnt =&cnt;
-						res_ctl.data = 0;       //表示设备主动上传
+						res_ctl.data = 0x0;       //表示设备主动上传
 						*(uint16_t *)&bt_command = CMD_REPORT_ERRPR;
 						memcpy(res->response_error_notice.type,(uint8_t *)opt,sizeof(response_error_notice_t));
 						LOG_E(TAG,"------------------------");

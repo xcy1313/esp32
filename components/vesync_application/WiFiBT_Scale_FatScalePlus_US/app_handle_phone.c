@@ -41,7 +41,7 @@ static char new_version[10] = {'\0'};
 static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
 {
     frame_ctrl_t res_ctl ={     //应答包res状态  
-                .data = 0x10,
+                .data = 0x0,
             };
     struct{                     //应答数据包
         uint8_t buf[300];
@@ -68,7 +68,7 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
             }
             break;
         default:
-                res_ctl.data = 0x00;
+                res_ctl.data = 0x10;
             break;
     }    
     char *out = cJSON_PrintUnformatted(report);
@@ -83,13 +83,32 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
     cJSON_Delete(report);
 }
 
+static void app_handle_upgrade_process_response(uint32_t data)
+{
+    frame_ctrl_t res_ctl ={     //应答包res状态  
+                .data = 0x10,
+            };
+    struct{                     //应答数据包
+        uint8_t buf[300];
+        uint16_t len;
+    }resp_strl ={{0},0};         
+    static uint8_t cnt = 1;
+    uint16_t upgrade_cmd = CMD_UPGRADE;
+
+    resp_strl.len = sizeof(data);
+    ESP_LOGI(TAG, "BT send len[%d]\r\n" ,resp_strl.len);
+    memcpy(resp_strl.buf,(uint8_t *)&data ,resp_strl.len);    
+    vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&resp_strl.buf[0],resp_strl.len);  //返回应答设置或查询包
+
+    cnt++;
+}
+
 /**
  * @brief 
  * @param status 
  */
 void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 {
-    ESP_LOGI(TAG, "ota_event_handler %d\r\n" ,status);
     uint8_t bt_conn;
     uint8_t ota_souce = app_get_upgrade_source();
     switch(status){
@@ -113,6 +132,10 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 }else if(ota_souce == UPGRADE_APP){
                     app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL);
                 }
+            break;
+        case OTA_PROCESS:
+                ESP_LOGI(TAG, "upgrade process %d\r\n" ,len);
+                //app_handle_upgrade_process_response(len);
             break;
         case OTA_SUCCESS:
             bt_conn = 4;
@@ -171,8 +194,10 @@ bool vesync_config_unit(hw_info *info,uint8_t *opt,uint8_t len)
 bool vesync_config_fat(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
-    if(len > sizeof(info->user_fat_data))  return false;
-
+    if(len > sizeof(user_fat_data_t))  {
+        ESP_LOGE(TAG, "vesync_config_fat len[%d]\r\n" ,len);
+        return false;
+    }
     memcpy((uint8_t *)&info->user_fat_data.fat,(uint8_t *)opt,len);
     resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
     app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)opt,len,true);    //透传app体脂计算参数 
@@ -212,8 +237,8 @@ void vesync_prase_upgrade_url(char *url)
                 sprintf(&upgrade_url[url_len],"/%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                 LOG_I(TAG, "upgrade url %s",upgrade_url);
                 app_set_upgrade_source(UPGRADE_APP);
-                //vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-                vesync_client_connect_wifi("R6100-2.4G", "12345678");
+                vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+                //vesync_client_connect_wifi("R6100-2.4G", "12345678");
                 vesync_ota_init(upgrade_url,ota_event_handler);
                 //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
             }
@@ -455,20 +480,26 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
     return ret;
 }
 
+char    inquiry_user_store_key[12] ={0};	//用于用户分配时创建存储的key键值;
+uint32_t account_id;
+
 /**
  * @brief 查询角色沉淀数据 app需要带账户名下发来查询本地用户模型数据库
  * @param len 
  * @return true 
  * @return false 
  */
-static bool vesync_inquiry_weight_history(uint32_t user_account ,uint16_t *len)
+//0为
+//1为账户ID错误
+static uint8_t vesync_inquiry_weight_history(uint32_t user_account ,uint16_t *len)
 {
-    bool ret = false;
     uint32_t ret_value =0;
     user_config_data_t user_list[MAX_CONUT] ={0};
 
     uint8_t nlen =0;
     uint16_t length =0;
+
+    if(user_account == 0)   return 1;
 
     ret_value = vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型
     nlen = length/sizeof(user_config_data_t);
@@ -484,20 +515,13 @@ static bool vesync_inquiry_weight_history(uint32_t user_account ,uint16_t *len)
             }
         }
         if(user_cnt != 0){
-            uint16_t ret_len =0;
+            strcpy((char *)inquiry_user_store_key,(char *)user_list[i].user_store_key);
+            account_id = user_list[i].account;
             xEventGroupSetBits(ble_event_group, READY_READ_FLASH);
-            user_history_t user_history; 
-            ESP_LOGI(TAG, "read user key_value[%s]",user_list[i].user_store_key);
-            if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(char *)user_list,&ret_len) == 0){
-                *len = 0;
-                ESP_LOGI(TAG, "read user history total len is[%d]",ret_len);
-            }
-        }else{
-            *len = 0;
+            return 2;
         }
-        ret = true;
     }
-    return ret;
+    return 1;
 }
 /**
  * @brief 删除所有用户模型,执行flash user区用户模型擦除功能
@@ -600,8 +624,8 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
  */
 static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 {
+    esp_log_buffer_hex(TAG, data_buf, length);
 #if 0    
-    //esp_log_buffer_hex(TAG, data_buf, length);
     switch(data_buf[0]){
         case 1:
                 app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
@@ -621,23 +645,23 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
             break;
     }
 #else
-    // switch(data_buf[0]){
-    //     case 1:
-    //         app_handle_net_service_task_notify_bit(NETWORK_CONFIG_REQ);
-    //         break;
-    //     case 2:
-    //         app_handle_net_service_task_notify_bit(REFRESH_TOKEN_REQ);
-    //         break;
-    //     case 3:
-    //         app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ);
-    //         break;
-    //     case 4:
-    //         app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ);
-    //         break;
-    //     case 5:
-    //         app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE);
-    //         break;
-    // }    
+    switch(data_buf[0]){
+        case 1:
+            app_handle_net_service_task_notify_bit(NETWORK_CONFIG_REQ,0,0);
+            break;
+        case 2:
+            app_handle_net_service_task_notify_bit(REFRESH_TOKEN_REQ,0,0);
+            break;
+        case 3:
+            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+            break;
+        case 4:
+            app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ,0,0);
+            break;
+        case 5:
+            app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE,0,0);
+            break;
+    }    
     for(unsigned char i=0;i<length;++i){
         if(bt_data_frame_decode(data_buf[i],0,&bt_prase) == 1){
             frame_ctrl_t res_ctl ={     //应答包res状态  
@@ -704,25 +728,17 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                         }
                         break;
                     case CMD_INQUIRY_HISTORY:{
+                            uint8_t ret =0;
                             uint16_t len = 0;
-                            uint32_t if_inquiry_account = *(uint32_t *)&opt[0];
-                            if(vesync_inquiry_weight_history(if_inquiry_account,&len)){
-                                res_ctl.data = 0x10;
-                                if(len != 0){
-                                    *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id
-                                    *(uint16_t *)&resp_strl.buf[4] = len;               //总长度
-                                    resp_strl.len = len+6;
-                                    ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY len %d",resp_strl.len);
-                                }else{
-                                    *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;//账号id
-                                    *(uint16_t *)&resp_strl.buf[4] = len;               //总长度
-                                    resp_strl.len = 6;
-                                    ESP_LOGI(TAG, "CMD_INQUIRY_HISTORY len NULL");
-                                }
-                            }else{
+                            uint32_t if_inquiry_account = *(uint32_t *)&opt[1];
+                            ESP_LOGI(TAG, "inquirt account[0x%04x]",if_inquiry_account);
+                            ret = vesync_inquiry_weight_history(if_inquiry_account,&len);
+                            if(ret == 1){
                                 resp_strl.buf[0] = 1;   //具体产品对应的错误码
                                 resp_strl.len = 1;
                                 res_ctl.bitN.error_flag = 1;
+                            }else if(ret == 2){
+                                return;
                             }
                         }
                         break;
@@ -807,13 +823,53 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
  * @param pvParameters 
  */
 static void app_handle_ble_send_task_handler(void *pvParameters){
+
+    uint8_t user_read_data[4096] ={0};
+    uint16_t read_len =0;
+    static uint8_t gUserConfig =0;
+    static uint16_t send_len =0;
+
+    frame_ctrl_t res_ctl ={     //应答包res状态  
+                .data = 0x10,
+            };
+    static uint8_t cnt = 1;
+    uint16_t upgrade_cmd = CMD_INQUIRY_HISTORY;
+
     while(1){
         int bits = xEventGroupWaitBits(ble_event_group, READY_READ_FLASH,
-	 			true, false, portMAX_DELAY);	//第一个在返回之前需要将WR_SD_BIT清除, 第二个false 不用等待所有的bit都要置位;
+	 			false, false, portMAX_DELAY);	//第一个在返回之前需要将WR_SD_BIT清除, 第二个false 不用等待所有的bit都要置位;
+
         if(bits & READY_READ_FLASH){
-            ESP_LOGI(TAG, "ready read flash");
+            switch(gUserConfig){
+                case 0:
+                    ESP_LOGI(TAG, "read user key_value[%s]",inquiry_user_store_key);
+                    if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,inquiry_user_store_key,(uint8_t *)user_read_data,&read_len) == 0){
+                        ESP_LOGI(TAG, "read user history total len is[%d]",read_len);
+                        gUserConfig = 1;
+                        send_len = 0;
+                    }else{
+                        xEventGroupClearBits(ble_event_group, READY_READ_FLASH);
+                    }
+                    break;
+                case 1:
+                    if(read_len >= 200){
+                        vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&user_read_data[send_len],200);  //返回应答设置或查询包
+                        read_len -=200;
+                        send_len +=200;
+                        cnt++;
+                        ESP_LOGI(TAG, "send history data 200 cnt:%d",cnt);
+                    }else{
+                        //memcpy(&user_read_data[0],(uint8_t *)&account_id,4);  //todo
+                        vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&user_read_data[send_len+4],read_len+4);  //返回应答设置或查询包
+                        gUserConfig = 0;
+                        send_len =0;
+                        xEventGroupClearBits(ble_event_group, READY_READ_FLASH);
+                        ESP_LOGI(TAG, "send history data < 200");
+                    }
+                    break;
+            }
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);	//正常使用10ms；
+        vTaskDelay(200 / portTICK_PERIOD_MS);	//正常使用10ms；
      }
     vTaskDelete(NULL);
 }
@@ -827,7 +883,7 @@ void app_ble_init(void)
     vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 
     ble_event_group= xEventGroupCreate();
-    xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 1024, NULL, 8, NULL);
+    xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 8192, NULL, 8, NULL);
 }
 /**
  * @brief 初始化产测广播服务模式

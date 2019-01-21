@@ -17,6 +17,9 @@
 #include "app_handle_scales.h"
 #include <time.h>
 
+#include "vesync_ca_cert.h"
+#include "vesync_https.h"
+
 #include "vesync_build_cfg.h"
 #include "vesync_log.h"
 
@@ -28,6 +31,7 @@ factory_test_bit_t factory_test_bit = 0;
 
 #define HTTPS_QUEUE_LEN 300
 typedef struct{
+    uint32_t bit;
     uint16_t len;
     uint8_t  buff[HTTPS_QUEUE_LEN];
 }https_send_frame_t;
@@ -406,11 +410,14 @@ void app_handle_net_service_task_notify_bit(uint32_t bit ,void *data,uint16_t le
 {
     https_send_frame_t https_send_frame ={0};
 
-    https_send_frame.len = len;
-    memcpy((char *)https_send_frame.buff,(char *)data,len);
-
     //vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-    xQueueSend(https_message_send_queue,&https_send_frame,portTICK_PERIOD_MS);
+    if(len !=0){
+        https_send_frame.bit = bit;
+        https_send_frame.len = len;
+        memcpy((char *)https_send_frame.buff,(char *)data,len);
+        xQueueSend(https_message_send_queue,&https_send_frame,portTICK_PERIOD_MS);
+    }
+    LOG_I(TAG, "app_handle_server_task_handler send bit[0x%08x]", bit);
     xTaskNotify(s_network_service_taskhd, bit, eSetBits);			//通知事件处理中心任务
 }
 
@@ -433,7 +440,7 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
             if(NULL != info){
                 char mac[6 * 3];
                 vesync_get_wifi_sta_mac_string(mac);
-                cJSON_AddStringToObject(info, "configKey", "123456");
+                cJSON_AddStringToObject(info, "configKey", (char *)net_info.mqtt_config.configKey);
                 cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
                 cJSON_AddStringToObject(info, "mac", mac);
                 cJSON_AddStringToObject(info, "version", FIRM_VERSION);
@@ -448,6 +455,10 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
         case UPLOAD_WEIGHT_DATA_REQ:
                 req_method = "uploadWeighData";
                 cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+                esp_log_buffer_hex(TAG, (char *)databuf, len);
+                user_history_t history = {0};
+                memcpy((uint8_t *)&history ,databuf,sizeof(user_history_t));
+                
                 if(NULL != info){
                     cJSON* user_weight = NULL;
                     cJSON* data = NULL;
@@ -456,12 +467,20 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
                     if(NULL != data){
                         user_weight = cJSON_CreateObject();
                         if(NULL != user_weight){
-                            cJSON_AddItemToObject(user_weight,"weigh_kg",cJSON_CreateNumber(56.4));
-                            cJSON_AddItemToObject(user_weight,"weigh_lb",cJSON_CreateNumber(56.4));
-                            cJSON_AddItemToObject(user_weight,"impedence",cJSON_CreateNumber(4.5));
-                            cJSON_AddItemToObject(user_weight,"weighTime",cJSON_CreateNumber(1542957831));
-                            cJSON_AddItemToObject(user_weight,"unit",cJSON_CreateString("1"));
-                            cJSON_AddItemToObject(user_weight,"timezone15m",cJSON_CreateString("8"));
+                            cJSON_AddItemToObject(user_weight,"weigh_kg",cJSON_CreateNumber(history.weight_kg));
+                            cJSON_AddItemToObject(user_weight,"weigh_lb",cJSON_CreateNumber(history.weight_lb));
+                            cJSON_AddItemToObject(user_weight,"impedence",cJSON_CreateNumber(history.imped_value));
+                            cJSON_AddItemToObject(user_weight,"weighTime",cJSON_CreateNumber(history.utc_time));
+                            cJSON_AddItemToObject(user_weight,"unit",cJSON_CreateString(history.measu_unit));
+                            cJSON_AddItemToObject(user_weight,"timezone15m",cJSON_CreateString(history.time_zone));
+
+                            // cJSON_AddItemToObject(user_weight,"weigh_kg",history.weight_kg);
+                            // cJSON_AddItemToObject(user_weight,"weigh_lb",history.weight_lb);
+                            // cJSON_AddItemToObject(user_weight,"impedence",history.imped_value);
+                            // cJSON_AddItemToObject(user_weight,"weighTime",history.utc_time);
+                            // cJSON_AddItemToObject(user_weight,"unit",history.measu_unit);
+                            // cJSON_AddItemToObject(user_weight,"timezone15m",history.time_zone);
+
                         }
                         cJSON_AddItemToArray(data, user_weight);
                     }
@@ -494,25 +513,27 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
     if(mask != REFRESH_TOKEN_REQ && mask != NETWORK_CONFIG_REQ){
         cJSON_AddStringToObject(report, "token", token);
     }
-    vesync_printf_cjson(report);
-    char* out = cJSON_PrintUnformatted(report);
+    char* out = cJSON_Print(report);
+    LOG_I("JSON", "\n%s", out);
 
-    strcpy((char *)net_info.station_config.server_url,"test-online.vesync.com");
-    LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
-    LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
+    //if(app_handle_get_net_status() > NET_CONFNET_NOT_CON)
+    {
+        strcpy((char *)net_info.station_config.server_url,"test-online.vesync.com");
+        LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
+        LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
 
-    vesync_set_https_server_address((char *)net_info.station_config.server_url);
-    ret = vesync_https_client_request(req_method, report, recv_buff, &buff_len, 2 * 1000);
-    if(buff_len > 0 && ret == 0){
-        LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        //vesync_set_https_server_address((char *)net_info.station_config.server_url);
+        ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 2 * 1000);
+        if(buff_len > 0 && ret == 0){
+            LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        }
     }
 
     free(out);
     cJSON_Delete(report);
-
     cJSON_Delete(root);
-	return root;
 }
+
 /**
  * @brief
  * @param pvParameters
@@ -524,37 +545,46 @@ static void app_handle_server_task_handler(void *pvParameters){
 
     while(1){
         notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
-        LOG_I(TAG, "app_handle_server_task_handler 0x%08x", notified_ret);
-        if(https_message_send_queue !=0){
-            if(xQueueReceive(https_message_send_queue, &send_frame, portMAX_DELAY)) {
-                esp_log_buffer_hex(TAG,send_frame.buff,send_frame.len);
+        LOG_I(TAG, "app_handle_server_task_handler 0x%08x  ,%d", notified_value,notified_ret);
+        if(1 == notified_ret){
+            //vesync_wait_network_connected(5000);
+            // if(https_message_send_queue !=0){
+            //     if(xQueueReceive(https_message_send_queue, &send_frame, portMAX_DELAY)) {
+            //         esp_log_buffer_hex(TAG,send_frame.buff,send_frame.len);
+            //     }
+            // }
+            if(notified_value & NETWORK_CONFIG_REQ){
+                LOG_I(TAG, "NETWORK_CONFIG_REQ");
+                vesync_json_add_https_req(send_frame.buff ,send_frame.len,NETWORK_CONFIG_REQ);
+            }
+            if(notified_value & REFRESH_TOKEN_REQ){
+                LOG_I(TAG, "REFRESH_TOKEN_REQ");
+                vesync_json_add_https_req(send_frame.buff ,send_frame.len,REFRESH_TOKEN_REQ);
+            }
+            if(notified_value & UPLOAD_WEIGHT_DATA_REQ){
+                LOG_I(TAG, "UPLOAD_WEIGHT_DATA_REQ");
+                if(send_frame.bit == UPLOAD_WEIGHT_DATA_REQ){
+                    vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPLOAD_WEIGHT_DATA_REQ);
+                }
+            }
+            if(notified_value & UPGRADE_ADDR_REQ){
+                LOG_I(TAG, "UPGRADE_ADDR_REQ");
+                vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPGRADE_ADDR_REQ);
+            }
+            if(notified_value & REFRESH_DEVICE_ATTRIBUTE){
+                LOG_I(TAG, "REFRESH_DEVICE_ATTRIBUTE");
+                vesync_json_add_https_req(send_frame.buff ,send_frame.len,REFRESH_DEVICE_ATTRIBUTE);
             }
         }
-        if(notified_value & NETWORK_CONFIG_REQ){
-            vesync_json_add_https_req(send_frame.buff ,send_frame.len,NETWORK_CONFIG_REQ);
-            // vesync_mqtt_client_connect_to_cloud();
-        }
-        if(notified_value & REFRESH_TOKEN_REQ){
-            vesync_json_add_https_req(send_frame.buff ,send_frame.len,REFRESH_TOKEN_REQ);
-		}
-        if(notified_value & UPLOAD_WEIGHT_DATA_REQ){
-            vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPLOAD_WEIGHT_DATA_REQ);
-        }
-        if(notified_value & UPGRADE_ADDR_REQ){
-            vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPGRADE_ADDR_REQ);
-        }
-        if(notified_value & REFRESH_DEVICE_ATTRIBUTE){
-            vesync_json_add_https_req(send_frame.buff ,send_frame.len,REFRESH_DEVICE_ATTRIBUTE);
-        }
     }
-    vTaskDelete(NULL);
+    //vTaskDelete(NULL);
 }
 /**
  * @brief 创建https数据发送队列
  */
 static void app_handle_https_message_queue_create(void)
 {
-    https_message_send_queue = xQueueCreate(HTTPS_QUEUE_LEN, sizeof(https_send_frame_t));
+    https_message_send_queue = xQueueCreate(5, sizeof(https_send_frame_t));
     if(https_message_send_queue == 0){
         ESP_LOGE(TAG, "create https message fail!");
     }
@@ -566,6 +596,7 @@ static void app_handle_https_message_queue_create(void)
 void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
-    //app_handle_https_message_queue_create();
-    //xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 2048, NULL, 10, &s_network_service_taskhd);
+    vesync_init_https_module(vesync_https_ca_cert_pem);
+    app_handle_https_message_queue_create();
+    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8192, NULL, 10, &s_network_service_taskhd);
 }

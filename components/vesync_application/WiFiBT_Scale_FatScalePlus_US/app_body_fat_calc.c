@@ -97,6 +97,10 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
     ESP_LOGI(TAG, "==============================");
 
     if(false == body_fat_para_if_null(p_weitht)) return false;
+    if(0 == config->imped_value){
+        ESP_LOGE(TAG, "user store config imped is 0");
+        return false;
+    }
     fat_data->bmi = BMI(p_weitht->weight,config->height);
 
     switch(config->gender){
@@ -272,8 +276,8 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         ret = true;
                     }
                 }else{
-                    p_weitht->imped_value = 37;
-                    p_weitht->weight = 87;
+                    p_weitht->imped_value = 500;
+                    p_weitht->weight = 55;
                     uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
                     uint16_t new_kg = (uint16_t)(p_weitht->weight);//调试屏蔽注释 85
                     uint8_t user_cnt =0;
@@ -307,30 +311,37 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         //history.account = user_list[i].account;
                         history.imped_value = new_imped;
                         history.utc_time = time((time_t *)NULL);
+                        history.time_zone = 8;
                         history.measu_unit = p_weitht->measu_unit;
                         history.weight_kg = p_weitht->weight;
                         history.weight_lb = p_weitht->lb;
 
                         ESP_LOGI(TAG, "[history:imped[0x%04x]]" ,history.imped_value); 
                         ESP_LOGI(TAG, "[history:utc_time[0x%04x]]" ,history.utc_time);
+                        ESP_LOGI(TAG, "[history:utc_area[0x%02x]]" ,history.time_zone);
                         ESP_LOGI(TAG, "[history:measu_unit:[0x%02x]]" ,history.measu_unit);
                         ESP_LOGI(TAG, "[history:weight_kg:[0x%04x]]" ,history.weight_kg);
                         ESP_LOGI(TAG, "[history:weight_lb:[0x%04x]]" ,history.weight_lb);
 
+                        if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t))){
+                            ESP_LOGE(TAG, "store history data error!!"); 
+                        }
+#if 0                        
                         if(app_handle_get_net_status() == NET_CONFNET_NOT_CON){ //设备未配网
                             if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t))){
                                 ESP_LOGE(TAG, "store history data error!!"); 
                             }
                         }else{                                         //称重数据转储
-                            //app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,(uint8_t *)&history,sizeof(user_history_t));
+                            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,(uint8_t *)&history,sizeof(user_history_t));
                         }
+#endif                        
                     }else{
-                        ESP_LOGI(TAG, "bt is connected!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理
+                        ESP_LOGI(TAG, "user mode para not match not same user!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理
                     }
                 }
             }
         }else{
-            ESP_LOGE(TAG, "flash store not match user");         //未匹配到用户
+            ESP_LOGE(TAG, "bt connected");         //未匹配到用户
         }
     }   
     return ret;
