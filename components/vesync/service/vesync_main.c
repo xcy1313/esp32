@@ -18,8 +18,6 @@
 #include "vesync_device.h"
 #include "vesync_ota.h"
 
-#include "vesync_https.h"
-
 static const char* TAG = "vesync_main";
 
 //任务句柄定义
@@ -31,10 +29,11 @@ static void vesync_https_req_task(void *pvParameters)
 	int ret;
 	char recv_buff[1024];
 	int buff_len = sizeof(recv_buff);
-	while(1)
-	ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
-	if(buff_len > 0 && ret == 0){
-		LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+	while(1){
+		ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
+		if(buff_len > 0 && ret == 0){
+			LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+		}
 	}
 }
 /**
@@ -55,12 +54,12 @@ static void vesync_event_center_thread(void *args)
 			if(notified_value & NETWORK_CONNECTED)
 			{
 				// vesync_mqtt_client_connect_to_cloud();
-				xTaskCreate(&vesync_https_req_task, "vesync_https_req_task", 8192, NULL, 5, https_task_handler);
+				//xTaskCreate(&vesync_https_req_task, "vesync_https_req_task", 4096, NULL, 5, https_task_handler);
 			}
 
 			if(notified_value & NETWORK_DISCONNECTED)
 			{
-				vTaskDelete(https_task_handler);
+				//vTaskDelete(https_task_handler);
 			}
 
 			if(notified_value & RECEIVE_UART_DATA)
@@ -95,7 +94,8 @@ void vesync_entry(void *args)
 {
 	vesync_clinet_wifi_module_init(true);
 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
-	vesync_init_https_module(vesync_https_ca_cert_pem);
+	//vesync_init_https_module(vesync_https_ca_cert_pem);
+
 	if(pdPASS != xTaskCreate(vesync_event_center_thread,
 	                         EVENT_TASK_NAME,
 	                         EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),
