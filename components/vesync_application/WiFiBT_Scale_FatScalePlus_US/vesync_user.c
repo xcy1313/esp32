@@ -32,7 +32,7 @@ static const char* TAG = "vesync_user";
 void vesync_user_entry(void *args)
 {
 	vesync_flash_read_product_config(&product_config);
-	uint8_t test_cid[] = "-LBjKhfYG-U1i3TvOrshQNN5StRl3uT1";
+	uint8_t test_cid[] = "-LBjKhfYG-U1i3TvOrshQNN5StRl3uT2";
 	strcpy((char *)product_config.cid,(char *)test_cid);
 	LOG_I(TAG, "find product test cid ok[%s]",product_config.cid);
 
@@ -46,7 +46,7 @@ void vesync_user_entry(void *args)
 		app_handle_set_net_status(NET_CONFNET_NOT_CON);	//第一次使用，未配网
 	}
 	LOG_E(TAG, "Application layer start with versiom[%s]",FIRM_VERSION);
-	//vesync_client_connect_wifi("R6100-5.8G", "12345678");	// wifi driver初始化，否则无法获取mac地址
+	vesync_client_connect_wifi("R6100-2.4G", "12345678");	// wifi driver初始化，否则无法获取mac地址
 	//vesync_init_sntp_service(1544410822,8,"ntp.vesync.com");
 
 	app_ble_init();

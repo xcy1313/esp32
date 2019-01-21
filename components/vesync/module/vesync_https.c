@@ -38,10 +38,12 @@ static const char *TAG = "vesync_https";
 
 static const char *REQUEST = "POST " "%s" " HTTP/1.0\r\n"
                              "Host: %s \r\n"
-                             "User-Agent: esp-idf esp8266\r\n"
+                             "User-Agent: esp-idf esp32\r\n"
+                             "Content-Type:application/json\r\n"
+                             "Content-Length:%d\r\n"
                              "\r\n"
                              "%s";
-
+    
 static mbedtls_entropy_context 	s_entropy;
 static mbedtls_ctr_drbg_context s_ctr_drbg;
 static mbedtls_ssl_context 		s_ssl_context;
@@ -180,7 +182,7 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
     LOG_D(TAG, "Cipher suite is %s", mbedtls_ssl_get_ciphersuite(&s_ssl_context));
 
 
-    sprintf(https_buffer, REQUEST, url, server_addr, send_body);
+    sprintf(https_buffer, REQUEST, url, server_addr,strlen(send_body),send_body);
     size_t written_bytes = 0;
     do
     {
@@ -197,7 +199,7 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
             LOG_E(TAG, "mbedtls_ssl_write returned -0x%x", -ret);
             goto exit;
         }
-        LOG_I(TAG, "Writing HTTP request content is [%s]..." ,https_buffer);
+        LOG_I(TAG, "Writing HTTP request len [%d],content is [%s]",strlen(https_buffer),https_buffer);
     } while(written_bytes < strlen(https_buffer));
 
     LOG_I(TAG, "Reading HTTP response...");
@@ -206,6 +208,7 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
         len = sizeof(https_buffer) - 1;
         bzero(https_buffer, sizeof(https_buffer));
         ret = mbedtls_ssl_read(&s_ssl_context, (unsigned char *)https_buffer, len);
+        LOG_I(TAG, "mbedtls_ssl_read result :%d" ,ret);
 
         if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)
             continue;
@@ -229,7 +232,7 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
         }
 
         len = ret;
-        LOG_D(TAG, "%d bytes read", len);
+        LOG_I(TAG, "%d bytes read", len);
         for(int i = 0; i < len; i++) {
                 putchar(https_buffer[i]);
         }

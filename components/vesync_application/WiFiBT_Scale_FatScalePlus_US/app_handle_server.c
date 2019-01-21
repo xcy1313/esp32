@@ -513,7 +513,7 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
     if(mask != REFRESH_TOKEN_REQ && mask != NETWORK_CONFIG_REQ){
         cJSON_AddStringToObject(report, "token", token);
     }
-    char* out = cJSON_Print(report);
+    char* out = cJSON_PrintUnformatted(report);
     LOG_I("JSON", "\n%s", out);
 
     //if(app_handle_get_net_status() > NET_CONFNET_NOT_CON)
@@ -547,7 +547,6 @@ static void app_handle_server_task_handler(void *pvParameters){
         notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
         LOG_I(TAG, "app_handle_server_task_handler 0x%08x  ,%d", notified_value,notified_ret);
         if(1 == notified_ret){
-            //vesync_wait_network_connected(5000);
             // if(https_message_send_queue !=0){
             //     if(xQueueReceive(https_message_send_queue, &send_frame, portMAX_DELAY)) {
             //         esp_log_buffer_hex(TAG,send_frame.buff,send_frame.len);
