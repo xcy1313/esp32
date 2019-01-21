@@ -7,7 +7,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "vesync_https.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -35,7 +35,18 @@
 #define WEB_URL "https://www.howsmyssl.com/a/check"
 
 static const char *TAG = "vesync_https";
+
+static const char *REQUEST = "POST " "%s" " HTTP/1.0\r\n"
+                             "Host: %s \r\n"
+                             "User-Agent: esp-idf esp8266\r\n"
+                             "\r\n"
+                             "%s";
+
+static mbedtls_entropy_context 	s_entropy;
+static mbedtls_ctr_drbg_context s_ctr_drbg;
 static mbedtls_ssl_context 		s_ssl_context;
+static mbedtls_x509_crt 		s_cacert;
+static mbedtls_ssl_config 		s_ssl_conf;
 static mbedtls_net_context 		s_server_fd;
 
 /**
@@ -45,10 +56,6 @@ static mbedtls_net_context 		s_server_fd;
 int vesync_init_https_module(const char * ca_cert)
 {
     int ret;
-    mbedtls_entropy_context 	s_entropy;
-    mbedtls_ctr_drbg_context    s_ctr_drbg;
-    mbedtls_x509_crt 		    s_cacert;
-    mbedtls_ssl_config 		    s_ssl_conf;
 
     mbedtls_ssl_init(&s_ssl_context);
     mbedtls_x509_crt_init(&s_cacert);
@@ -93,7 +100,7 @@ int vesync_init_https_module(const char * ca_cert)
        a warning if CA verification fails but it will continue to connect.
        You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
     */
-    mbedtls_ssl_conf_authmode(&s_ssl_conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+    mbedtls_ssl_conf_authmode(&s_ssl_conf, MBEDTLS_SSL_VERIFY_REQUIRED );    //MBEDTLS_SSL_VERIFY_OPTIONAL
     mbedtls_ssl_conf_ca_chain(&s_ssl_conf, &s_cacert, NULL);
     mbedtls_ssl_conf_rng(&s_ssl_conf, mbedtls_ctr_drbg_random, &s_ctr_drbg);
 #ifdef CONFIG_MBEDTLS_DEBUG
@@ -125,12 +132,6 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
 {
     char https_buffer[1024];
     int ret, flags, len;
-
-    char *REQUEST = "POST " "%s" " HTTP/1.0\r\n"
-                             "Host: %s \r\n"
-                             "User-Agent: esp-idf esp8266\r\n"
-                             "\r\n"
-                             "%s";
 
     LOG_D(TAG, "Waiting for network connected...");
     if(vesync_wait_network_connected(wait_time_ms) != 0)
@@ -178,7 +179,6 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
 
     LOG_D(TAG, "Cipher suite is %s", mbedtls_ssl_get_ciphersuite(&s_ssl_context));
 
-    LOG_I(TAG, "Writing HTTP request...");
 
     sprintf(https_buffer, REQUEST, url, server_addr, send_body);
     size_t written_bytes = 0;
@@ -197,6 +197,7 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
             LOG_E(TAG, "mbedtls_ssl_write returned -0x%x", -ret);
             goto exit;
         }
+        LOG_I(TAG, "Writing HTTP request content is [%s]..." ,https_buffer);
     } while(written_bytes < strlen(https_buffer));
 
     LOG_I(TAG, "Reading HTTP response...");
@@ -229,6 +230,9 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
 
         len = ret;
         LOG_D(TAG, "%d bytes read", len);
+        for(int i = 0; i < len; i++) {
+                putchar(https_buffer[i]);
+        }
         if(len < *recv_len)
         {
             memcpy(recv_buff, https_buffer, len);
