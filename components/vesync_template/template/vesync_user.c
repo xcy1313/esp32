@@ -18,6 +18,7 @@
 #include "vesync_interface.h"
 #include "vesync_ota.h"
 #include "vesync_build_cfg.h"
+#include "vesync_button.h"
 
 static const char* TAG = "vesync_user";
 
@@ -69,7 +70,7 @@ static void vesync_recv_json_data(char *data)
         LOG_E(TAG, "Get jsonCmd error !");
 }
 
-static void ota_event_handler(vesync_ota_status_t status)
+static void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 {
     switch(status){
         case OTA_TIME_OUT:
@@ -77,6 +78,9 @@ static void ota_event_handler(vesync_ota_status_t status)
             break;
         case OTA_BUSY:
                 LOG_I(TAG, "OTA_BUSY");
+            break;
+        case OTA_PROCESS:
+                LOG_I(TAG, "OTA_PROCESS ...%d",len);
             break;
         case OTA_FAILED:
                 LOG_I(TAG, "OTA_FAILED");
@@ -98,6 +102,11 @@ void ble_rec_handler(const unsigned char *data, unsigned char len)
     }
 }
 
+static void app_button_event_handler(void *p_event_data)
+{
+    ESP_LOGI(TAG, "key pattern [%d]\r\n" ,*(uint8_t *)p_event_data);
+}
+
 #define PRODUCT_VER		0x1
 #define PRODUCT_TYPE    0xC0
 #define PRODUCT_NUM		0xA0
@@ -113,7 +122,7 @@ void vesync_user_entry(void *args)
     LOG_I(TAG, "Application layer start !");
     LOG_E(TAG, "Application layer start version with[%s]",FIRM_VERSION);
     vesync_client_connect_wifi("R6100-2.4G", "123456789");	// wifi driver初始化，否则无法获取mac地址
-
+    vesync_button_init(19,app_button_event_handler);
     vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,ble_rec_handler);
     vesync_bt_advertise_start(0);
     //vesync_bt_dynamic_set_ble_advertise_name("esp32_test");
