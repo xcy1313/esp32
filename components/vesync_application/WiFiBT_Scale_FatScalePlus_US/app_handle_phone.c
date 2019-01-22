@@ -113,7 +113,11 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
     uint8_t ota_souce = app_get_upgrade_source();
     switch(status){
         case OTA_TIME_OUT:
-
+                if(ota_souce == UPGRADE_PRODUCTION){
+                    app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
+                }else if(ota_souce == UPGRADE_APP){
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_TIMEOUT);
+                }
             break;
         case OTA_BUSY:
                 bt_conn = 3;

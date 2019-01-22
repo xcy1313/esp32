@@ -353,7 +353,7 @@ static bool app_uart_resend_timer_start(void)
 
 static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 {
-	ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
+	//ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
 	// if(/*(info_str.response_hardstate.power == 0 ) && */(vesync_get_production_status() == PRODUCTION_EXIT)){
 	// 	resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
 	// 	return;
