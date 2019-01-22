@@ -645,23 +645,23 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
             break;
     }
 #else
-    switch(data_buf[0]){
-        case 1:
-            app_handle_net_service_task_notify_bit(NETWORK_CONFIG_REQ,0,0);
-            break;
-        case 2:
-            app_handle_net_service_task_notify_bit(REFRESH_TOKEN_REQ,0,0);
-            break;
-        case 3:
-            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
-            break;
-        case 4:
-            app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ,0,0);
-            break;
-        case 5:
-            app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE,0,0);
-            break;
-    }    
+    // switch(data_buf[0]){
+    //     case 1:
+    //         app_handle_net_service_task_notify_bit(NETWORK_CONFIG_REQ,0,0);
+    //         break;
+    //     case 2:
+    //         app_handle_net_service_task_notify_bit(REFRESH_TOKEN_REQ,0,0);
+    //         break;
+    //     case 3:
+    //         app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+    //         break;
+    //     case 4:
+    //         app_handle_net_service_task_notify_bit(UPGRADE_ADDR_REQ,0,0);
+    //         break;
+    //     case 5:
+    //         app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE,0,0);
+    //         break;
+    // }    
     for(unsigned char i=0;i<length;++i){
         if(bt_data_frame_decode(data_buf[i],0,&bt_prase) == 1){
             frame_ctrl_t res_ctl ={     //应答包res状态  
