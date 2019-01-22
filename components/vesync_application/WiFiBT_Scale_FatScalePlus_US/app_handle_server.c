@@ -545,7 +545,6 @@ static void app_handle_server_task_handler(void *pvParameters){
 
     while(1){
         notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
-        LOG_I(TAG, "app_handle_server_task_handler 0x%08x  ,%d", notified_value,notified_ret);
         if(1 == notified_ret){
             // if(https_message_send_queue !=0){
             //     if(xQueueReceive(https_message_send_queue, &send_frame, portMAX_DELAY)) {
