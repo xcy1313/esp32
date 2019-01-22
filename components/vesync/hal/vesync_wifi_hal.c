@@ -228,8 +228,22 @@ int vesync_hal_scan_wifi_list_start(void)
 					.show_hidden = false
 	};
 	LOG_I(TAG,"blufi wifi scan start\n");
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK( esp_wifi_stop() );
 
+	ret = esp_wifi_deinit();
+	if(ESP_OK != ret){
+		LOG_E(TAG ,"blufi wifi deinit error :%d\n" ,ret);
+		return ret;
+	}
+	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+	ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+
+	ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MODEM));			//开启wifi省电模式;
+	ESP_ERROR_CHECK( esp_wifi_start() );
 	ret = esp_wifi_scan_start(&scanConf, true);
+	
 	if(ESP_OK != ret){
 		LOG_E(TAG ,"blufi wifi scan error :%d\n" ,ret);
 	}
