@@ -89,6 +89,15 @@ static void ota_event_handler(vesync_ota_status_t status)
     }
 }
 
+void ble_rec_handler(const unsigned char *data, unsigned char len)
+{
+    uint32_t ret;
+    if(data[0] ==  1){
+        ret = vesync_scan_wifi_list_start();
+        LOG_I(TAG, "wifi scan ret = %d",ret);
+    }
+}
+
 #define PRODUCT_VER		0x1
 #define PRODUCT_TYPE    0xC0
 #define PRODUCT_NUM		0xA0
@@ -105,7 +114,7 @@ void vesync_user_entry(void *args)
     LOG_E(TAG, "Application layer start version with[%s]",FIRM_VERSION);
     vesync_client_connect_wifi("R6100-2.4G", "123456789");	// wifi driver初始化，否则无法获取mac地址
 
-    vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,NULL);
+    vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,ble_rec_handler);
     vesync_bt_advertise_start(0);
     //vesync_bt_dynamic_set_ble_advertise_name("esp32_test");
     //vesync_bt_dynamic_ble_advertise_para(0x88,0x88);
