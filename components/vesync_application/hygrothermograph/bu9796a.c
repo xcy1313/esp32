@@ -24,7 +24,7 @@
 #define ICSET_SOFT_RESET                0x6A        //软件复位指令
 #define ICSET_INTERNAL_OSC              0x68        //使能内部时钟
 #define MODESET_DIS_OFF                 0x40        //关闭显示指令
-#define MODESET_DIS_ON                  0x4C        //开启显示指令
+#define MODESET_DIS_ON                  0x48        //开启显示指令
 #define ADSET_ZERO                      0x00        //设置显示地址
 #define DISCTL_FR_FRAME_NORMAL          0x2F        //设置显示控制，Power save mode FR=3，Frame inversion，Power save mode SR=Normal mode
 #define BLKCTL_DO_NOT_BLINK             0x70        //不闪烁
@@ -42,7 +42,7 @@ static unsigned char code_distab[10] = {0x5f, 0x06, 0x3d, 0x2f, 0x66, 0x6b, 0x7b
 /**
  * @brief 开启背光
  */
-static void bu9796a_backlight_on(void)
+void bu9796a_backlight_on(void)
 {
     gpio_set_level(BU9796A_BACKLIGHT_GPIO, BACKLIGHT_ON);   //开启背光
 }
@@ -50,7 +50,7 @@ static void bu9796a_backlight_on(void)
 /**
  * @brief 关闭背光
  */
-static void bu9796a_backlight_off(void)
+void bu9796a_backlight_off(void)
 {
     gpio_set_level(BU9796A_BACKLIGHT_GPIO, BACKLIGHT_OFF);   //关闭背光
 }
@@ -107,7 +107,6 @@ int32_t bu9796a_display_on_sequence(void)
     i2cData[3] = APCTL_NORMAL | NEXT_IS_COMMAND;            //全部像素正常显示
     i2cData[4] = MODESET_DIS_ON | NEXT_IS_COMMAND;          //开启显示
     error = i2c_master_write_slave(BU9796A_IIC_PORT, SLAVE_ADDRESS, i2cData, 5); //写入以上初始化序列指令
-    bu9796a_backlight_on();                                 //开启背光
 
     return error;
 }
@@ -132,7 +131,6 @@ int32_t bu9796a_ram_write_sequence(uint8_t *data, uint8_t len)
     {
         memcpy(&(i2cData[6]), (const void*)data, len);
         error = i2c_master_write_slave(BU9796A_IIC_PORT, SLAVE_ADDRESS, i2cData, 6 + len); //写入以上指令及数据
-        bu9796a_backlight_on();                             //开启背光
     }
     else
     {
@@ -173,7 +171,6 @@ int32_t bu9796a_display_all_pixels_on(void)
     i2cData[3] = APCTL_ALL_PIXELS_ON | NEXT_IS_COMMAND;     //全部像素正常显示
     i2cData[4] = MODESET_DIS_ON | NEXT_IS_COMMAND | 0x04;          //开启显示
     error = i2c_master_write_slave(BU9796A_IIC_PORT, SLAVE_ADDRESS, i2cData, 5); //写入以上初始化序列指令
-    bu9796a_backlight_on();                                 //开启背光
 
     return error;
 }
@@ -185,8 +182,107 @@ int32_t bu9796a_display_all_pixels_on(void)
  */
 void bu9796a_display_number_to_ram(uint8_t num_pos, uint8_t number)
 {
+    uint8_t hightest_bit = display_ram[num_pos] & 0x80;     //保留最高位
     if(number < 10)
-        display_ram[num_pos] = code_distab[number];
+        display_ram[num_pos] = code_distab[number] | hightest_bit;
+}
+
+/**
+ * @brief 清楚屏幕显示的数字
+ * @param num_pos [数字位置，0-4]
+ */
+void bu9796a_display_number_clear(uint8_t num_pos)
+{
+    uint8_t hightest_bit = display_ram[num_pos] & 0x80;     //保留最高位
+    display_ram[num_pos] = 0 | hightest_bit;
+}
+
+/**
+ * @brief 显示数字负号
+ */
+void bu9796a_display_minus(void)
+{
+    uint8_t hightest_bit = display_ram[0] & 0x80;           //保留最高位
+    display_ram[0] = 0x20 | hightest_bit;
+}
+
+/**
+ * @brief 屏幕显示蓝牙图标，写到显示内存
+ * @param dis_flag [显示标识，true或false]
+ */
+void bu9796a_display_ble_icon(uint8_t dis_flag)
+{
+    if(dis_flag == true)
+        display_ram[1] |= 0x80;
+    else
+        display_ram[1] &= 0x7F;
+}
+
+/**
+ * @brief 屏幕显示最高位数字1，写到显示内存
+ * @param dis_flag [显示标识，true或false]
+ */
+void bu9796a_display_num_one(uint8_t dis_flag)
+{
+    if(dis_flag == true)
+        display_ram[0] |= 0x80;
+    else
+        display_ram[0] &= 0x7F;
+}
+
+/**
+ * @brief 屏幕显示小数点，写到显示内存
+ * @param dis_flag [显示标识，true或false]
+ */
+void bu9796a_display_num_point(uint8_t dis_flag)
+{
+    if(dis_flag == true)
+    {
+        display_ram[2] |= 0x80;
+        display_ram[5] |= 0x40;
+    }
+    else
+    {
+        display_ram[2] &= 0x7F;
+        display_ram[5] &= 0xBF;
+    }
+}
+
+/**
+ * @brief 屏幕显示湿度符号，含湿度图标和百分号
+ * @param dis_flag [显示标识，true或false]
+ */
+void bu9796a_display_humi_icon(uint8_t dis_flag)
+{
+    if(dis_flag == true)
+    {
+        display_ram[3] |= 0x80;
+        display_ram[4] |= 0x80;
+    }
+    else
+    {
+        display_ram[3] &= 0x7F;
+        display_ram[4] &= 0x7F;
+    }
+}
+
+/**
+ * @brief 屏幕显示温度单位
+ * @param units [待显示的温度单位，0为摄氏度，1为华氏度]
+ */
+void bu9796a_display_temp_units(uint8_t units)
+{
+    display_ram[5] |= 0x40;     //温度单位的圆圈
+    if(units == 0)
+    {
+        display_ram[5] |= 0x10;
+        display_ram[5] &= 0xDF;
+    }
+    else
+    {
+        display_ram[5] |= 0x20;
+        display_ram[5] &= 0xEF;
+    }
 }
 
 /**

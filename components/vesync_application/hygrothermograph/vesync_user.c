@@ -19,9 +19,8 @@
 #include "vesync_developer.h"
 
 #include "sht30.h"
-#include "bu9796a.h"
+#include "vadisplay.h"
 #include "buzzer.h"
-#include "touchkey.h"
 #include "analog_param.h"
 
 static const char* TAG = "vesync_user";
@@ -33,48 +32,23 @@ static const char* TAG = "vesync_user";
 void application_task(void *args)
 {
     sht30_init();
-    bu9796a_init();
-    bu9796a_initialize_sequence();
-    bu9796a_display_off_sequence();
     buzzer_init();
-    touch_key_init();
     analog_adc_init();
+    va_display_init();
 
     while(1)
     {
         float temp;
         float humi;
-        uint8_t key;
-        uint32_t adc;
 
         sht30_get_temp_and_humi(&temp, &humi);
         LOG_I(TAG, "Get sht30 data, temp : %f, humi : %f", temp, humi);
 
-        key = get_touch_key_status();
-        LOG_I(TAG, "Get touch status : %d", key);
-
-        adc = analog_adc_read_tlv8811_out_mv();
-        LOG_I(TAG, "Get adc data : %d", adc);
-
-        bu9796a_display_number_to_ram(0, (uint8_t)temp / 10);
-        bu9796a_display_number_to_ram(1, (uint8_t)temp % 10);
-        bu9796a_display_number_to_ram(2, (uint8_t)((uint32_t)(temp * 10) % 10));
-        if(key == 1)
-        {
-            adc = adc % 100;
-            bu9796a_display_number_to_ram(3, (uint8_t)adc / 10);
-            bu9796a_display_number_to_ram(4, (uint8_t)adc % 10);
-        }
-        else
-        {
-            bu9796a_display_number_to_ram(3, (uint8_t)humi / 10);
-            bu9796a_display_number_to_ram(4, (uint8_t)humi % 10);
-        }
-
-        bu9796a_update_display();
+        va_display_temperature(temp, CELSIUS_UNIT);
+        va_display_humidity(humi);
 
         // printf_os_task_manager();
-        sleep(1);
+        usleep(1000 * 1000);
     }
 }
 

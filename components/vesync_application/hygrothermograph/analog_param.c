@@ -112,7 +112,6 @@ uint32_t analog_adc_read_tlv8811_out_mv(void)
     }
     adc_reading /= samples_count;
     voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    LOG_I(TAG, "TLV8811 out, raw: %d\tvoltage: %dmv", adc_reading, voltage);
 
     return voltage;
 }
@@ -141,7 +140,75 @@ uint32_t analog_adc_read_tlv8811_envi_temp_mv(void)
     }
     adc_reading /= samples_count;
     voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    LOG_I(TAG, "TLV8811 envi raw: %d\tvoltage: %dmv", adc_reading, voltage);
 
     return voltage;
+}
+
+/**
+ * @brief 获取数组中的最大值
+ * @param buff      [目标数组，uint32_t类型]
+ * @param len       [数组长度]
+ * @return uint32_t [返回最大值]
+ */
+static uint32_t get_max_value(uint32_t *buff, uint32_t len)
+{
+    int i;
+    uint32_t max = buff[0];
+    for(i = 0; i < len; i++)
+    {
+        if(buff[i] > max)
+            max = buff[i];
+    }
+    return max;
+}
+
+/**
+ * @brief 获取数组中的最小值
+ * @param buff      [目标数组，uint32_t类型]
+ * @param len       [数组长度]
+ * @return uint32_t [返回最小值]
+ */
+static uint32_t get_min_value(uint32_t *buff, uint32_t len)
+{
+    int i;
+    uint32_t min = buff[0];
+    for(i = 0; i < len; i++)
+    {
+        if(buff[i] < min)
+            min = buff[i];
+    }
+    return min;
+}
+
+#define VOLTAGE_NUM         50                      //缓存电压采样的数量
+static uint32_t voltage_buff[VOLTAGE_NUM];          //电压采样缓存buffer，保存最近VOLTAGE_NUM数量的电压采样值
+static uint32_t voltage_pos = 0;                    //电压采样数量累计值
+
+/**
+ * @brief 判断电压值的变化是否超出变化阈值
+ * @param voltage   [当次采样电压值]
+ * @param threshold [变化阈值]
+ * @return uint8_t  [是否超阈值，1为超出阈值，0为未超]
+ */
+uint8_t judge_voltage_change(uint32_t voltage, uint8_t threshold)
+{
+    uint32_t max_value;
+    uint32_t min_value;
+
+    voltage_buff[voltage_pos % VOLTAGE_NUM] = voltage;
+    if(voltage_pos > VOLTAGE_NUM)
+    {
+        voltage_pos += 1;
+        max_value = get_max_value(voltage_buff, VOLTAGE_NUM);
+        min_value = get_min_value(voltage_buff, VOLTAGE_NUM);
+        if((max_value - min_value) > threshold)
+            return 1;
+        else
+            return 0;
+    }
+    else
+    {
+        voltage_pos += 1;
+        return 0;
+    }
 }

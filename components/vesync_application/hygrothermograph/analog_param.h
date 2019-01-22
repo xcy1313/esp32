@@ -25,4 +25,12 @@ uint32_t analog_adc_read_tlv8811_out_mv(void);
  */
 uint32_t analog_adc_read_tlv8811_envi_temp_mv(void);
 
+/**
+ * @brief 判断电压值的变化是否超出变化阈值
+ * @param voltage   [当次采样电压值]
+ * @param threshold [变化阈值]
+ * @return uint8_t  [是否超阈值，1为超出阈值，0为未超]
+ */
+uint8_t judge_voltage_change(uint32_t voltage, uint8_t threshold);
+
 #endif

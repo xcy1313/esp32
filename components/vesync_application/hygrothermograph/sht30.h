@@ -9,6 +9,9 @@
 
 #include <stdint.h>
 
+#define CELSIUS_UNIT            0           //摄氏度单位
+#define FAHRENHEIT_UNIT         1           //华氏度单位
+
 /**
  * @brief 初始化传感器
  * @return uint32_t [初始化结果，0为成功]
