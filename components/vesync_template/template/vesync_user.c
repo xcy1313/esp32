@@ -110,7 +110,8 @@ static void app_button_event_handler(void *p_event_data)
     switch(*(uint8_t *)p_event_data){
         case Short_key:
             //vesync_enter_production_testmode(NULL);
-            vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
+            //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
+            //vesync_refresh_https_token();
             break;
         default:
             break;

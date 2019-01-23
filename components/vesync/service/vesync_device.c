@@ -11,14 +11,15 @@
 #include "vesync_main.h"
 #include "vesync_tcp_server.h"
 #include "vesync_wifi_led.h"
+#include "vesync_net_service.h"
 
 #include "freertos/timers.h"
 
 static const char* TAG = "vesync_device";
 
 // static vesync_device_conf_t s_device_config;					//设备配置信息
-// static vesync_product_conf_t s_product_config;					//设备产品信息
-static device_status_e device_status = DEV_CONFNET_OFFLINE;		//设备配网状态，默认为离线状态
+// static vesync_product_conf_t s_product_config;				//设备产品信息
+static device_status_e device_status = DEV_CONFNET_INIT;		//设备配网状态，默认为离线状态
 
 static device_status_cb_t dev_status_callback = NULL;			//定义配网状态回调函数指针
 
@@ -38,19 +39,22 @@ device_status_e vesync_get_device_status(void)
  */
 void vesync_set_device_status(uint8_t status)
 {
-	if(status == DEV_CONFNET_OFFLINE)				//如果要变更状态为OFFLINE
-	{
-		if(device_status != DEV_CONFNET_NOT_CON)	//则先判断原先状态是否为未配网，未配网时保持状态为未配网
-		{
-			device_status = status;
+	if(device_status != status){
+		switch(status){
+			case DEV_CONFNET_NOT_CON:
+				vesync_register_https_net();
+			break;
+			case DEV_CONFNET_ONLINE:
+
+			break;
+			case DEV_CONFNET_OFFLINE:
+				vesync_refresh_https_token();
+			break; 
 		}
-	}
-	else											//设置未配网、配网上线则立即生效
-	{
 		device_status = status;
+		if(dev_status_callback != NULL)
+			dev_status_callback(device_status);
 	}
-	if(dev_status_callback != NULL)
-		dev_status_callback(device_status);
 }
 
 /**
