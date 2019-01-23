@@ -17,7 +17,7 @@
 #define BUZZER_PWM_CHANNEL              LEDC_CHANNEL_0
 #define BUZZER_FREQ                     3000
 #define BUZZER_DUTY                     512
-#define BUZZER_GPIO                     32
+#define BUZZER_GPIO                     16
 #define BUZZER_ON                       1
 #define BUZZER_OFF                      0
 

@@ -19,26 +19,47 @@
 #include "touchkey.h"
 #include "analog_param.h"
 #include "vadisplay.h"
+#include "buzzer.h"
 
 static TimerHandle_t backlight_timer;
+static uint8_t just_power_on = true;
 
 /**
  * @brief VA屏显示刷新任务
  */
 static void va_display_update(void *args)
 {
-    uint8_t key;
-
     while(1)
     {
-        bu9796a_update_display();
-        key = get_touch_key_status();
-        uint32_t voltage;
-        voltage = analog_adc_read_tlv8811_out_mv();
-        if(key == TOUCH_KEY_ON || judge_voltage_change(voltage, 8))
-            va_display_trun_on_backlight(10);
-        // LOG_I("va", "power key : %d", get_power_key_status());
-        // LOG_I("va", "reaction key : %d", get_reaction_key_status());
+        check_power_key_status();
+        if(POWER_ON == get_device_power_status())
+        {
+            if(true == just_power_on)       //刚开机
+            {
+                just_power_on = false;
+                va_display_trun_on_backlight(10);
+                buzzer_beeps(2, 100);
+            }
+            bu9796a_update_display();
+            uint32_t voltage;
+            voltage = analog_adc_read_tlv8811_out_mv();
+            if(TOUCH_KEY_ON == get_touch_key_status())
+                va_display_trun_on_backlight(10);
+            else if(REACTION_AUTO == get_reaction_key_status())
+            {
+                if(judge_voltage_change(voltage, 8))
+                    va_display_trun_on_backlight(10);
+            }
+        }
+        else
+        {
+            if(false == just_power_on)      //刚关机
+            {
+                just_power_on = true;
+                bu9796a_backlight_off();
+                buzzer_beeps(3, 200);
+            }
+        }
         usleep(50 * 1000);
     }
 }

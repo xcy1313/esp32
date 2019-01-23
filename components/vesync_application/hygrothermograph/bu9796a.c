@@ -24,9 +24,9 @@
 #define ICSET_SOFT_RESET                0x6A        //软件复位指令
 #define ICSET_INTERNAL_OSC              0x68        //使能内部时钟
 #define MODESET_DIS_OFF                 0x40        //关闭显示指令
-#define MODESET_DIS_ON                  0x48        //开启显示指令
+#define MODESET_DIS_ON                  0x48        //开启显示指令，48:1/3dias，4C：1/2dias
 #define ADSET_ZERO                      0x00        //设置显示地址
-#define DISCTL_FR_FRAME_NORMAL          0x2F        //设置显示控制，Power save mode FR=3，Frame inversion，Power save mode SR=Normal mode
+#define DISCTL_FR_FRAME_NORMAL          0x3C        //设置显示控制
 #define BLKCTL_DO_NOT_BLINK             0x70        //不闪烁
 #define APCTL_NORMAL                    0x7C        //全部像素正常显示
 #define APCTL_ALL_PIXELS_ON             0x7E        //全部像素点亮

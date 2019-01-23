@@ -6,10 +6,15 @@
  */
 
 #include "driver/gpio.h"
+#include "touchkey.h"
 
 #define TOUCH_KEY_GPIO                  17              //触摸按键
 #define POWER_KEY                       5               //电源按键
 #define REACTION_KEY                    18              //人体感应开关按键
+
+static uint8_t power_status = POWER_ON;
+static uint8_t power_key_new = POWER_KEY_UP;
+static uint8_t power_key_last = POWER_KEY_UP;
 
 /**
  * @brief 初始化触摸接口
@@ -56,4 +61,32 @@ int get_power_key_status(void)
 int get_reaction_key_status(void)
 {
     return gpio_get_level(REACTION_KEY);
+}
+
+/**
+ * @brief 检查电源按键状态，实时更新电源状态
+ */
+void check_power_key_status(void)
+{
+    power_key_new = get_power_key_status();
+    if(power_key_last != power_key_new)
+    {
+        power_key_last = power_key_new;
+        if(power_key_new == POWER_KEY_DOWN)
+        {
+            if(power_status == POWER_ON)
+                power_status = POWER_OFF;
+            else
+                power_status = POWER_ON;
+        }
+    }
+}
+
+/**
+ * @brief 获取设备电源开关状态
+ * @return uint8_t [电源开关状态]
+ */
+uint8_t get_device_power_status(void)
+{
+    return power_status;
 }
