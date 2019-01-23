@@ -118,7 +118,7 @@ void vesync_entry(void *args)
 // 0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
 	strcpy((char *)product_config.cid,(char *)test_cid);
 	LOG_I(TAG, "device status : %d\n" ,vesync_get_device_status());
-	//vesync_client_connect_wifi("R6100-2.4G", "12345678");
+	// vesync_client_connect_wifi("R6100-2.4G", "12345678");
 
 	if(pdPASS != xTaskCreate(vesync_event_center_thread,
 	                         EVENT_TASK_NAME,

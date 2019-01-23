@@ -20,6 +20,7 @@
 #include "vesync_build_cfg.h"
 #include "vesync_button.h"
 #include "vesync_device.h"
+#include "vesync_developer.h"
 
 static const char* TAG = "vesync_user";
 
@@ -131,6 +132,8 @@ void vesync_user_entry(void *args)
     vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,ble_rec_handler);
     vesync_bt_advertise_start(0);
     vesync_regist_devstatus_cb(device_status);
+    vesync_developer_start();
+    vesync_client_connect_wifi("R6100-2.4G", "12345678");
     // vesync_bt_dynamic_set_ble_advertise_name("esp32_test");
     // vesync_bt_dynamic_ble_advertise_para(0x88,0x88);
     //
