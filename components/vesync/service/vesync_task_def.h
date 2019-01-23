@@ -47,7 +47,7 @@ The following is an example to define the XXXX task.
 #define EVENT_TASK_PRIO    		        TASK_PRIORITY_HARD_REALTIME
 
 #define DEVELOPER_TASK_NAME    	        "developer"
-#define DEVELOPER_TASK_STACSIZE	        (1024*8)
+#define DEVELOPER_TASK_STACSIZE	        (1024*10)
 #define DEVELOPER_TASK_PRIO    	        TASK_PRIORITY_SOFT_REALTIME
 
 #define TCP_SERVER_TASK_NAME    	    "tcp_server"

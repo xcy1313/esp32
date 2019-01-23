@@ -416,7 +416,6 @@ static void vesync_reply_response(char *url,int err_code,char *err_describe)
     }else{
         if(strcmp(url,"/beginConfigRequest")==0){
             uint8_t mode;
-            int32_t ret ;
             wifi_config_t cfg;
             char upload_buf[256] ={0};
             mode = vesync_get_wifi_mode();
@@ -434,7 +433,7 @@ static void vesync_reply_response(char *url,int err_code,char *err_describe)
                 sprintf(upload_buf, "{\"uri\":\"/beginConfigReply\",\"err\":\"%d\",\"description\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
                     err_code, err_describe, ap_mac_addr, /*wifi_station_get_rssi()*/12, FIRM_VERSION);
 
-                ret = vesync_blufi_notify((uint8_t *)upload_buf, strlen(upload_buf));
+                vesync_blufi_notify((uint8_t *)upload_buf, strlen(upload_buf));
             }
         }else{
             BLUFI_ERROR("blufi send error %s",url);

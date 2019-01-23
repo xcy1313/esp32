@@ -12,7 +12,7 @@
 
 #include "vesync_log.h"
 
- static const char* TAG = "vesync_confnet";
+//  static const char* TAG = "vesync_confnet";
 
 static config_network_mode_e config_network_mode = DONOT_CONFIG_NET; 	//配网模式，默认处于非配网模式
 static TimerHandle_t netconf_timeout_timer;								//配网超时判断定时器

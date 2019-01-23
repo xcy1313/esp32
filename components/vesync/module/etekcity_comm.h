@@ -17,8 +17,8 @@
 #define UART_HEAD          	0xA5    //帧起始符
 #define UART_END           	0x5A    //帧结束符
 
-//帧数据域缓存区最大长度定义，可设置的最大值为256
-#define DATA_BUFF_MAX       256
+//帧数据域缓存区最大长度定义，可设置的最大值为200
+#define DATA_BUFF_MAX       200
 
 //协议通道最大数量定义
 #define CHANNEL_MAX         4

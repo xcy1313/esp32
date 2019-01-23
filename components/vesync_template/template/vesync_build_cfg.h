@@ -15,7 +15,7 @@
 
 //==========实际应用项目的相关配置==========
 //设备类型名称定义
-#define DEVICE_TYPE						"InWallSwitch-3CH"
+#define DEVICE_TYPE						"vesync_template"
 #define FIRM_VERSION					"1.1.00"
 
 //产品PID
