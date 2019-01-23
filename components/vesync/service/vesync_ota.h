@@ -1,11 +1,9 @@
-/*
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
-
+/**
+ * @file vesync_ota.h
+ * @brief 
+ * @author Jiven
+ * @date 2019-01-19
+ */
 #ifndef _VESYNC_OTA_H
 #define _VESYNC_OTA_H
 
@@ -24,12 +22,14 @@ typedef enum{
     OTA_IDLE,
     OTA_BUSY,
     OTA_TIME_OUT,
+    OTA_FLASH_ERROR,
     OTA_FAILED,
     OTA_URL_ERROR,
+    OTA_PROCESS,
     OTA_SUCCESS
 }vesync_ota_status_t;
 
-typedef void(*vesync_ota_event_cb_t)(vesync_ota_status_t status);
+typedef void(*vesync_ota_event_cb_t)(uint32_t len,vesync_ota_status_t status);
 
 vesync_ota_status_t vesync_ota_init(char *url,vesync_ota_event_cb_t cb);
 

@@ -26,7 +26,8 @@
 #define MQTT_DISCONNECTED				0X00000008
 #define RECEIVE_UART_DATA				0X00000010
 #define CONFIG_NET_MQTT_READY			0X00000020
-
+#define REFRESH_HTTPS_TROKEN            0x00000040
+#define HTTPS_NET_CONFIG_REGISTER       0x00000080
 #define TIMER_BLOCK_TIME				100				//定时器操作的最大等待时间，单位系统时钟节拍
 
 extern TaskHandle_t event_center_taskhd;

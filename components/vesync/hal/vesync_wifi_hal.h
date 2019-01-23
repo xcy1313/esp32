@@ -68,7 +68,7 @@ typedef void (*vesync_wifi_cb)(vesync_wifi_status_e wifi_status);
 /**
  * @brief 硬件抽象层初始化wifi模块
  */
-void vesync_hal_init_wifi_module(vesync_wifi_cb callback);
+void vesync_hal_init_wifi_module(vesync_wifi_cb callback,bool power_save);
 
 /**
  * @brief 硬件抽象层设置设备为WiFi热点
@@ -107,7 +107,7 @@ uint8_t vesync_hal_get_wifi_mode(void);
  * @param wifi_password 	[WiFi密码]
  * @param power_save 		[WiFi开启省电模式]
  */
-void vesync_hal_connect_wifi(char *ssid ,char *pwd ,bool power_save);
+void vesync_hal_connect_wifi(char *ssid ,char *pwd);
 
 /**
  * @brief 硬件抽象层获取mac地址字符串

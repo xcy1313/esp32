@@ -16,21 +16,61 @@ static const char *TAG = "vesync_FLASH";
 #define CONFIG_FILE_MAX_SIZE             (4096)//1.5k
 
 /**
+ * @brief 擦除对应分区的所有数据内容
+ * @param part_name 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_erase_partiton(const char *part_name)
+{
+    esp_err_t err = nvs_flash_erase_partition(part_name);
+
+    return  err;
+}
+/**
  * @brief 擦除当前key_name对应的flash区域
  * @param label_name 
  * @param key_name 
  */
-void vesync_flash_erase(const char *label_name,const char *key_name)
+uint32_t vesync_flash_erase_all_key(const char *label_name,const char *key_name)
 {
     esp_err_t err =0;
     nvs_handle fp;
 
     err = nvs_open_from_partition(label_name,key_name, NVS_READWRITE, &fp);
-    ESP_LOGI(TAG, "NVS read err:%d",err);
-    ESP_ERROR_CHECK(err);
-    ESP_ERROR_CHECK(nvs_erase_all(fp));
-
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS open partition err:%d",err);
+    }
+    err = nvs_erase_all(fp);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS erase key err:%d",err);
+    }
     nvs_close(fp);
+
+    return err;
+}
+
+/**
+ * @brief 使用给定的名称擦除键值对。
+ * @param label_name 
+ * @param key_name 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_erase_key(const char *label_name,const char *key_name)
+{
+    esp_err_t err =0;
+    nvs_handle fp;
+
+    err = nvs_open_from_partition(label_name,key_name, NVS_READWRITE, &fp);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS open partition err:%d",err);
+    }
+    err = nvs_erase_key(fp,key_name);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "NVS erase key err:%d",err);
+    }
+    nvs_close(fp);
+
+    return err;
 }
 /**
  * @brief 
@@ -149,21 +189,25 @@ uint32_t vesync_flash_read(const char *label_name,const char *key_name,const voi
 
     err = nvs_open_from_partition(label_name,key_name, NVS_READONLY, &fp);
     if(err != ESP_OK){
-        ESP_LOGI(TAG, "NVS read err:%d",err);
+        ESP_LOGE(TAG, "vesync flash fine partion err:0x%04x",err);
         return err;
     }
 
-    err = nvs_get_blob(fp, key_name, NULL, &required_size);     //获取当前键值对存储的数据总长度 
-    ESP_ERROR_CHECK(err);
-
-    ESP_LOGI(TAG, "vesync flash read len %s,%s,%d",label_name,key_name,required_size);
-
+    err = nvs_get_blob(fp, key_name, NULL, &required_size);     //获取当前键值对存储的数据长度 
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "vesync flash read size err:0x%04x",err);
+        return err;
+    }
+    ESP_LOGI(TAG, "vesync flash read data %s,%s,%d",label_name,key_name,required_size);
     if(required_size == 0){      
         *len = 0;
     }else{
-        *len = required_size;
         err = nvs_get_blob(fp, key_name, (char *)data, &required_size); //获取当前键值对存储的数据内容
-        ESP_ERROR_CHECK(err);
+        if(err != ESP_OK){
+            ESP_LOGE(TAG, "vesync flash read data err:0x%04x",err);
+            return err;
+        }
+        *len = required_size;
     }
     
     nvs_close(fp);
@@ -603,7 +647,3 @@ void vesync_flash_config(bool enable ,const char *part_name)
 	}
     ESP_ERROR_CHECK( ret );
 }
-
-
-
-
