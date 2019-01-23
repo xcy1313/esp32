@@ -15,10 +15,12 @@
 #include "vesync_net_service.h"
 #include "vesync_production.h"
 #include "vesync_interface.h"
+#include "vesync_device.h"
 
 #include "vesync_ca_cert.h"
 #include "vesync_build_cfg.h"
 #include "vesync_bt_hal.h"
+#include "vesync_flash.h"
 
 #include "vesync_https.h"
 #include "vesync_ca_cert.h"
@@ -240,6 +242,112 @@ cJSON* vesync_json_add_method_head(char *trace_id,char *method,cJSON *body)
 	return root;
 }
 
+static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
+{
+	char *index = strchr(read_buf,'{');	//截取有效json
+	cJSON *root = cJSON_Parse(index);
+	uint8_t ret = 1;
+	if(NULL == root){
+		LOG_I(TAG,"Parse cjson error !\r\n");
+		return ret;
+	}
+	vesync_printf_cjson(root);				//json标准格式，带缩进
+
+	cJSON *traceId = cJSON_GetObjectItemCaseSensitive(root, "traceId");
+	if(true == cJSON_IsString(traceId)){
+		LOG_I(TAG,"trace_id : %s\r\n", traceId->valuestring);
+	}
+
+	cJSON *code = cJSON_GetObjectItemCaseSensitive(root, "code");
+	if(true == cJSON_IsNumber(code)){
+		LOG_I(TAG,"code : %d\r\n", code->valueint);
+		if(code->valueint == 0){
+			cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
+			if(true == cJSON_IsObject(result)){
+				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
+				if(true == cJSON_IsString(result)){
+					LOG_I(TAG,"troken : %s\r\n", token->valuestring);
+				}
+				cJSON *expireIn = cJSON_GetObjectItemCaseSensitive(result, "expireIn");
+				if(true == cJSON_IsNumber(expireIn)){
+					LOG_I(TAG,"expireIn : %d\r\n", expireIn->valueint);	//token的过期时间 单位s
+					vesync_set_device_status(DEV_CONFNET_ONLINE);		//设备已连上服务器
+					if(mask == NETWORK_CONFIG_REQ){
+						vesync_flash_write_net_info(&net_info);
+					}
+				}
+			}
+			ret = 0;
+		}
+	}
+	cJSON_Delete(root);	
+
+	return ret;
+}
+/**
+ * @brief vesync https配网信息注册
+ * @param mask 
+ */
+void vesync_json_add_https_service_register(uint8_t mask)
+{
+    cJSON *root = cJSON_CreateObject();
+	if(NULL == root)    return;
+
+    char *req_method = NULL;
+    cJSON* info = NULL;
+    static char token[128];
+
+    int ret =0;
+    char recv_buff[1024];
+    int buff_len = sizeof(recv_buff);
+
+	time_t seconds;
+	seconds = time((time_t *)NULL);
+	char traceId_buf[64];
+	itoa(seconds, traceId_buf, 10);
+
+    switch(mask){
+        case NETWORK_CONFIG_REQ:
+            cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+            if(NULL != info){
+                char mac[6 * 3];
+                vesync_get_wifi_sta_mac_string(mac);
+                cJSON_AddStringToObject(info, "configKey", (char *)net_info.mqtt_config.configKey);
+                cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
+                cJSON_AddStringToObject(info, "mac", mac);
+                cJSON_AddStringToObject(info, "version", FIRM_VERSION);
+                cJSON_AddNumberToObject(info, "rssi", -56);
+                cJSON_AddStringToObject(info, "timeZone", "8");
+                req_method = "deviceRegister";
+				LOG_I("https", "\nNETWORK_CONFIG_REQ");
+            }
+            break;
+        case REFRESH_TOKEN_REQ:
+                req_method = "refreshDeviceToken";
+				info = NULL;
+				LOG_I("https", "\nREFRESH_TOKEN_REQ");
+            break;
+		default:
+			break;
+	}
+	cJSON *report = vesync_json_add_method_head(traceId_buf,req_method,info);
+    char* out = cJSON_PrintUnformatted(report);
+    LOG_I("JSON", "\n%s", out);
+
+	vesync_set_https_server_address((char *)net_info.station_config.server_url);
+	LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
+	LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
+
+	ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 2 * 1000);
+	if(buff_len > 0 && ret == 0){
+		LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+		vesync_json_https_service_parse(mask,recv_buff);
+	}
+
+    free(out);
+    cJSON_Delete(report);
+    cJSON_Delete(root);
+}
 
 /**
  * @brief 设置https服务器地址
@@ -279,3 +387,5 @@ int vesync_https_client_request(char *method, char *body, char *recv_buff, int *
     ret = vesync_https_request(s_https_server_addr, "443", url, body, recv_buff, recv_len, wait_time_ms);
     return ret;
 }
+
+

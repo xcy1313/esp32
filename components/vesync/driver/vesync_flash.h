@@ -16,6 +16,9 @@
 
 #include "nvs.h"
 #include "vesync_bt_hal.h"
+#include "esp_err.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
 
 #define CONFIG_NAMESPACE "product"
 #define CONFIG_CID_HOLDER_KEY "config_holder"

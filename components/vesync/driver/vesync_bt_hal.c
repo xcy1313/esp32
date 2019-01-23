@@ -26,6 +26,7 @@
 #include "cJSON.h"
 
 #include "vesync_build_cfg.h"
+#include "vesync_device.h"
 
 #define GATTS_TABLE_TAG "Vesync_BT"
 
@@ -497,15 +498,15 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
 	}
     cJSON *serverUrl = cJSON_GetObjectItemCaseSensitive(root, "serverUrl");
     if(true == cJSON_IsString(serverUrl)){
-		char *str = strstr(serverUrl->valuestring, ":");
+		char *str = strstr(serverUrl->valuestring, "//");
+        BLUFI_INFO("str : %s\r\n", str);
 		if(NULL != str){
-			strncpy((char*)info->station_config.server_url, serverUrl->valuestring, str - serverUrl->valuestring);
-			info->station_config.server_url[str - serverUrl->valuestring] = '\0';
+			strcpy((char*)info->station_config.server_url, str+2);
 		}else{
 			strcpy((char*)info->station_config.server_url, serverUrl->valuestring);
 		}
         mask |=0x10;
-		BLUFI_INFO("server_url : %s\r\n", (char*)info->station_config.server_url);
+		BLUFI_INFO("server_url : %s\r\n", info->station_config.server_url);
 	}
     cJSON *account_id = cJSON_GetObjectItemCaseSensitive(root, "accountID");
     if(true == cJSON_IsString(account_id)){
@@ -553,7 +554,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
     BLUFI_INFO("mask 0x%04x\r\n", mask);
     if((mask & 0x7ff) == 0x7ff){
         vesync_reply_response("/beginConfigRequest",ERR_CONFIG_CMD_SUCCESS,"CONFIG_CMD_SUCCESS");
-        vesync_flash_write_net_info(info);
+        vesync_set_device_status(DEV_CONFNET_NOT_CON);      //状态调整为设备未配网
         vesync_connect_wifi((char *)info->station_config.wifiSSID,(char *)info->station_config.wifiPassword);
     }else{
         if(strlen((char *)product_config.cid) != CID_LENGTH){

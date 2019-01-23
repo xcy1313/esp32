@@ -43,7 +43,7 @@ The following is an example to define the XXXX task.
 #define VESYNC_TASK_PRIO                TASK_PRIORITY_NORMAL
 
 #define EVENT_TASK_NAME    		        "event_center"
-#define EVENT_TASK_STACSIZE		        (1024*4)
+#define EVENT_TASK_STACSIZE		        (4096*4)
 #define EVENT_TASK_PRIO    		        TASK_PRIORITY_HARD_REALTIME
 
 #define DEVELOPER_TASK_NAME    	        "developer"
