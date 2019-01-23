@@ -23,6 +23,9 @@ typedef enum
 	MQTT_OFFLINE = 1
 }vesync_mqtt_status_e;
 
+#define NETWORK_CONFIG_REQ				0x1
+#define REFRESH_TOKEN_REQ				0x2
+
 /**
  * @brief 获取mqtt客户端在线状态
  * @return vesync_mqtt_status_e [mqtt客户端在线状态]
@@ -103,5 +106,28 @@ int vesync_https_client_request(char *method, char *body, char *recv_buff, int *
  * @return cJSON* 	[添加了固定头部后的cjson格式数据，使用完后必须调用cJSON_Delete进行删除！！！]
  */
 cJSON* vesync_json_add_method_head(char *trace_id,char *method,cJSON *body);
+
+/**
+ * @brief 配网服务注册
+ * @param mask 
+ */
+void vesync_json_add_https_service_register(uint8_t mask);
+
+/**
+ * @brief 刷新token
+ * @return uint32_t 
+ */
+uint32_t vesync_refresh_https_token(void);
+
+/**
+ * @brief https配网注册
+ */
+void vesync_register_https_net(void);
+
+/**
+ * @brief 获取token
+ * @param token 
+ */
+void vesync_get_https_token(char *token);
 
 #endif

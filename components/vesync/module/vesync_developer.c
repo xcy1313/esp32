@@ -15,8 +15,13 @@
 #include "lwip/sockets.h"
 #include "netif/etharp.h"
 
+#include "cJSON.h"
+
 #include "vesync_log.h"
 #include "vesync_task_def.h"
+#include "vesync_interface.h"
+#include "vesync_build_cfg.h"
+#include "vesync_ota.h"
 
 //开发者模式的TCP服务器监听端口
 #define DEVELOPER_LISTEN_PORT			55555
@@ -25,6 +30,7 @@ static const char* TAG = "vesync_developer";
 
 static struct sockaddr_in server_addr;
 static int socket_fd;
+static int client_fd;
 
 /**
  * @brief 打印系统任务管理器到缓存数组
@@ -71,6 +77,141 @@ static void printf_os_task_manager_to_buf(char *buffer, int buf_len)
 }
 
 /**
+ * @brief 开发者模式tcp发送数据
+ * @param data 		[待发送的数据]
+ * @param length 	[待发送数据长度]
+ * @return int 		[发送结果]
+ */
+int developer_tcp_send(uint8_t *data, uint32_t length)
+{
+	int ret;
+	ret = send(client_fd, data, length, MSG_DONTWAIT);
+	if(ret <= 0)
+	{
+		LOG_E(TAG, "Developer client send error : %d.", ret);
+	}
+	return ret;
+}
+
+static void ota_event_handler(uint32_t len,vesync_ota_status_t status)
+{
+    switch(status){
+        case OTA_TIME_OUT:
+                LOG_I(TAG, "OTA_TIME_OUT");
+            break;
+        case OTA_BUSY:
+                LOG_I(TAG, "OTA_BUSY");
+            break;
+        case OTA_PROCESS:
+                LOG_I(TAG, "OTA_PROCESS ...%d",len);
+            break;
+        case OTA_FAILED:
+                LOG_I(TAG, "OTA_FAILED");
+            break;
+        case OTA_SUCCESS:
+                LOG_I(TAG, "OTA_SUCCESS");
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * @brief 固件升级处理
+ * @param json [接收到的json数据]
+ * @return int [处理结果]
+ */
+static int cjson_handle_upgrade(cJSON *json)
+{
+	int ret = -1;
+	cJSON *root = json;
+	if(NULL != root)
+	{
+		cJSON *jsonCmd = cJSON_GetObjectItemCaseSensitive(root, "jsonCmd");
+		if (jsonCmd != NULL)
+		{
+			cJSON *firmware = cJSON_GetObjectItemCaseSensitive(jsonCmd, "firmware");
+			if (firmware != NULL)
+			{
+				ret = 0;
+				char new_version[10];
+				char upgrade_url[256];
+				LOG_I(TAG, "upgrade test start!");
+				cJSON* newVersion = cJSON_GetObjectItemCaseSensitive(firmware, "newVersion");
+				if(cJSON_IsString(newVersion))
+				{
+					strcpy(new_version, newVersion->valuestring);
+					LOG_I(TAG, "upgrade new_version %s",new_version);
+				}
+				cJSON* url = cJSON_GetObjectItemCaseSensitive(firmware, "url");
+				if(cJSON_IsString(url))
+				{
+					uint8_t url_len;
+					strcpy(upgrade_url, url->valuestring);
+					url_len = strlen(url->valuestring);
+					sprintf(&upgrade_url[url_len],"%s.V%s.bin",DEVICE_TYPE,new_version);
+					LOG_I(TAG, "upgrade url %s",upgrade_url);
+					vesync_ota_init(upgrade_url,ota_event_handler);
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+/**
+ * @brief 输出任务管理指令处理
+ * @param json [接收到的json数据]
+ * @return int [处理结果]
+ */
+static int cjson_handle_task_manager(cJSON *json)
+{
+	int ret = -1;
+	cJSON *root = json;
+	if(NULL != root)
+	{
+		cJSON *jsonCmd = cJSON_GetObjectItemCaseSensitive(root, "jsonCmd");
+		if (jsonCmd != NULL)
+		{
+			cJSON *taskManager = cJSON_GetObjectItemCaseSensitive(jsonCmd, "taskManager");
+			if (taskManager != NULL)
+			{
+				ret = 0;
+				LOG_I(TAG, "Send task manager.");
+				char send_buf[2048];
+				printf_os_task_manager_to_buf(send_buf, sizeof(send_buf));
+				developer_tcp_send((uint8_t*)send_buf, strlen(send_buf));
+			}
+		}
+	}
+	return ret;
+}
+
+/**
+ * @brief 开发者模式json数据处理
+ * @param data [tcp原始数据]
+ * @return int [处理结果，0为数据是json格式，-1为非json格式]
+ */
+int developer_cjson_handle(uint8_t *data)
+{
+	cJSON *root = cJSON_Parse((const char*)data);
+	if(NULL == root)
+	{
+		LOG_E(TAG, "developer_cjson_handle：Parse cjson error !");
+		return -1;
+	}
+
+	LOG_I(TAG, "Recive json data...");
+	vesync_printf_cjson(root);					//json标准格式，带缩进
+	if(0 != cjson_handle_upgrade(root))
+		if(0 != cjson_handle_task_manager(root))
+			LOG_E(TAG, "No developer command !");
+
+	cJSON_Delete(root);							//务必记得释放资源！
+	return 0;
+}
+
+/**
  * @brief 开发者模式线程
  * @param args [无]
  */
@@ -78,8 +219,6 @@ static void developer_tcp_server_thread(void *args)
 {
 	while(1)
 	{
-		int client_fd;
-
 		socklen_t sockaddr_len = sizeof(server_addr);
 		client_fd = accept(socket_fd, (struct sockaddr*)&server_addr, &sockaddr_len);
 
@@ -91,29 +230,29 @@ static void developer_tcp_server_thread(void *args)
 
 		LOG_I(TAG, "Developer client connected.");
 
+		uint8_t recv_buf[2048];
+		int recv_len;
 		while(1)
 		{
-			char send_buf[2048];
-			int send_len;
-			printf_os_task_manager_to_buf(send_buf, sizeof(send_buf));
-			send_len = send(client_fd, send_buf, strlen(send_buf), MSG_DONTWAIT);
-			if(send_len <= 0)
+			recv_len = recv(client_fd, recv_buf, 2048, MSG_WAITALL);
+			if(recv_len <= 0)
 			{
-				LOG_E(TAG, "Developer client send error : %d.", send_len);
+				LOG_E(TAG, "Developer client recv error : %d", recv_len);
 				break;
 			}
-
-			sleep(1);
+			else
+			{
+				recv_buf[recv_len] = '\0';
+				if(developer_cjson_handle(recv_buf) != 0)
+					LOG_I(TAG, "Developer recv %d byte data : %s", recv_len, recv_buf);
+			}
 		}
 
 		close(client_fd);
 	}
 	close(socket_fd);
 
-	while(1)
-	{
-		sleep(10);
-	}
+	vTaskDelete(NULL);
 }
 
 /**

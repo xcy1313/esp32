@@ -18,6 +18,9 @@
 #include "vesync_interface.h"
 #include "vesync_ota.h"
 #include "vesync_build_cfg.h"
+#include "vesync_button.h"
+#include "vesync_device.h"
+#include "vesync_developer.h"
 
 static const char* TAG = "vesync_user";
 
@@ -69,7 +72,7 @@ static void vesync_recv_json_data(char *data)
         LOG_E(TAG, "Get jsonCmd error !");
 }
 
-static void ota_event_handler(vesync_ota_status_t status)
+static void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 {
     switch(status){
         case OTA_TIME_OUT:
@@ -77,6 +80,9 @@ static void ota_event_handler(vesync_ota_status_t status)
             break;
         case OTA_BUSY:
                 LOG_I(TAG, "OTA_BUSY");
+            break;
+        case OTA_PROCESS:
+                LOG_I(TAG, "OTA_PROCESS ...%d",len);
             break;
         case OTA_FAILED:
                 LOG_I(TAG, "OTA_FAILED");
@@ -98,13 +104,24 @@ void ble_rec_handler(const unsigned char *data, unsigned char len)
     }
 }
 
-#define PRODUCT_VER		0x1
-#define PRODUCT_TYPE    0xC0
-#define PRODUCT_NUM		0xA0
-#define PRODUCT_NAME	"ESF00+"
+static void app_button_event_handler(void *p_event_data)
+{
+    LOG_I(TAG, "key pattern [%d]\r\n" ,*(uint8_t *)p_event_data);
+    switch(*(uint8_t *)p_event_data){
+        case Short_key:
+            //vesync_enter_production_testmode(NULL);
+            //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
+            //vesync_refresh_https_token();
+            break;
+        default:
+            break;
+    }
+}
 
-#define DEVICE_TYPE     "1"
-#define FIRM_VERSION    "2"
+static void device_status(device_status_e status)
+{
+    LOG_I(TAG, "device status %d\n",status);
+}
 /**
  * @brief vesync平台应用层入口函数
  */
@@ -112,15 +129,16 @@ void vesync_user_entry(void *args)
 {
     LOG_I(TAG, "Application layer start !");
     LOG_E(TAG, "Application layer start version with[%s]",FIRM_VERSION);
-    vesync_client_connect_wifi("R6100-2.4G", "123456789");	// wifi driver初始化，否则无法获取mac地址
-
+    vesync_button_init(19,app_button_event_handler);
     vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,ble_rec_handler);
     vesync_bt_advertise_start(0);
-    //vesync_bt_dynamic_set_ble_advertise_name("esp32_test");
-    //vesync_bt_dynamic_ble_advertise_para(0x88,0x88);
-    //vesync_enter_production_testmode(NULL);
+    vesync_regist_devstatus_cb(device_status);
+    vesync_developer_start();
+    vesync_client_connect_wifi("R6100-2.4G", "12345678");
+    // vesync_bt_dynamic_set_ble_advertise_name("esp32_test");
+    // vesync_bt_dynamic_ble_advertise_para(0x88,0x88);
+    //
     //vesync_regist_recvjson_cb(vesync_recv_json_data);
     
-    //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
     vTaskDelete(NULL);
 }

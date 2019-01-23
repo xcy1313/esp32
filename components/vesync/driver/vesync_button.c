@@ -10,6 +10,8 @@
 #include "freertos/timers.h"
 #include "driver/gpio.h"
 
+#include "esp_log.h"
+
 static TimerHandle_t button_timer;
 
 uint8_t pin_key;
@@ -38,7 +40,8 @@ static uint8_t key_driver_mfc_button(void)
 { 
     static uint16_t key_state = key_state_0, key_time = 0; 
     uint8_t  key_return = None_key;      
- 
+	static uint8_t key_long =0;
+
     key_press = GetKeyValueControlTask();                      		      
 
     switch (key_state) {                
@@ -57,22 +60,49 @@ static uint8_t key_driver_mfc_button(void)
 			key_state = key_state_0;   					 
       break; 
       case key_state_2: 
-        if (key_press != KEY_BUTTON_VALUE){ 
-			key_return = Short_key;        				 
+        if (key_press != KEY_BUTTON_VALUE){
+			if(key_long == Very_Long_key){
+				key_return = Very_Long_key;        				 
+			}else if(key_long == Reapet_key){
+				key_return = Reapet_key;
+			}else{
+				key_return = Short_key;
+			}
 			key_state = key_state_0; 
-			key_time =0;	
+			key_time =0;
+			key_long = 0;
         } 
-        else{ 
-			if(key_time++ >= LongTimePressDown){
-				key_time =0;		
-				key_return = Reapet_key;        			 
+        else{
+			key_time++;
+			//ESP_LOGI("button", "key_time:%d",key_time);
+			if(key_time >= LongTimePressDown){
 				key_state = key_state_3;
-			}    
+				key_long = Reapet_key;
+			}
+			if(key_time >= VeryLongTimePressDown){
+				key_time = 0;
+				key_return = Very_Long_key;
+				key_state = key_state_0;
+				key_long = 0;
+			}
         } 
 		break; 
       case key_state_3:
 			if (key_press != KEY_BUTTON_VALUE){ 
-				key_state = key_state_0; 		
+				key_time =0;
+				key_state = key_state_0;
+				if(key_long == Reapet_key){
+					key_return = Reapet_key;
+				}else{
+					key_return = Short_key;
+				}
+				key_long = 0;	
+			}else{
+				key_state = key_state_2;
+				if(key_long == Very_Long_key){
+					key_state = key_state_0;
+					key_long = 0;        				 
+				}
 			}
 			break;                          
     } 

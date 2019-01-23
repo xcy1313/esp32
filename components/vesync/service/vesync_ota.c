@@ -20,9 +20,10 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
-#define MAX_URL_LEN 128
-#define BUFFSIZE 4096
-#define HASH_LEN 32 
+#define MAX_URL_LEN             128
+#define BUFFSIZE                4096
+#define HASH_LEN                32 
+#define OTA_FAILED_TIME_OUT     5000        //升级失败超时时间，超时后重启设备
 
 static const char *TAG = "vesync_OTA";
 
@@ -37,7 +38,7 @@ static void http_cleanup(esp_http_client_handle_t client)
 static void __attribute__((noreturn)) task_fatal_error()
 {
     ESP_LOGE(TAG, "Exiting task due to fatal error...");
-    vTaskDelay(2000 / portTICK_PERIOD_MS);  //升级失败，2s后重启
+    vTaskDelay(OTA_FAILED_TIME_OUT / portTICK_PERIOD_MS);  //升级失败，2s后重启
     esp_restart();
     (void)vTaskDelete(NULL);
 
@@ -74,11 +75,11 @@ static void vesync_ota_task_handler(void *pvParameters)
     esp_http_client_config_t client_config ={0};
     client_config.url = malloc(MAX_URL_LEN);
     
-    strcpy(client_config.url,(char *)pvParameters);
+    strcpy((char*)client_config.url,(char *)pvParameters);
     ESP_LOGI(TAG, "remote url is %s" ,client_config.url);
 
     char *ota_write_data = (char *)malloc(BUFFSIZE);
-    memset(ota_write_data ,NULL,BUFFSIZE);
+    memset(ota_write_data , 0, BUFFSIZE);
 
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     ESP_LOGI(TAG, "configured partition type %d subtype %d (offset 0x%08x)",
@@ -143,6 +144,9 @@ static void vesync_ota_task_handler(void *pvParameters)
     }
     
     int binary_file_length = 0;
+    uint32_t total_len = esp_http_client_get_content_length(client);
+    uint8_t percent =0;
+    ESP_LOGI(TAG, "total_len %d \n" ,total_len);
     /*deal with all receive packet*/
     while (1) {
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
@@ -165,13 +169,14 @@ static void vesync_ota_task_handler(void *pvParameters)
                 task_fatal_error();
             }
             binary_file_length += data_read;
-            vesync_ota_event_post_to_user(binary_file_length,OTA_PROCESS);       //下载固件进度条显示
+            
+            percent = (binary_file_length*1000)/total_len/10 ;
+            vesync_ota_event_post_to_user(percent,OTA_PROCESS);       //下载固件进度条显示
             data_read_cnt = 0;
         }else if (data_read == 0){         //固件下载完成
             ESP_LOGI(TAG, "Connection closed,all data received");
             if(data_read_cnt++ >=5){
                 data_read_cnt = 0;
-                ESP_LOGE(TAG, "esp_ota_end data_read_cnt %d",data_read_cnt);  
                 if (esp_ota_end(update_handle) != ESP_OK){
                     ESP_LOGE(TAG, "esp_ota_end failed!");
                     vesync_ota_event_post_to_user(0,OTA_TIME_OUT);
@@ -185,7 +190,7 @@ static void vesync_ota_task_handler(void *pvParameters)
                         task_fatal_error();
                     }else{
                         vesync_ota_event_post_to_user(binary_file_length,OTA_SUCCESS);
-                        vTaskDelay(3000 / portTICK_PERIOD_MS);
+                        vTaskDelay(OTA_FAILED_TIME_OUT / portTICK_PERIOD_MS);
                         break;
                     }
                 }
@@ -193,7 +198,7 @@ static void vesync_ota_task_handler(void *pvParameters)
         }   
     }
     ESP_LOGI(TAG, "Total Write binary data length : %d", binary_file_length);
-    free(client_config.url);
+    free((char*)client_config.url);
     free(ota_write_data);
 
     esp_restart();

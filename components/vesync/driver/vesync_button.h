@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #define LongTimePressDown   	75//150--->75 1.5s
+#define VeryLongTimePressDown   300//150--->75 1.5s
 
 #define key_state_0 	0
 #define key_state_1 	1
