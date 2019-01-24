@@ -405,11 +405,8 @@ int vesync_https_client_request(char *method, char *body, char *recv_buff, int *
  */
 uint32_t vesync_refresh_https_token(void)
 {
-	if(vesync_get_device_status() >DEV_CONFNET_NOT_CON){
-		xTaskNotify(event_center_taskhd, REFRESH_HTTPS_TROKEN, eSetBits);			//通知事件处理中心任务
-		return 0;
-	}
-	return 1;
+	xTaskNotify(event_center_taskhd, REFRESH_HTTPS_TROKEN, eSetBits);			//通知事件处理中心任务
+	return 0;
 }
 
 /**
