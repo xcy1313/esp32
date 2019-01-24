@@ -144,6 +144,9 @@ static void vesync_ota_task_handler(void *pvParameters)
     }
     
     int binary_file_length = 0;
+    uint32_t total_len = esp_http_client_get_content_length(client);
+    uint8_t percent =0;
+    ESP_LOGI(TAG, "total_len %d \n" ,total_len);
     /*deal with all receive packet*/
     while (1) {
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
@@ -166,13 +169,14 @@ static void vesync_ota_task_handler(void *pvParameters)
                 task_fatal_error();
             }
             binary_file_length += data_read;
-            vesync_ota_event_post_to_user(binary_file_length,OTA_PROCESS);       //下载固件进度条显示
+            
+            percent = (binary_file_length*1000)/total_len/10 ;
+            vesync_ota_event_post_to_user(percent,OTA_PROCESS);       //下载固件进度条显示
             data_read_cnt = 0;
         }else if (data_read == 0){         //固件下载完成
             ESP_LOGI(TAG, "Connection closed,all data received");
             if(data_read_cnt++ >=5){
                 data_read_cnt = 0;
-                ESP_LOGE(TAG, "esp_ota_end data_read_cnt %d",data_read_cnt);  
                 if (esp_ota_end(update_handle) != ESP_OK){
                     ESP_LOGE(TAG, "esp_ota_end failed!");
                     vesync_ota_event_post_to_user(0,OTA_TIME_OUT);

@@ -25,18 +25,6 @@ static const char* TAG = "vesync_main";
 TaskHandle_t event_center_taskhd = NULL;
 TaskHandle_t https_task_handler = NULL;
 
-static void vesync_https_req_task(void *pvParameters)
-{
-	int ret;
-	char recv_buff[1024];
-	int buff_len = sizeof(recv_buff);
-	while(1){
-		ret = vesync_https_client_request("deviceRegister", "hello", recv_buff, &buff_len, 2 * 1000);
-		if(buff_len > 0 && ret == 0){
-			LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-		}
-	}
-}
 /**
  * @brief vesync事件处理中心
  * @param args [无]
@@ -52,25 +40,17 @@ static void vesync_event_center_thread(void *args)
 		if(pdPASS == notified_ret){
 			LOG_I(TAG, "Event center get new notified : %x.", notified_value);
 
-			if(notified_value & NETWORK_CONNECTED)
-			{
-				if(DEV_CONFNET_OFFLINE ==  vesync_get_device_status()){	//设备已配网 重连刷新token
-					vesync_json_add_https_service_register(REFRESH_TOKEN_REQ);
-				}else if(DEV_CONFNET_NOT_CON ==  vesync_get_device_status()){//设备未配网，
-					vesync_json_add_https_service_register(NETWORK_CONFIG_REQ);
-				}
-				// vesync_mqtt_client_connect_to_cloud();
-				//xTaskCreate(&vesync_https_req_task, "vesync_https_req_task", 4096, NULL, 5, https_task_handler);
-			}
+			if(notified_value & NETWORK_CONNECTED){
 
-			if(notified_value & NETWORK_DISCONNECTED)
-			{
-				//vTaskDelete(https_task_handler);
+			}
+			if(notified_value & HTTPS_NET_CONFIG_REGISTER){
+				vesync_json_add_https_service_register(NETWORK_CONFIG_REQ);
 			}
 			if(notified_value & REFRESH_HTTPS_TROKEN){
-				if(DEV_CONFNET_ONLINE ==  vesync_get_device_status()){
-					vesync_json_add_https_service_register(REFRESH_TOKEN_REQ);
-				}
+				vesync_json_add_https_service_register(REFRESH_TOKEN_REQ);
+			}
+			if(notified_value & NETWORK_DISCONNECTED)
+			{
 			}
 			if(notified_value & RECEIVE_UART_DATA)
 			{
@@ -102,6 +82,15 @@ static void vesync_event_center_thread(void *args)
  */
 void vesync_entry(void *args)
 {
+	if(pdPASS != xTaskCreate(vesync_event_center_thread,
+	                         EVENT_TASK_NAME,
+	                         EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),
+	                         NULL,
+	                         EVENT_TASK_PRIO,
+	                         &event_center_taskhd))
+	{
+		LOG_E(TAG, "Create event center task fail !");
+	}
 	vesync_clinet_wifi_module_init(true);
 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
 	vesync_init_https_module(vesync_https_ca_cert_pem);
@@ -118,20 +107,8 @@ void vesync_entry(void *args)
 // 0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
 	strcpy((char *)product_config.cid,(char *)test_cid);
 	LOG_I(TAG, "device status : %d\n" ,vesync_get_device_status());
-	// vesync_client_connect_wifi("R6100-2.4G", "12345678");
 
-	if(pdPASS != xTaskCreate(vesync_event_center_thread,
-	                         EVENT_TASK_NAME,
-	                         EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),
-	                         NULL,
-	                         EVENT_TASK_PRIO,
-	                         &event_center_taskhd))
-	{
-		LOG_E(TAG, "Create event center task fail !");
-	}
-
-	while(1)
-	{
+	while(1){
 		// LOG_I(TAG, "ESP8266 FreeRTOS printf !");
 		// printf_os_task_manager();
 

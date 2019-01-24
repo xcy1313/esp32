@@ -32,7 +32,16 @@ static vesync_mqtt_status_e s_vesync_mqtt_status = MQTT_OFFLINE;
 
 #define HTTPS_SERVER_ADDR_LEN		128
 static char s_https_server_addr[HTTPS_SERVER_ADDR_LEN] = {"test-online.vesync.com"};
+static char vesync_https_service_token[64] ={"\0"};
 
+/**
+ * @brief 返回token
+ * @param token 
+ */
+void vesync_get_https_token(char *token)
+{
+	strcpy(token,vesync_https_service_token);
+}
 /**
  * @brief 连接WiFi的结果回调
  * @param status [WiFi连接状态，包括连接成功和连接掉线，以及连接失败时的错误原因]
@@ -266,7 +275,8 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			if(true == cJSON_IsObject(result)){
 				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
 				if(true == cJSON_IsString(result)){
-					LOG_I(TAG,"troken : %s\r\n", token->valuestring);
+					strcpy((char *)vesync_https_service_token,token->valuestring);
+					LOG_I(TAG,"token : %s\r\n", vesync_https_service_token);
 				}
 				cJSON *expireIn = cJSON_GetObjectItemCaseSensitive(result, "expireIn");
 				if(true == cJSON_IsNumber(expireIn)){
@@ -284,18 +294,19 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 
 	return ret;
 }
+
 /**
  * @brief vesync https配网信息注册
  * @param mask 
  */
 void vesync_json_add_https_service_register(uint8_t mask)
 {
+	vesync_wait_network_connected(5000);
     cJSON *root = cJSON_CreateObject();
 	if(NULL == root)    return;
 
     char *req_method = NULL;
     cJSON* info = NULL;
-    static char token[128];
 
     int ret =0;
     char recv_buff[1024];
@@ -388,4 +399,23 @@ int vesync_https_client_request(char *method, char *body, char *recv_buff, int *
     return ret;
 }
 
+/**
+ * @brief 刷新token
+ * @return uint32_t 设备已有配网记录
+ */
+uint32_t vesync_refresh_https_token(void)
+{
+	if(vesync_get_device_status() >DEV_CONFNET_NOT_CON){
+		xTaskNotify(event_center_taskhd, REFRESH_HTTPS_TROKEN, eSetBits);			//通知事件处理中心任务
+		return 0;
+	}
+	return 1;
+}
 
+/**
+ * @brief 配网注册
+ */
+void vesync_register_https_net(void)
+{
+	xTaskNotify(event_center_taskhd, HTTPS_NET_CONFIG_REGISTER, eSetBits);			//通知事件处理中心任务
+}
