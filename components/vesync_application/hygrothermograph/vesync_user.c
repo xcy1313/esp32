@@ -22,6 +22,7 @@
 #include "vadisplay.h"
 #include "buzzer.h"
 #include "analog_param.h"
+#include "touchkey.h"
 
 static const char* TAG = "vesync_user";
 
@@ -35,6 +36,7 @@ void application_task(void *args)
     buzzer_init();
     analog_adc_init();
     va_display_init();
+    // vesync_client_connect_wifi("R6100-2.4G", "12345678");
 
     while(1)
     {
@@ -43,6 +45,10 @@ void application_task(void *args)
 
         sht30_get_temp_and_humi(&temp, &humi);
         LOG_I(TAG, "Get sht30 data, temp : %f, humi : %f", temp, humi);
+
+        LOG_I(TAG, "Battery voltage : %dmv", 4 * analog_adc_read_battery_mv());
+        LOG_I(TAG, "Bettery charge status : %d", get_battery_charge_status());
+        LOG_I(TAG, "Bettery charge fully status : %d", get_battery_charge_fully_status());
 
         va_display_temperature(temp, CELSIUS_UNIT);
         va_display_humidity(humi);

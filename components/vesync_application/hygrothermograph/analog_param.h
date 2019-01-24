@@ -26,6 +26,12 @@ uint32_t analog_adc_read_tlv8811_out_mv(void);
 uint32_t analog_adc_read_tlv8811_envi_temp_mv(void);
 
 /**
+ * @brief 读取电池电压值
+ * @return uint32_t [模拟量输出值，单位毫伏]
+ */
+uint32_t analog_adc_read_battery_mv(void);
+
+/**
  * @brief 判断电压值的变化是否超出变化阈值
  * @param voltage   [当次采样电压值]
  * @param threshold [变化阈值]

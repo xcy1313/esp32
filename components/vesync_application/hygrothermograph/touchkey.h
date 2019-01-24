@@ -1,6 +1,6 @@
 /**
  * @file touchkey.h
- * @brief 触摸按键
+ * @brief 触摸、按键等开关量输入
  * @author WatWu
  * @date 2019-01-11
  */
@@ -42,6 +42,18 @@ int get_power_key_status(void);
  * @return int [人体红外感应开关状态，1为自动模式，0为手动模式]
  */
 int get_reaction_key_status(void);
+
+/**
+ * @brief 获取电池的充电状态
+ * @return int [电池充电状态，1为充电中，0为未充电]
+ */
+int get_battery_charge_status(void);
+
+/**
+ * @brief 获取电池的充满电状态
+ * @return int [电池充电满电状态，1为未充满，0为已充满]
+ */
+int get_battery_charge_fully_status(void);
 
 /**
  * @brief 检查电源按键状态，实时更新电源状态

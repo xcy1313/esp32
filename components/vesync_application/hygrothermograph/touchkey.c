@@ -1,6 +1,6 @@
 /**
  * @file touchkey.c
- * @brief 触摸按键
+ * @brief 触摸、按键等开关量输入
  * @author WatWu
  * @date 2019-01-11
  */
@@ -11,6 +11,8 @@
 #define TOUCH_KEY_GPIO                  17              //触摸按键
 #define POWER_KEY                       5               //电源按键
 #define REACTION_KEY                    18              //人体感应开关按键
+#define BAT_CHARGING                    25              //电池充电状态引脚，为0则是充电中
+#define BAT_CHARGE_FULLY                15              //电池充电充满状态，为0则是充满
 
 static uint8_t power_status = POWER_ON;
 static uint8_t power_key_new = POWER_KEY_UP;
@@ -33,6 +35,12 @@ void touch_key_init(void)
     gpio_config(&io_conf);
 
     io_conf.pin_bit_mask = 1ULL << REACTION_KEY;
+    gpio_config(&io_conf);
+
+    io_conf.pin_bit_mask = 1ULL << BAT_CHARGING;
+    gpio_config(&io_conf);
+
+    io_conf.pin_bit_mask = 1ULL << BAT_CHARGE_FULLY;
     gpio_config(&io_conf);
 }
 
@@ -61,6 +69,24 @@ int get_power_key_status(void)
 int get_reaction_key_status(void)
 {
     return gpio_get_level(REACTION_KEY);
+}
+
+/**
+ * @brief 获取电池的充电状态
+ * @return int [电池充电状态，1为充电中，0为未充电]
+ */
+int get_battery_charge_status(void)
+{
+    return gpio_get_level(BAT_CHARGING);
+}
+
+/**
+ * @brief 获取电池的充满电状态
+ * @return int [电池充电满电状态，1为未充满，0为已充满]
+ */
+int get_battery_charge_fully_status(void)
+{
+    return gpio_get_level(BAT_CHARGE_FULLY);
 }
 
 /**

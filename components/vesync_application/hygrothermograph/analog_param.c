@@ -21,6 +21,7 @@
 
 #define TLV8811_OUT_GPIO_CHAN       ADC1_CHANNEL_4  //TLV8811芯片输出通道，GPIO32
 #define TLV8811_ENVI_TEMP_CHAN      ADC1_CHANNEL_5  //TLV8811环境温度通道，GPIO33
+#define BAT_POWER_ADC_CHAN          ADC1_CHANNEL_7  //电池电压通道，GPIO35
 
 static const char* TAG = "esp_adc";
 static esp_adc_cal_characteristics_t *adc_chars;    //ADC属性参数
@@ -80,6 +81,7 @@ void analog_adc_init(void)
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(TLV8811_OUT_GPIO_CHAN, ADC_ATTEN_11db);
     adc1_config_channel_atten(TLV8811_ENVI_TEMP_CHAN, ADC_ATTEN_11db);
+    adc1_config_channel_atten(BAT_POWER_ADC_CHAN, ADC_ATTEN_11db);
 
     //Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
@@ -132,6 +134,34 @@ uint32_t analog_adc_read_tlv8811_envi_temp_mv(void)
     for(int i = 0; i < NUM_OF_SAMPLES; i++)
     {
         read_raw = adc1_get_raw(TLV8811_ENVI_TEMP_CHAN);
+        if(read_raw != -1)
+        {
+            adc_reading += read_raw;
+            samples_count++;
+        }
+    }
+    adc_reading /= samples_count;
+    voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+
+    return voltage;
+}
+
+/**
+ * @brief 读取电池电压值
+ * @return uint32_t [模拟量输出值，单位毫伏]
+ */
+uint32_t analog_adc_read_battery_mv(void)
+{
+    uint32_t read_raw;
+    uint32_t voltage;
+    uint32_t adc_reading;
+    uint32_t samples_count;
+
+    adc_reading = 0;
+    samples_count = 0;
+    for(int i = 0; i < NUM_OF_SAMPLES; i++)
+    {
+        read_raw = adc1_get_raw(BAT_POWER_ADC_CHAN);
         if(read_raw != -1)
         {
             adc_reading += read_raw;
