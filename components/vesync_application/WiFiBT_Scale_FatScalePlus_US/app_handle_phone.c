@@ -38,7 +38,7 @@ static char new_version[10] = {'\0'};
  * @param trace_id 
  * @param result 
  */
-static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
+static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result,uint8_t percent)
 {
     frame_ctrl_t res_ctl ={     //应答包res状态  
                 .data = 0x0,
@@ -67,6 +67,9 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
                 }
             }
             break;
+        case RESPONSE_UPGRADE_PROCESS:
+                cJSON_AddNumberToObject(report, "process", percent);
+            break;
         default:
                 res_ctl.data = 0x10;
             break;
@@ -79,7 +82,7 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result)
     free(out);
     
     vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&resp_strl.buf[0],resp_strl.len);  //返回应答设置或查询包
-    
+    cnt++;
     cJSON_Delete(report);
 }
 
@@ -116,7 +119,7 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
                 }else if(ota_souce == UPGRADE_APP){
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_TIMEOUT);
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_TIMEOUT,0);
                 }
             break;
         case OTA_BUSY:
@@ -127,19 +130,21 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result("1547029501512",5); //升级中
                 }else if(ota_souce == UPGRADE_APP){
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
+                    //app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
                 }
             break;
         case OTA_FAILED:
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
                 }else if(ota_souce == UPGRADE_APP){
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL);
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL,0);
                 }
             break;
         case OTA_PROCESS:
                 ESP_LOGI(TAG, "upgrade process %d\r\n" ,len);
-                //app_handle_upgrade_process_response(len);
+                if(len %10 == 0){
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_PROCESS,len);
+                }
             break;
         case OTA_SUCCESS:
             bt_conn = 4;
@@ -152,7 +157,7 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 
                 app_handle_production_upgrade_response_result("1547029501529",0);     //升级成功
             }else if(ota_souce == UPGRADE_APP){
-                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_SUCCESS);
+                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_SUCCESS,0);
             }
             break;
         default:
@@ -262,7 +267,8 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
     LOG_I(TAG, "vesync_upgrade_config");
-    if(app_handle_get_net_status() > NET_CONFNET_NOT_CON){       //设备已配网
+    //if(app_handle_get_net_status() > NET_CONFNET_NOT_CON)
+    {       //设备已配网
         static bool status = false;
         if(!status){
             status = true;
