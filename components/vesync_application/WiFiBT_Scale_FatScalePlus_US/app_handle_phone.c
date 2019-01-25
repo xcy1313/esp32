@@ -44,12 +44,20 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result,uint8
                 .data = 0x0,
             };
     struct{                     //应答数据包
-        uint8_t buf[300];
+        uint8_t buf[2];
         uint16_t len;
     }resp_strl ={{0},0};         
     static uint8_t cnt = 1;
     uint16_t upgrade_cmd = CMD_UPGRADE;
 
+    resp_strl.buf[1] = 0;
+    resp_strl.buf[0] = result;
+    resp_strl.len = 2;
+    cnt++;
+    if(result == RESPONSE_UPGRADE_PROCESS){
+        resp_strl.buf[1] = percent;
+    }
+#if 0
     cJSON *report = cJSON_CreateObject();
     if(NULL != report){
         cJSON_AddStringToObject(report, "traceId", trace_id);		        //==TODO==，需要修改成毫秒级
@@ -80,10 +88,9 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result,uint8
     ESP_LOGI(TAG, "BT send len[%d]\r\n" ,resp_strl.len);
     memcpy(resp_strl.buf,(char *)out ,resp_strl.len);
     free(out);
-    
-    vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&resp_strl.buf[0],resp_strl.len);  //返回应答设置或查询包
-    cnt++;
     cJSON_Delete(report);
+#endif    
+    vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&resp_strl.buf[0],resp_strl.len);  //返回应答设置或查询包
 }
 
 static void app_handle_upgrade_process_response(uint32_t data)
@@ -142,9 +149,7 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
             break;
         case OTA_PROCESS:
                 ESP_LOGI(TAG, "upgrade process %d\r\n" ,len);
-                if(len %10 == 0){
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_PROCESS,len);
-                }
+                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_PROCESS,len);
             break;
         case OTA_SUCCESS:
             bt_conn = 4;
@@ -154,10 +159,10 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
             if(ota_souce == UPGRADE_PRODUCTION){
                 resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);      //发送称体产测结束指令
-
                 app_handle_production_upgrade_response_result("1547029501529",0);     //升级成功
             }else if(ota_souce == UPGRADE_APP){
                 app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_SUCCESS,0);
+                app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE,0,0);
             }
             break;
         default:
@@ -359,7 +364,7 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                 nlen = length/sizeof(user_config_data_t);
                 ESP_LOGI(TAG, "nlen[%d]",nlen);
 
-                if(nlen > 0){
+                if(nlen > 0 && nlen<= MAX_CONUT){
                     for(uint8_t i=0;i< nlen;i++){
                         if(user_list[i].account == if_modyfy_account){
                             user_cnt++;
@@ -368,6 +373,7 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                         }
                     }
                     if(user_cnt !=0){
+                        vesync_flash_erase_all_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
                         if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)user_list,length)){   //按4字节整数倍保存用户信息
                             ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",info->user_config_data.crc8 ,length);
                             ret = 0;     //修改信息完毕;
@@ -527,8 +533,10 @@ static uint8_t vesync_inquiry_weight_history(uint32_t user_account ,uint16_t *le
         if(user_cnt != 0){
             strcpy((char *)inquiry_user_store_key,(char *)user_list[i].user_store_key);
             account_id = user_list[i].account;
-            xEventGroupSetBits(ble_event_group, READY_READ_FLASH);
+            //xEventGroupSetBits(ble_event_group, READY_READ_FLASH);
             return 2;
+        }else{
+            ESP_LOGI(TAG, "read history data but not match user\n");
         }
     }
     return 1;
@@ -544,7 +552,9 @@ static bool vesync_delete_account(uint8_t *opt)
     bool ret = false;
     if(opt[0] == 1){    //为1表示删除所有用户模型信息
         if(0 == vesync_flash_erase_partiton(USER_MODEL_NAMESPACE)){
-            ret = true;
+            if( 0 == vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE)){ //同步删除用户数据
+                ret = true;
+            }
         }
     }
     return ret;
@@ -740,7 +750,7 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                     case CMD_INQUIRY_HISTORY:{
                             uint8_t ret =0;
                             uint16_t len = 0;
-                            uint32_t if_inquiry_account = *(uint32_t *)&opt[1];
+                            uint32_t if_inquiry_account = *(uint32_t *)&opt[0];
                             ESP_LOGI(TAG, "inquirt account[0x%04x]",if_inquiry_account);
                             ret = vesync_inquiry_weight_history(if_inquiry_account,&len);
                             if(ret == 1){
@@ -828,16 +838,58 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 #endif    
 }
 
+uint32_t app_handle_get_flash_size(const char *label_name,const char *key_name)
+{
+    esp_err_t err =0;
+    nvs_handle fp;
+    size_t required_size = 0;
+
+    err = nvs_open_from_partition(label_name,key_name, NVS_READONLY, &fp);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "vesync flash fine partion err:0x%04x",err);
+        return 0;
+    }
+
+    err = nvs_get_blob(fp, key_name, NULL, &required_size);     //获取当前键值对存储的数据长度 
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "vesync flash read size err:0x%04x",err);
+        return 0;
+    }
+    nvs_close(fp);
+    
+    return required_size;
+}
+
+uint32_t app_handle_get_flash_data(const char *label_name,const char *key_name,uint8_t *data,uint8_t len)
+{
+    esp_err_t err =0;
+    nvs_handle fp;
+
+    err = nvs_open_from_partition(label_name,key_name, NVS_READONLY, &fp);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "vesync flash fine partion err:0x%04x",err);
+        return err;
+    }
+    err = nvs_get_blob(fp, key_name, (char *)data, &len); //获取当前键值对存储的数据内容
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "vesync flash read data err:0x%04x",err);
+        return err;
+    }
+    nvs_close(fp);
+    
+    return err;
+}
 /**
  * @brief 蓝牙数据发送任务
  * @param pvParameters 
  */
-static void app_handle_ble_send_task_handler(void *pvParameters){
-
-    uint8_t user_read_data[4096] ={0};
+static void app_handle_ble_send_task_handler(void *pvParameters)
+{
+    uint8_t user_read_data[300] ={0};
     uint16_t read_len =0;
     static uint8_t gUserConfig =0;
     static uint16_t send_len =0;
+    static uint32_t total_size =0;
 
     frame_ctrl_t res_ctl ={     //应答包res状态  
                 .data = 0x10,
@@ -853,28 +905,20 @@ static void app_handle_ble_send_task_handler(void *pvParameters){
             switch(gUserConfig){
                 case 0:
                     ESP_LOGI(TAG, "read user key_value[%s]",inquiry_user_store_key);
-                    if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,inquiry_user_store_key,(uint8_t *)user_read_data,&read_len) == 0){
-                        ESP_LOGI(TAG, "read user history total len is[%d]",read_len);
-                        gUserConfig = 1;
-                        send_len = 0;
-                    }else{
+                    total_size = app_handle_get_flash_size(USER_HISTORY_DATA_NAMESPACE,inquiry_user_store_key);
+                    if(total_size == 0){
                         xEventGroupClearBits(ble_event_group, READY_READ_FLASH);
+                    }else{
+                        gUserConfig = 1; 
                     }
+                    ESP_LOGI(TAG, "history data %d",total_size);
                     break;
                 case 1:
-                    if(read_len >= 200){
-                        vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&user_read_data[send_len],200);  //返回应答设置或查询包
-                        read_len -=200;
-                        send_len +=200;
+                    ESP_LOGI(TAG, "send data  %d,  key_value[%s]",total_size,inquiry_user_store_key);
+                    if(app_handle_get_flash_data(USER_HISTORY_DATA_NAMESPACE,inquiry_user_store_key,(unsigned char *)&user_read_data[total_size+4],total_size+4) == 0){
+                        esp_log_buffer_hex(TAG, user_read_data, total_size);
+                        //vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&user_read_data[total_size+4],total_size+4);  //返回应答设置或查询包
                         cnt++;
-                        ESP_LOGI(TAG, "send history data 200 cnt:%d",cnt);
-                    }else{
-                        //memcpy(&user_read_data[0],(uint8_t *)&account_id,4);  //todo
-                        vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&user_read_data[send_len+4],read_len+4);  //返回应答设置或查询包
-                        gUserConfig = 0;
-                        send_len =0;
-                        xEventGroupClearBits(ble_event_group, READY_READ_FLASH);
-                        ESP_LOGI(TAG, "send history data < 200");
                     }
                     break;
             }

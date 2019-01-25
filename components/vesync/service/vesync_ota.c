@@ -111,6 +111,7 @@ static void vesync_ota_task_handler(void *pvParameters)
 
     esp_http_client_handle_t client = esp_http_client_init(&client_config);
     if (client == NULL) {
+        vesync_ota_event_post_to_user(0,OTA_URL_ERROR);
         ESP_LOGE(TAG, "Failed to initialise HTTP connection");
         task_fatal_error();
     }

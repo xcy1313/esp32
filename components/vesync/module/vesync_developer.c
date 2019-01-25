@@ -149,7 +149,7 @@ static int cjson_handle_upgrade(cJSON *json)
 					uint8_t url_len;
 					strcpy(upgrade_url, url->valuestring);
 					url_len = strlen(url->valuestring);
-					//sprintf(&upgrade_url[url_len],"%s.V%s.bin",DEVICE_TYPE,new_version);
+					sprintf(&upgrade_url[url_len],"%s.V%s.bin",DEVICE_TYPE,new_version);
 					LOG_I(TAG, "upgrade url %s",upgrade_url);
 					vesync_ota_init(upgrade_url,ota_event_handler);
 				}

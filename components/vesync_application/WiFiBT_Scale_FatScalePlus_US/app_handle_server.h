@@ -15,6 +15,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "vesync_device.h"
+
 #define PRODUCT_TEST_START  0x1
 
 #define UPGRADE_APP				0
@@ -125,5 +127,7 @@ void app_set_upgrade_source(uint8_t source);
  * @brief 获取升级来源
  */
 uint8_t app_get_upgrade_source(void);
+
+void device_status(device_status_e status);
 
 #endif

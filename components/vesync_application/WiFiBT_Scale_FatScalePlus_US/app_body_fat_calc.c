@@ -276,8 +276,8 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         ret = true;
                     }
                 }else{
-                    //p_weitht->imped_value = 500;
-                    //p_weitht->weight = 55;
+                    p_weitht->imped_value = 500;
+                    p_weitht->weight = 55;
                     uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
                     uint16_t new_kg = (uint16_t)(p_weitht->weight);//调试屏蔽注释 85
                     uint8_t user_cnt =0;

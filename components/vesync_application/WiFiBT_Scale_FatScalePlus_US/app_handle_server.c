@@ -435,23 +435,6 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
     if(NULL == root)    return;
     
     switch(mask){
-        case NETWORK_CONFIG_REQ:
-            cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
-            if(NULL != info){
-                char mac[6 * 3];
-                vesync_get_wifi_sta_mac_string(mac);
-                cJSON_AddStringToObject(info, "configKey", (char *)net_info.mqtt_config.configKey);
-                cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
-                cJSON_AddStringToObject(info, "mac", mac);
-                cJSON_AddStringToObject(info, "version", FIRM_VERSION);
-                cJSON_AddNumberToObject(info, "rssi", -56);
-                cJSON_AddStringToObject(info, "timeZone", "8");
-                req_method = "deviceRegister";
-            }
-            break;
-        case REFRESH_TOKEN_REQ:
-                req_method = "refreshDeviceToken";
-            break;
         case UPLOAD_WEIGHT_DATA_REQ:
                 req_method = "uploadWeighData";
                 cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
@@ -511,6 +494,7 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
     }
     cJSON *report = vesync_json_add_method_head("1540170843000",req_method,info);
     if(mask != REFRESH_TOKEN_REQ && mask != NETWORK_CONFIG_REQ){
+        vesync_get_https_token(token);
         cJSON_AddStringToObject(report, "token", token);
     }
     char* out = cJSON_PrintUnformatted(report);
@@ -588,6 +572,34 @@ static void app_handle_https_message_queue_create(void)
     }
 }
 
+/**
+ * @brief 配网状态
+ * @param status 
+ */
+void device_status(device_status_e status)
+{
+    LOG_I(TAG, "device status %d\n",status);
+    uint8_t wifi_conn =0;
+	switch(status){
+		case DEV_CONFNET_NOT_CON:				//未配网
+            wifi_conn = 0;
+            app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+            resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+			break;
+		case DEV_CONFNET_ONLINE:				//已连接上服务器
+            wifi_conn = 2;
+            app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+            resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+			break;
+		case DEV_CONFNET_OFFLINE:				//已配网但未连接上服务器
+            wifi_conn = 1;
+            app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+            resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+			break;
+        default:
+            break;				
+	}
+}
 /**
  * @brief app端创建通知任务
  */

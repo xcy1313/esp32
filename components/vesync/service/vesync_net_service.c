@@ -41,6 +41,7 @@ static char vesync_https_service_token[64] ={"\0"};
 void vesync_get_https_token(char *token)
 {
 	strcpy(token,vesync_https_service_token);
+	LOG_I(TAG, "https token：[%s]" ,token);
 }
 /**
  * @brief 连接WiFi的结果回调
@@ -274,7 +275,7 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
 			if(true == cJSON_IsObject(result)){
 				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
-				if(true == cJSON_IsString(result)){
+				if(true == cJSON_IsString(token)){
 					strcpy((char *)vesync_https_service_token,token->valuestring);
 					LOG_I(TAG,"token : %s\r\n", vesync_https_service_token);
 				}

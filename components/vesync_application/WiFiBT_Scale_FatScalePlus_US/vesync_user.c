@@ -26,11 +26,6 @@
 #include "app_handle_server.h"
 
 static const char* TAG = "vesync_user";
-
-static void device_status(device_status_e status)
-{
-    LOG_I(TAG, "device status %d\n",status);
-}
 /**
  * @brief vesync平台应用层入口函数
  */

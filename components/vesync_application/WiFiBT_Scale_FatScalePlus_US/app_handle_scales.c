@@ -18,6 +18,7 @@
 #include "vesync_interface.h"
 #include "vesync_device.h"
 #include "app_public_events.h"
+#include "vesync_flash.h"
 
 #include "vesync_log.h"
 
@@ -45,21 +46,26 @@ void app_scales_power_on(void)
 	bt_conn = vesync_bt_connected()?CMD_BT_STATUS_CONNTED:CMD_BT_STATUS_DISCONNECT;
 	app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
 	resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-
-	uint8_t wifi_status = vesync_wifi_get_status();
 	uint8_t wifi_conn =0 ;
-	LOG_I(TAG, "power on wifi mode[%d]" ,wifi_status);
-	if(wifi_status == VESYNC_WIFI_GOT_IP){
-		wifi_conn = 2;
-		app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
-	}else if(wifi_status == VESYNC_WIFI_CONNECTING){
-		wifi_conn = 1;
-		app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
-	}else{
-		wifi_conn = 0;
-		app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+	switch(vesync_get_device_status()){
+		case DEV_CONFNET_NOT_CON:				//未配网
+			wifi_conn = 0;
+			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+			break;
+		case DEV_CONFNET_ONLINE:				//已连接上服务器
+			wifi_conn = 2;
+			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+			break;
+		case DEV_CONFNET_OFFLINE:				//已配网但未连接上服务器
+			wifi_conn = 1;
+			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+			break;
+		default:
+			break;				
 	}
-	resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 }
 
 /**
@@ -173,7 +179,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power off!!!");
 							LOG_I(TAG,"------------------------]");
-							//app_scales_power_off();
+							app_scales_power_off();
 						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power on!!!");
@@ -301,7 +307,7 @@ void app_button_event_handler(void *p_event_data){
 				if(enter_factory_mode_cnt >= 3){
 					lchecktime = xTaskGetTickCount();	//记录当前记录的时间
 					LOG_I(TAG, "lchecktime[%d]\r\n" ,lchecktime);
-					if(abs(lchecktime-nchecktime) < 250){
+					if(abs(lchecktime-nchecktime) < 400){
 						uint8_t mac_addr[6];
 						enter_factory_mode_cnt =0;
 						ESP_LOGE(TAG, "enter factory mode");
@@ -316,8 +322,22 @@ void app_button_event_handler(void *p_event_data){
 				}
 			}
 			return;
-		case Very_Long_key:
-
+		case Very_Long_key:{
+				static bool factory_set = false;
+				if(factory_set == false){
+					uint32_t ret;
+					factory_set = true;
+					ret = vesync_flash_erase_partiton(USER_MODEL_NAMESPACE);
+					if(ret != 0){
+						LOG_E(TAG, "erase USER_MODEL_NAMESPACE\r\n");
+					}
+					ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);
+					if(ret != 0){
+						LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
+					}
+					//esp_restart();
+				}
+			}
 			return;
 		default:
 			return;  
@@ -388,17 +408,25 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 		app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&info_str.user_fat_data.fat,sizeof(info_str.user_fat_data),true);
 	}
 	if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
-		uint8_t wifi_status = vesync_wifi_get_status();
 		uint8_t wifi_conn =0 ;
-		if(wifi_status == VESYNC_WIFI_GOT_IP){
-			wifi_conn = 2;
-			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
-		}else if(wifi_status == VESYNC_WIFI_CONNECTING){
-			wifi_conn = 1;
-			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
-		}else{
-			wifi_conn = 0;
-			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+		switch(vesync_get_device_status()){
+			case DEV_CONFNET_NOT_CON:				//未配网
+				wifi_conn = 0;
+				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+				break;
+			case DEV_CONFNET_ONLINE:				//已连接上服务器
+				wifi_conn = 2;
+				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+				break;
+			case DEV_CONFNET_OFFLINE:				//已配网但未连接上服务器
+				wifi_conn = 1;
+				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+				break;
+			default:
+				break;				
 		}
 	}
 }

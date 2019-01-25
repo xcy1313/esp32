@@ -32,6 +32,8 @@
 //产品authkey
 #define DEV_AUTHKEY						"ww6zvzwtaa6hqjl991g0w1obkeo0sd44"
 
+#define DEVICE_TYPE						"WiFiBT_Scale_FatScalePlus_US"
+
 //定义有效则恢复出厂设置不重启设备，默认是重启
 // #define RESTORE_DONOT_REBOOT
 
