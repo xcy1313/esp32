@@ -62,6 +62,13 @@ void vesync_connect_wifi(char *wifi_ssid, char *wifi_password);
 void vesync_get_wifi_sta_mac_string(char *mac_str_buffer);
 
 /**
+ * @brief 获取已连接的APmac地址字符串
+ * @param mac_str_buffer 
+ * @return int 
+ */
+int vesync_get_wifi_ap_mac_string(char *mac_str_buffer);
+
+/**
  * @brief 获取当前模式下的wifi配置
  * @param mode 
  * @return uint8_t 

@@ -194,6 +194,14 @@ void vesync_bt_advertise_stop(void);
 uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const unsigned char *notify_data ,unsigned short len);
 
 /**
+ * @brief 使能notify特征发送自定义数据至server端
+ * @param notify_data 
+ * @param len 
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_notify_send(const uint8_t *notify_data ,unsigned short len);
+
+/**
  * @brief 蓝牙是否连接成功
  * @return true 
  * @return false 

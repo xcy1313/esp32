@@ -43,6 +43,7 @@ void vesync_get_https_token(char *token)
 	strcpy(token,vesync_https_service_token);
 	LOG_I(TAG, "https token：[%s]" ,token);
 }
+
 /**
  * @brief 连接WiFi的结果回调
  * @param status [WiFi连接状态，包括连接成功和连接掉线，以及连接失败时的错误原因]

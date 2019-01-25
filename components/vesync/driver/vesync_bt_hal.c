@@ -369,6 +369,19 @@ uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const unsig
     return ret;                                 
 }
 /**
+ * @brief 
+ * @param notify_data 
+ * @param len 为了跟串口统一 len包含命令+载荷长度 
+ */
+uint32_t vesync_bt_notify_send(const uint8_t *notify_data ,unsigned short len)
+{
+    uint32_t ret = 0;
+    ret = esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
+                                        (uint16_t)len, (uint8_t *)notify_data, false);
+    return ret;                                 
+}
+
+/**
  * @brief 更新连接参数请求 满足ios系统需求
  * @return uint32_t 
  */

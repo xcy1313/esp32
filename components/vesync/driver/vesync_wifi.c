@@ -308,6 +308,15 @@ void vesync_get_wifi_sta_mac_string(char *mac_str_buffer)
 }
 
 /**
+ * @brief 获取设备WIFI AP端的mac地址字符串
+ * @param mac_str_buffer 
+ * @return int 
+ */
+int vesync_get_wifi_ap_mac_string(char *mac_str_buffer)
+{
+	return vesync_hal_get_router_mac_string(mac_str_buffer);
+}
+/**
  * @brief 开启wifi扫描
  * @return int 
  */
