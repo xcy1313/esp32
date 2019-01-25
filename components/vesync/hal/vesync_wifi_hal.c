@@ -215,6 +215,28 @@ int vesync_hal_get_mac_string(int interface, char *mac_str_buffer)
 }
 
 /**
+ * @brief 获取已连接的路由器的mac地址
+ * @param router_mac 
+ * @return int 
+ */
+int vesync_hal_get_router_mac_string(char *router_mac)
+{
+	/* AP information to which STA is connected */
+	int ret;
+	char mac_addr[6];
+	wifi_ap_record_t ap_info;
+	ret = esp_wifi_sta_get_ap_info(&ap_info);
+	memcpy(mac_addr, (char *)ap_info.bssid, sizeof(ap_info.bssid));
+	sprintf(router_mac, MACSTR, MAC2STR(mac_addr));
+	return ret;
+}
+
+// int vesync_hal_get_rssi(int interface, char *mac_str_buffer)
+// {
+// 	wifi_config_t wifi_cfg;
+// 	esp_wifi_get_config(interface,&wifi_cfg);
+// }
+/**
  * @brief 启动扫描WiFi列表
  * @return int [扫描结果]
  */
