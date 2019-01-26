@@ -8,6 +8,8 @@
 #ifndef VADISPLAY_H
 #define VADISPLAY_H
 
+#include "bu9796a.h"
+
 /**
  * @brief 初始化VA屏显示
  */
@@ -31,5 +33,21 @@ void va_display_humidity(float humi);
  * @param off_sec [延时关闭背光，单位秒]
  */
 void va_display_trun_on_backlight(uint32_t off_sec);
+
+/**
+ * @brief 显示屏开始指示充电
+ */
+void va_display_start_charging(void);
+
+/**
+ * @brief 显示屏停止指示充电
+ */
+void va_display_stop_charging(void);
+
+/**
+ * @brief VA屏显示剩余电量
+ * @param bat_mv [电池电压]
+ */
+void va_display_bat_dump_energy(uint32_t bat_mv);
 
 #endif

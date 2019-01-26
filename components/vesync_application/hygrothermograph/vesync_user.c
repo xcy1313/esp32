@@ -52,6 +52,8 @@ void application_task(void *args)
 
         va_display_temperature(temp, CELSIUS_UNIT);
         va_display_humidity(humi);
+        bu9796a_display_ble_icon(true);
+        bu9796a_display_wifi_icon(true);
 
         // printf_os_task_manager();
         usleep(1000 * 1000);

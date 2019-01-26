@@ -20,6 +20,12 @@
 #define REACTION_AUTO           1
 #define REACTION_MANUAL         0
 
+#define TOUCH_KEY_GPIO          17              //触摸按键
+#define POWER_KEY               26              //电源按键
+#define REACTION_KEY            18              //人体感应开关按键
+#define BAT_CHARGING            25              //电池充电状态引脚，为0则是充电中
+#define BAT_CHARGE_FULLY        15              //电池充电充满状态，为0则是充满
+
 /**
  * @brief 初始化触摸接口
  */
@@ -45,7 +51,7 @@ int get_reaction_key_status(void);
 
 /**
  * @brief 获取电池的充电状态
- * @return int [电池充电状态，1为充电中，0为未充电]
+ * @return int [电池充电状态，1为未充电，0为充电中]
  */
 int get_battery_charge_status(void);
 

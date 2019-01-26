@@ -81,6 +81,18 @@ void bu9796a_display_minus(void);
 void bu9796a_display_ble_icon(uint8_t dis_flag);
 
 /**
+ * @brief 屏幕显示WiFi图标，写到显示内存
+ * @param dis_flag [显示标识，true或false]
+ */
+void bu9796a_display_wifi_icon(uint8_t dis_flag);
+
+/**
+ * @brief 屏幕显示电池电量图标
+ * @param power_dump [剩余电量，0-3，代表剩余电量级别，0为0%~25%，以此类推]
+ */
+void bu9796a_display_bat_power_icon(uint8_t power_dump);
+
+/**
  * @brief 屏幕显示最高位数字1，写到显示内存
  * @param dis_flag [显示标识，true或false]
  */
@@ -103,6 +115,11 @@ void bu9796a_display_humi_icon(uint8_t dis_flag);
  * @param units [待显示的温度单位，0为摄氏度，1为华氏度]
  */
 void bu9796a_display_temp_units(uint8_t units);
+
+/**
+ * @brief 清屏
+ */
+void bu9796a_clear_display(void);
 
 /**
  * @brief 刷新显示

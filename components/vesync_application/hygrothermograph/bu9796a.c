@@ -219,6 +219,42 @@ void bu9796a_display_ble_icon(uint8_t dis_flag)
 }
 
 /**
+ * @brief 屏幕显示WiFi图标，写到显示内存
+ * @param dis_flag [显示标识，true或false]
+ */
+void bu9796a_display_wifi_icon(uint8_t dis_flag)
+{
+    if(dis_flag == true)
+        display_ram[5] |= 0x80;
+    else
+        display_ram[5] &= 0x7F;
+}
+
+/**
+ * @brief 屏幕显示电池电量图标
+ * @param power_dump [剩余电量，0-3，代表剩余电量级别，0为0%~25%，以此类推]
+ */
+void bu9796a_display_bat_power_icon(uint8_t power_dump)
+{
+    uint8_t hightest_4bit = display_ram[5] & 0xF0;      //保留高4位
+    switch(power_dump)
+    {
+        case 0:
+            display_ram[5] = 0x08 | hightest_4bit;
+            break;
+        case 1:
+            display_ram[5] = 0x0C | hightest_4bit;
+            break;
+        case 2:
+            display_ram[5] = 0x0E | hightest_4bit;
+            break;
+        case 3:
+            display_ram[5] = 0x0F | hightest_4bit;
+            break;
+    }
+}
+
+/**
  * @brief 屏幕显示最高位数字1，写到显示内存
  * @param dis_flag [显示标识，true或false]
  */
@@ -283,6 +319,14 @@ void bu9796a_display_temp_units(uint8_t units)
         display_ram[5] |= 0x20;
         display_ram[5] &= 0xEF;
     }
+}
+
+/**
+ * @brief 清屏
+ */
+void bu9796a_clear_display(void)
+{
+    memset(display_ram, 0, DISPLAY_RAM_SIZE);
 }
 
 /**

@@ -91,22 +91,22 @@ void vesync_entry(void *args)
 	{
 		LOG_E(TAG, "Create event center task fail !");
 	}
-	vesync_clinet_wifi_module_init(true);
-	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
-	vesync_init_https_module(vesync_https_ca_cert_pem);
+// 	vesync_clinet_wifi_module_init(true);
+// 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
+// 	vesync_init_https_module(vesync_https_ca_cert_pem);
 
-	vesync_flash_read_product_config(&product_config);
-	if(vesync_flash_read_net_info(&net_info) == true){
-		vesync_set_device_status(DEV_CONFNET_OFFLINE);		//已配网但未连接上服务器
-		vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-	}else{
-		vesync_set_device_status(DEV_CONFNET_NOT_CON);	//第一次使用，未配网
-	}
-	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1";
-// 0LWPJNML3eqV3fLKZo7zTAOJyJpbZq71
-// 0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
-	strcpy((char *)product_config.cid,(char *)test_cid);
-	LOG_I(TAG, "device status : %d\n" ,vesync_get_device_status());
+// 	vesync_flash_read_product_config(&product_config);
+// 	if(vesync_flash_read_net_info(&net_info) == true){
+// 		vesync_set_device_status(DEV_CONFNET_OFFLINE);		//已配网但未连接上服务器
+// 		vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+// 	}else{
+// 		vesync_set_device_status(DEV_CONFNET_NOT_CON);	//第一次使用，未配网
+// 	}
+// 	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1";
+// // 0LWPJNML3eqV3fLKZo7zTAOJyJpbZq71
+// // 0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
+// 	strcpy((char *)product_config.cid,(char *)test_cid);
+// 	LOG_I(TAG, "device status : %d\n" ,vesync_get_device_status());
 
 	while(1){
 		// LOG_I(TAG, "ESP8266 FreeRTOS printf !");
