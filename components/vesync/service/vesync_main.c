@@ -24,6 +24,7 @@ static const char* TAG = "vesync_main";
 //任务句柄定义
 TaskHandle_t event_center_taskhd = NULL;
 TaskHandle_t https_task_handler = NULL;
+vesync_application_cb_t vesync_application_cb = NULL;
 
 /**
  * @brief vesync事件处理中心
@@ -76,6 +77,16 @@ static void vesync_event_center_thread(void *args)
 	}
 }
 
+/**
+ * @brief 注册回调应用程接口
+ * @param cb 
+ */
+void vesync_register_application_cb(vesync_application_cb_t cb)
+{
+	if(NULL != cb){
+		vesync_application_cb = cb;
+	}
+}
 /**
  * @brief vesync平台入口
  * @param args [无]
