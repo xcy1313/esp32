@@ -94,7 +94,9 @@ void vesync_entry(void *args)
 	vesync_clinet_wifi_module_init(true);
 	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
 	vesync_init_https_module(vesync_https_ca_cert_pem);
-
+	if(NULL != vesync_application_cb){
+		vesync_application_cb();
+	}
 	vesync_flash_read_product_config(&product_config);
 	if(vesync_flash_read_net_info(&net_info) == true){
 		vesync_set_device_status(DEV_CONFNET_OFFLINE);		//已配网但未连接上服务器
