@@ -21,6 +21,9 @@ static const char *TAG = "body_FAT";
 #define MAX_WEIGHT      300     //+-三公斤
 #define MAX_IMPED       30      //+-30ohm
 
+#define MIN_FAT         40
+#define MAX_FAT         600
+
 #define ff(x)	        (((int)(x+0.5))>((int)x)?((int)x+1):((int)x))
 #define kg_to_lb(x)     ff((x)*2.20462262)
 #define lb_to_kg(x)     ff((x)*0.45359237)
@@ -28,7 +31,7 @@ static const char *TAG = "body_FAT";
 #define st_to_lb(x)     ff(((x)*14)
 #define st_to_kg(x)     ff((x)*6.3502932)
 //BMI计算
-#define BMI(W,H)        (((W)*1000)/((H)*(H)))
+#define BMI(W,H)        ff(((W)*1000)/((H)*(H)))
 
 //FAT计算
 #define FAT_HIGH_16_MAN(F,A,B)          ff((120090/(F)+0.676*(A)+376-50679100/((B)*(F))))
@@ -86,8 +89,8 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
     ESP_LOGI(TAG, "==============================");
     ESP_LOGI(TAG, "account : 0x%04x", config->account);
     ESP_LOGI(TAG, "gender : 0x%x", config->gender);
-    ESP_LOGI(TAG, "height_unit : 0x%x", config->height_unit);
-    ESP_LOGI(TAG, "height : 0x%x", config->height);
+    ESP_LOGI(TAG, "height_unit : %d", config->height_unit);
+    ESP_LOGI(TAG, "height : %d", config->height);
     ESP_LOGI(TAG, "age : %d", config->age);
     ESP_LOGI(TAG, "measu_unit : %d", config->measu_unit);
     ESP_LOGI(TAG, "weight_kg : %d", config->weight_kg);
@@ -95,6 +98,7 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
     ESP_LOGI(TAG, "imped_value : %d", config->imped_value);
     ESP_LOGI(TAG, "user_store_key : %s", config->user_store_key);
     ESP_LOGI(TAG, "mersure weight : %d", p_weitht->weight);
+    ESP_LOGI(TAG, "if normal mode: %d", config->user_mode);
     ESP_LOGI(TAG, "==============================");
 
     if(false == body_fat_para_if_null(p_weitht)) return false;
@@ -144,7 +148,9 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
             }
             if(mask & 0x0010){
                 if(config->user_mode == NORMAL_MODE){   //普通人模式
-                    fat_data->bmr = BMR_MAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
+                    fat_data->bmr = ff(((0.1764-26.475/(p_weitht->imped_value))*(p_weitht->weight)+(137877/(p_weitht->imped_value)-9.3522)*(config->height)*(config->height)/10000+4095/(config->age)-45378/(p_weitht->imped_value)-133));
+                    //fat_data->bmr = BMR_MAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
+                    ESP_LOGI(TAG, "abmr: %d",fat_data->bmr);
                 }else{
                     fat_data->bmr = BMR_SPORT_MAM(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
                 }
@@ -189,7 +195,8 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
             }
             if(mask & 0x0010){
                 if(config->user_mode == NORMAL_MODE){
-                    fat_data->bmr = BMR_WOMAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
+                    //fat_data->bmr = BMR_WOMAN(p_weitht->imped_value,config->age,p_weitht->weight,config->height);
+                    fat_data->bmr = ff(((0.1739-36.424/(p_weitht->imped_value))*(p_weitht->weight)+(132178/(p_weitht->imped_value)-19.79)*(config->height)*(config->height)/10000+3758/(config->age)-32682/(p_weitht->imped_value)-49));
                 }else{
                     fat_data->bmr = BMR_SPORT_WOMAM(p_weitht->imped_value,config->age,p_weitht->weight,config->height); 
                 }
@@ -197,35 +204,35 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
             break;
     }
 
-    if(fat_data->fat < 40) 
-        fat_data->fat =40;
-    else if(fat_data->fat > 750) 
-        fat_data->fat =750;
+    if(fat_data->fat < MIN_FAT) 
+        fat_data->fat = MIN_FAT;
+    else if(fat_data->fat > MAX_FAT) 
+        fat_data->fat = MAX_FAT;
 
-    if(fat_data->muscle < 10)
-         fat_data->muscle =10;
-    else if(fat_data->muscle > 900) 
-        fat_data->muscle =900;
+    // if(fat_data->muscle < 10)
+    //      fat_data->muscle =10;
+    // else if(fat_data->muscle > 900) 
+    //     fat_data->muscle =900;
 
-    if(fat_data->water < 10)
-         fat_data->water = 10;
-    else if(fat_data->water > 300) 
-        fat_data->water =300;
+    // if(fat_data->water < 10)
+    //      fat_data->water = 10;
+    // else if(fat_data->water > 300) 
+    //     fat_data->water =300;
 
-    if(fat_data->bone< 10)
-         fat_data->bone =10;
-    else if(fat_data->bone > 300) 
-        fat_data->bone =300;
+    // if(fat_data->bone< 10)
+    //      fat_data->bone =10;
+    // else if(fat_data->bone > 300) 
+    //     fat_data->bone =300;
 
-    if(fat_data->bmr< 200)
-         fat_data->bmr =200;
-    else if(fat_data->bmr > 9000) 
-        fat_data->bmr =9000;
+    // if(fat_data->bmr< 200)
+    //      fat_data->bmr =200;
+    // else if(fat_data->bmr > 9000) 
+    //     fat_data->bmr =9000;
 
-    if(fat_data->bmi< 50)
-         fat_data->bmi =50;
-    else if(fat_data->bmi > 800) 
-        fat_data->bmi =800;
+    // if(fat_data->bmi< 50)
+    //      fat_data->bmi =50;
+    // else if(fat_data->bmi > 800) 
+    //     fat_data->bmi =800;
 
     return true;
 }
@@ -277,8 +284,9 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         ret = true;
                     }
                 }else{
-                    //  p_weitht->imped_value = 500;
-                    //  p_weitht->weight = 6465;
+#if 1
+                    p_weitht->imped_value = 500;
+                    p_weitht->weight = 55;
                     uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
                     uint16_t new_kg = p_weitht->weight;//调试屏蔽注释 85
                     uint8_t user_cnt =0;
@@ -293,12 +301,12 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         }
                     }
                     ESP_LOGI(TAG, "user_cnt =%d" ,user_cnt);
-
                     if(user_cnt !=0){
                         user_fat_data_t  resp_fat_data ={0};
                         user_history_t history = {0};
                         // ESP_LOGI(TAG, "account [0x%04x],imped_value[0x%02x],utc_time [0x%04x],unit [0x%x] ,kg [0x%02x],lb [0x02%x]",
                         //     history.account,history.imped_value,history.utc_time,history.measu_unit,history.weight_kg,history.weight_lb);         //体脂参数计算正确
+                        user_list[i].user_mode =1;  //配置为普通用户模式;
                         if(body_fat_calc(&resp_fat_data,ALL_CALC,&user_list[i],p_weitht)){
                             ESP_LOGI(TAG, "fat:%d,muscle:%d,water:%d,bone=%d,bmr=%d,bmi=%d\n" ,resp_fat_data.fat,resp_fat_data.muscle,resp_fat_data.water,
                                         resp_fat_data.bone,resp_fat_data.bmr,resp_fat_data.bmi);
@@ -338,6 +346,25 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     }else{
                         ESP_LOGI(TAG, "user mode para not match not same user!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理
                     }
+
+#else
+                    p_weitht->weight = 6515;
+                    p_weitht->imped_value = 568;
+                    user_fat_data_t  resp_fat_data ={0};
+                    user_history_t history = {0};
+                    user_config_data_t config;
+                    
+                    config.gender = 0;
+                    config.height_unit = 1;
+                    config.height = 0xB2;
+                    config.age = 0x1C;
+                    config.measu_unit = 0;
+                    config.user_mode = 1;
+                    if(body_fat_calc(&resp_fat_data,ALL_CALC,&config,p_weitht)){
+                        ESP_LOGI(TAG, "fat:%d,muscle:%d,water:%d,bone=%d,bmr=%d,bmi=%d\n" ,resp_fat_data.fat,resp_fat_data.muscle,resp_fat_data.water,
+                                    resp_fat_data.bone,resp_fat_data.bmr,resp_fat_data.bmi);
+                    }
+#endif                    
                 }
             }
         }else{

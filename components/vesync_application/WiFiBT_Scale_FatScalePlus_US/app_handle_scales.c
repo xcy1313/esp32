@@ -133,7 +133,6 @@ void app_scales_power_off(void)
     //vesync_wifi_deinit();
     vesync_uart_deint();
 	vesync_flash_config(false,"nvs");
-	//vesync_power_save_enter(WAKE_UP_PIN);
 	app_power_save_enter();
 }
 /**
@@ -231,6 +230,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						npwer_status = res->response_hardstate.power;
 
 						cnt++;
+						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 						if((npwer_status == 0) && (opwer_status == 1)){         //关机
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power off!!!");
@@ -242,7 +242,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG,"------------------------]");
 							//app_scales_power_on();
 						}
-						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 					}
 					break;
 					case CMD_HADRWARE_ERROR:{

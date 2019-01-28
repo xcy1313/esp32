@@ -20,6 +20,7 @@
 #include "vesync_interface.h"
 #include "vesync_sntp_service.h"
 #include "vesync_developer.h"
+#include "vesync_main.h"
 
 #include "app_handle_phone.h"
 #include "app_handle_scales.h"
@@ -49,6 +50,7 @@ void app_sacle_pin_rst_delay(void)
 void vesync_user_entry(void *args)
 {
 	app_sacle_pin_rst_delay();
+	vesync_register_application_cb(app_sacle_pin_rst_delay);
 	vesync_regist_devstatus_cb(device_status);
 	// uint8_t test_cid[] = "-LBjKhfYG-U1i3TvOrshQNN5StRl3uT1";
 	// strcpy((char *)product_config.cid,(char *)test_cid);
