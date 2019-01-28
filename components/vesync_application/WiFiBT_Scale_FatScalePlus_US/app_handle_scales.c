@@ -19,6 +19,8 @@
 #include "vesync_device.h"
 #include "app_public_events.h"
 #include "vesync_flash.h"
+#include "driver/rtc_io.h"
+#include "driver/adc.h"
 
 #include "vesync_log.h"
 
@@ -33,6 +35,53 @@ hw_info info_str;
 static TimerHandle_t uart_resend_timer;
 static bool app_uart_resend_timer_stop(void);
 static bool bmask_scale = false;
+
+/**
+ * @brief  进入深度休眠模式 io中断唤醒 rtc内部上拉 低电平唤醒
+ * @param pin 
+ */
+static void app_power_save_enter(void)
+{
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+    ESP_LOGI(TAG,"sleep source %d\r\n",cause);
+
+    switch (esp_sleep_get_wakeup_cause()){
+        case ESP_SLEEP_WAKEUP_EXT1: {
+            uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
+            if (wakeup_pin_mask == 0) {
+                int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
+                printf("Wake up from GPIO %d\n", pin);
+            }else{
+                printf("Wake up from other GPIO\n");
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    //rtc_gpio_isolate(GPIO_NUM_12);
+
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+    gpio_pullup_en(WAKE_UP_PIN);
+    gpio_pulldown_dis(WAKE_UP_PIN);
+
+	gpio_pullup_en(BUTTON_KEY);
+	gpio_pulldown_dis(BUTTON_KEY);
+
+    adc_power_off();    //不添加增加1.4mah功耗
+    const int ext_wakeup_pin_1 = WAKE_UP_PIN;
+    const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
+
+	const int ext_wakeup_pin_0 = BUTTON_KEY;
+    const uint64_t ext_wakeup_pin_0_mask = 1ULL << ext_wakeup_pin_0;
+
+    esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask, ESP_EXT1_WAKEUP_ALL_LOW);
+	esp_sleep_enable_ext0_wakeup(ext_wakeup_pin_0_mask, ESP_EXT1_WAKEUP_ALL_LOW);
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    esp_deep_sleep_start();
+}
 
 void app_scales_power_on(void)
 {
@@ -84,7 +133,8 @@ void app_scales_power_off(void)
     //vesync_wifi_deinit();
     vesync_uart_deint();
 	vesync_flash_config(false,"nvs");
-	vesync_power_save_enter(WAKE_UP_PIN);
+	//vesync_power_save_enter(WAKE_UP_PIN);
+	app_power_save_enter();
 }
 /**
  * @brief 
