@@ -11,8 +11,13 @@
 #include "etekcity_comm.h"
 #include <stdint.h>
 
+#define UART_TX_PIN		(16)
+#define UART_RX_PIN		(17)
+#define UART_BAUD_RATE  9600
+
 #define BUTTON_KEY  	19
 #define WAKE_UP_PIN     25
+#define SCALE_RST_PIN 	26
 
 
 #define UNIT_NAMESPACE "unit_space"	//体脂称测量单位保存记录键值
@@ -22,10 +27,6 @@
 #define USER_MODEL_KEY 		 "config"
 
 #define USER_HISTORY_DATA_NAMESPACE 	"userdata" //体脂称用户测量历史数据记录键值
-
-#define UART_TX_PIN		(16)
-#define UART_RX_PIN		(17)
-#define UART_BAUD_RATE  9600
 
 #define MASTER_SET		0x10	//主设备对从设备进行参数或功能设置
 #define MASTER_INQUIRY	0x20	//主设备对从设备状态查询操作
@@ -148,6 +149,15 @@ typedef struct{
 	uint8_t  battery_level;	//电池电量
 }response_hardstate_t;
 
+//预留12个字节备用,凑齐4的整数倍字节,共8+12字节;
+#pragma pack(1)
+typedef struct{
+	uint16_t hardware;	//硬件
+	uint16_t firmware;	//固件
+	uint16_t protocol;	//协议
+}response_version_data_t;
+#pragma pack()			//
+
 typedef struct{
 	uint8_t  type[4];
 }response_error_notice_t;
@@ -165,6 +175,7 @@ typedef struct{
 #pragma pack()			//
 
 typedef struct {
+	response_version_data_t   response_version_data;
 	response_weight_data_t    response_weight_data;			
 	response_hardstate_t 	  response_hardstate;
 	response_error_notice_t   response_error_notice;

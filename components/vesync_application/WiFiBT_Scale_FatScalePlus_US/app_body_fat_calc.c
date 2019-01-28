@@ -18,7 +18,7 @@ static const char *TAG = "body_FAT";
 #define SPORT_MODE      0   //运动员模式;
 #define NORMAL_MODE     1   //普通人模式；
 
-#define MAX_WEIGHT      3       //+-三公斤
+#define MAX_WEIGHT      300     //+-三公斤
 #define MAX_IMPED       30      //+-30ohm
 
 #define ff(x)	        (((int)(x+0.5))>((int)x)?((int)x+1):((int)x))
@@ -28,7 +28,7 @@ static const char *TAG = "body_FAT";
 #define st_to_lb(x)     ff(((x)*14)
 #define st_to_kg(x)     ff((x)*6.3502932)
 //BMI计算
-#define BMI(W,H)                        ((W)*10000/((H)*(H)))
+#define BMI(W,H)        (((W)*1000)/((H)*(H)))
 
 //FAT计算
 #define FAT_HIGH_16_MAN(F,A,B)          ff((120090/(F)+0.676*(A)+376-50679100/((B)*(F))))
@@ -94,6 +94,7 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
     ESP_LOGI(TAG, "weight_lb : %d", config->weight_lb);
     ESP_LOGI(TAG, "imped_value : %d", config->imped_value);
     ESP_LOGI(TAG, "user_store_key : %s", config->user_store_key);
+    ESP_LOGI(TAG, "mersure weight : %d", p_weitht->weight);
     ESP_LOGI(TAG, "==============================");
 
     if(false == body_fat_para_if_null(p_weitht)) return false;
@@ -276,18 +277,17 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         ret = true;
                     }
                 }else{
-                    p_weitht->imped_value = 500;
-                    p_weitht->weight = 55;
+                    //  p_weitht->imped_value = 500;
+                    //  p_weitht->weight = 6465;
                     uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
-                    uint16_t new_kg = (uint16_t)(p_weitht->weight);//调试屏蔽注释 85
+                    uint16_t new_kg = p_weitht->weight;//调试屏蔽注释 85
                     uint8_t user_cnt =0;
                     uint8_t i=0;
 
                     ESP_LOGI(TAG, "flash user count:%d" ,len/sizeof(user_config_data_t));
                     for(;i<(len/sizeof(user_config_data_t));i++){
                         ESP_LOGI(TAG, "store flash user config account:[0x%04x],kg:[%d],imped:[%d]",user_list[i].account,user_list[i].weight_kg,user_list[i].imped_value);
-                        if((abs(user_list[i].imped_value - new_imped) <= MAX_IMPED) &&          //前后两次阻抗小于30 ohm
-                            (abs(user_list[i].weight_kg - new_kg) <= MAX_WEIGHT)){              //前后两次体重小于3kg
+                        if((abs(user_list[i].weight_kg - new_kg) <= MAX_WEIGHT)){              //前后两次体重小于3kg
                             user_cnt++;
                             break;
                         }

@@ -143,6 +143,12 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 			}
 			if(frame->frame_data_len >2){  //主机请求效应设备返回的数据或设备主动上传的数据
 				switch(frame->frame_cmd){
+					case CMD_HW_VN:
+						memcpy((uint8_t *)&res->response_version_data.hardware,opt,frame->frame_data_len-1);
+						printf("\r\n hardware =0x%02x ,firmware =0x%02x ,protocol =0x%02x\r\n",res->response_version_data.hardware,\
+																				res->response_version_data.firmware,\
+																				res->response_version_data.protocol);
+						break;
 					case CMD_BODY_WEIGHT:{
 						static uint8_t cnt =0;
 						resp_cnt =&cnt;
@@ -479,6 +485,7 @@ void app_button_start(void)
 {
 	vesync_button_init(BUTTON_KEY,app_button_event_handler);
 }
+
 /**
  * @brief 体脂称硬件功能初始化
  */

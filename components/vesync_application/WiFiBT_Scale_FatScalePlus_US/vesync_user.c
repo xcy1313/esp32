@@ -26,11 +26,29 @@
 #include "app_handle_server.h"
 
 static const char* TAG = "vesync_user";
+
+void app_sacle_pin_rst_delay(void)
+{
+	gpio_config_t io_conf;
+	gpio_num_t num = SCALE_RST_PIN;
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << num);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 1;
+	gpio_config(&io_conf);
+
+    gpio_set_level(num, 0);
+	vTaskDelay(50 / portTICK_PERIOD_MS);
+	gpio_set_level(num, 1);
+}
+
 /**
  * @brief vesync平台应用层入口函数
  */
 void vesync_user_entry(void *args)
 {
+	app_sacle_pin_rst_delay();
 	vesync_regist_devstatus_cb(device_status);
 	// uint8_t test_cid[] = "-LBjKhfYG-U1i3TvOrshQNN5StRl3uT1";
 	// strcpy((char *)product_config.cid,(char *)test_cid);

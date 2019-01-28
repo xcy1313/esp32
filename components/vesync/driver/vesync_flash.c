@@ -5,10 +5,6 @@
  * @date 2018-12-18
  */
 #include "vesync_flash.h"
-#include "esp_err.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
 #include "esp_log.h"
 
 static const char *TAG = "vesync_FLASH";
@@ -155,7 +151,7 @@ bool vesync_flash_write(const char *label_name,const char *key_name,const void *
     printf("read nvc------------------------>\n");
     if (err == ESP_OK) {
         for(int i=0;i<required_size;i++){
-            printf("0x%02x " ,r_buf[i]);
+            printf("%02x " ,r_buf[i]);
         }
     }
     printf("\r\n");
