@@ -136,6 +136,8 @@ int vesync_production_connected_report_to_server(void)
     //上电上报信息中携带设备mac地址
     char mac_string[6 * 3];
     vesync_get_wifi_sta_mac_string(mac_string);
+    char ap_mac_string[6*3];
+    vesync_get_wifi_ap_mac_string(ap_mac_string);
 
     cJSON *root = cJSON_CreateObject();
     if(NULL != root)
@@ -149,6 +151,7 @@ int vesync_production_connected_report_to_server(void)
         cJSON_AddStringToObject(root, "method", "updateDevInfo");
         cJSON_AddStringToObject(root, "pid", DEV_PID);
         cJSON_AddStringToObject(root, "cid", mac_string);
+        cJSON_AddStringToObject(root, "routerMac", ap_mac_string);
         cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
         if(NULL != info)
         {
@@ -156,6 +159,7 @@ int vesync_production_connected_report_to_server(void)
             cJSON_AddStringToObject(info, "initState", "first");
             cJSON_AddStringToObject(info, "mac", mac_string);
             cJSON_AddNumberToObject(info, "rssi", -60);         //==TODO==，add by watwu
+            
             cJSON_AddItemToObject(info, "version", version = cJSON_CreateObject());
             if(NULL != version)
             {

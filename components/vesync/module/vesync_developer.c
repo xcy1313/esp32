@@ -95,6 +95,7 @@ int developer_tcp_send(uint8_t *data, uint32_t length)
 
 static void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 {
+	uint8_t resp[2];
     switch(status){
         case OTA_TIME_OUT:
                 LOG_I(TAG, "OTA_TIME_OUT");
@@ -114,6 +115,13 @@ static void ota_event_handler(uint32_t len,vesync_ota_status_t status)
         default:
             break;
     }
+	resp[0] = status;
+	if(status != OTA_PROCESS){
+		resp[1] = len;
+	}else{
+		resp[1] = 0;
+	}
+	developer_tcp_send(resp ,2);
 }
 
 /**

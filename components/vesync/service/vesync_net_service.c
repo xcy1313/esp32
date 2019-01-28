@@ -41,7 +41,9 @@ static char vesync_https_service_token[64] ={"\0"};
 void vesync_get_https_token(char *token)
 {
 	strcpy(token,vesync_https_service_token);
+	LOG_I(TAG, "https token：[%s]" ,token);
 }
+
 /**
  * @brief 连接WiFi的结果回调
  * @param status [WiFi连接状态，包括连接成功和连接掉线，以及连接失败时的错误原因]
@@ -274,7 +276,7 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
 			if(true == cJSON_IsObject(result)){
 				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
-				if(true == cJSON_IsString(result)){
+				if(true == cJSON_IsString(token)){
 					strcpy((char *)vesync_https_service_token,token->valuestring);
 					LOG_I(TAG,"token : %s\r\n", vesync_https_service_token);
 				}
@@ -405,11 +407,8 @@ int vesync_https_client_request(char *method, char *body, char *recv_buff, int *
  */
 uint32_t vesync_refresh_https_token(void)
 {
-	if(vesync_get_device_status() >DEV_CONFNET_NOT_CON){
-		xTaskNotify(event_center_taskhd, REFRESH_HTTPS_TROKEN, eSetBits);			//通知事件处理中心任务
-		return 0;
-	}
-	return 1;
+	xTaskNotify(event_center_taskhd, REFRESH_HTTPS_TROKEN, eSetBits);			//通知事件处理中心任务
+	return 0;
 }
 
 /**

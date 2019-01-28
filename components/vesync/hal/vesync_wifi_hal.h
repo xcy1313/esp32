@@ -118,6 +118,13 @@ void vesync_hal_connect_wifi(char *ssid ,char *pwd);
 int vesync_hal_get_mac_string(int interface, char *mac_str_buffer);
 
 /**
+ * @brief 硬件抽象层获取router mac地址字符串
+ * @param router_mac 
+ * @return int 
+ */
+int vesync_hal_get_router_mac_string(char *router_mac);
+
+/**
  * @brief 硬件抽象层开启扫描wifi列表
  * @return int 返回当前状态
  */

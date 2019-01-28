@@ -19,4 +19,6 @@ int vesync_developer_start(void);
  */
 void printf_os_task_manager(void);
 
+int developer_tcp_send(uint8_t *data, uint32_t length);
+
 #endif
