@@ -918,7 +918,7 @@ static void ble_send_inquiry_history_null_data(uint32_t account,uint8_t cnt){
     *(uint16_t *)&send_buf[3] = 8;
     *(uint16_t *)&send_buf[5] = CMD_INQUIRY_HISTORY; //
     *(uint32_t *)&send_buf[7] = account;
-    *(uint16_t *)&send_buf[11] = 0;
+    *(uint32_t *)&send_buf[11] = 0;
     send_buf[13] = ble_sum_verify(&send_buf[1],sizeof(send_buf)-1);
     send_buf[14] = 0x5A;
     vesync_bt_notify_send(send_buf,sizeof(send_buf));
@@ -1008,7 +1008,11 @@ static void app_handle_ble_send_task_handler(void *pvParameters)
  */
 void app_ble_init(void)
 {
-	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
+    char bt_version[8] = {0};
+    char version[8];
+    strcpy(version,FIRM_VERSION);
+    sprintf(bt_version,"%c%c%c%c",version[0],version[2],version[4],version[5]);
+	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,bt_version,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 
     ble_event_group= xEventGroupCreate();

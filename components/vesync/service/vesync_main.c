@@ -113,7 +113,7 @@ void vesync_entry(void *args)
 		vesync_set_device_status(DEV_CONFNET_OFFLINE);		//已配网但未连接上服务器
 		vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
 	}else{
-		vesync_set_device_status(DEV_CONFNET_NOT_CON);	//第一次使用，未配网
+		vesync_set_device_status(DEV_CONFNET_INIT);	//第一次使用，未配网
 	}
 	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1";
 // 0LWPJNML3eqV3fLKZo7zTAOJyJpbZq71

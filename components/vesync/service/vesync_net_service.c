@@ -295,7 +295,7 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			}
 			ret = 0;
 		}else{
-			vesync_set_device_status(DEV_CONFNET_NOT_CON);		//设备配网失败
+			vesync_set_device_status(DEV_CONFNET_INIT);		//设备配网失败
 			vesync_notify_app_net_result(trace_id,ERR_CONNECT_HTTPS_SERVER_FAIL,code->valueint);
 		}
 	}

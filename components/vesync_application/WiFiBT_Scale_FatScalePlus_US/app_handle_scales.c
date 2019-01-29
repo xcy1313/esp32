@@ -235,6 +235,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power off!!!");
 							LOG_I(TAG,"------------------------]");
+							vTaskDelay(200 / portTICK_PERIOD_MS);	//正常使用10ms；
 							app_scales_power_off();
 						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
 							LOG_I(TAG,"[-----------------------");
