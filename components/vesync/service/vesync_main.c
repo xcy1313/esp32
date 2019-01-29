@@ -115,10 +115,10 @@ void vesync_entry(void *args)
 	}else{
 		vesync_set_device_status(DEV_CONFNET_NOT_CON);	//第一次使用，未配网
 	}
-	//uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1";
+	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1";
 // 0LWPJNML3eqV3fLKZo7zTAOJyJpbZq71
 // 0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
-	//strcpy((char *)product_config.cid,(char *)test_cid);
+	strcpy((char *)product_config.cid,(char *)test_cid);
 	LOG_I(TAG, "device status : %d\n" ,vesync_get_device_status());
 
 	while(1){

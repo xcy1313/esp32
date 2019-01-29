@@ -29,6 +29,7 @@
 
 #define ERR_CONFIG_NET_SUCCESS 					0 		//配网时设备连接MQTT服务器成功
 #define ERR_CONFIG_CMD_SUCCESS                  1       //收到命令应答
+#define ERR_CONFIG_HTTPS_NET_SUCCESS            2       //HTTPS配网成功
 #define ERR_CONFIG_WIFI_SSID_MISSED				50		//路由器ssid出错
 #define ERR_CONFIG_CONFIGKEY_MISSED 			51		//mqtt configkey出错
 #define ERR_CONFIG_NO_AP_FOUND	 				52		//找不到热点
@@ -45,12 +46,13 @@
 #define ERR_CONFIG_TIMEOUT						63		//配网超时，全程共5分钟
 #define ERR_CONFIG_WIFI_DEIVER_INIT				64		//wifi驱动未初始化
 
+#define ERR_CONFIG_NET_INFO_MISSED              79      //配网信息缺失
 #define ERR_CONFIG_SERVER_URL_MISSED            80      //https uri地址出错
 #define ERR_CONFIG_ACCOUNT_ID_MISSED            81      //账户信息出错
 #define ERR_WIFI_LINK_BUSY                      82      //wifi链路忙，不能进入扫描模式
 #define ERR_NO_ALLOCATION_CID                   83      //未分配cid
 #define ERR_CONNECT_MQTT_SERVER_FAIL            84      //连接MQTT服务器失败
-#define ERR_CONNECT_HTTPS_SERVER_FAIL           85     //连接https服务器失败
+#define ERR_CONNECT_HTTPS_SERVER_FAIL           85      //连接https服务器失败
 
 #define ERR_TOTAL                               100     
 
@@ -164,7 +166,7 @@ void vesync_hal_bt_client_deinit(void);
  * @param cb           蓝牙接收数据回调
  * @return int32_t 
  */
-int32_t vesync_bt_client_init(char *adver_name,uint8_t version,uint8_t product_type,uint8_t product_num,uint8_t *custom,bool enable_blufi,
+int32_t vesync_bt_client_init(char *adver_name,uint8_t version,char *project_version,uint8_t product_type,uint8_t product_num,uint8_t *custom,bool enable_blufi,
                                     vesync_bt_status_cb_t bt_status_cb, bt_recv_cb_t cb);
 
 /**
@@ -229,5 +231,12 @@ uint32_t vesync_bt_dynamic_set_ble_advertise_name(char *name);
  * @return uint32_t 
  */
 uint32_t vesync_bt_dynamic_ble_advertise_para(uint8_t product_type,uint8_t product_num);
+
+
+void vesync_notify_app_net_result(char *trace_id,int err_code ,int server_err_code);
+
+void vesync_reply_response(char *url,int err_code,char *err_describe);
+
+void vesync_result_report(int err_code,char *err_describe);
 
 #endif

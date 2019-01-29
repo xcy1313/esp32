@@ -28,6 +28,7 @@ static vesync_wifi_cb s_vesync_wifi_callback = NULL;		//wifi连接状态回调�
 
 static vesync_wifi_status_e wifi_status = VESYNC_WIFI_INIT;
 
+static bool vesync_wifi_router_link_connect  = false;
 /**
  * @brief 扫描AP热点的回调函数
  * @param arg 		[扫描获取到的AP信息指针]
@@ -75,6 +76,10 @@ static void  blufi_wifi_list_packet(uint16_t ap_count,void  *arg)
 	}
 }
 
+bool vesync_get_router_link(void)
+{
+	return vesync_wifi_router_link_connect;
+}
 /**
  * @brief 设置wifi工作模式
  * @param status 
@@ -108,12 +113,26 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 		case VESYNC_WIFI_GOT_IP:
 			xEventGroupSetBits(s_network_event_group, EVENT_BIT_NETWORK_STATUS);
 			xEventGroupClearBits(s_network_event_group, EVENT_BIT_NET_WIFI_DISCONNECT);
+			vesync_wifi_router_link_connect = true;
 			ostatus = VESYNC_WIFI_GOT_IP;
 			break;
 		case VESYNC_WIFI_LOST_IP:
 			xEventGroupClearBits(s_network_event_group, EVENT_BIT_NETWORK_STATUS);
 			xEventGroupSetBits(s_network_event_group, EVENT_BIT_NET_WIFI_DISCONNECT);
 			ostatus = VESYNC_WIFI_LOST_IP;
+			vesync_wifi_router_link_connect = false;
+			break;
+		case VESYNC_WIFI_NO_AP_FOUND:
+			vesync_result_report(ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND");
+			//vesync_notify_app_net_result(NULL,ERR_CONFIG_NO_AP_FOUND,0xFFFFFFFF);
+			break;
+		case VESYNC_WIFI_CONNECT_FAIL:
+			vesync_result_report(ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL");
+			//vesync_notify_app_net_result(NULL,ERR_CONFIG_CONNECT_WIFI_FAIL,0xFFFFFFFF);
+			break;
+		case VESYNC_WIFI_WRONG_PASSWORD:
+			vesync_result_report(ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD");
+			//vesync_notify_app_net_result(NULL,ERR_CONFIG_WRONG_PASSWORD,0xFFFFFFFF);
 			break;
 		case VESYNC_WIFI_SCAN_DONE:{
 				uint16_t apCount = 0;
