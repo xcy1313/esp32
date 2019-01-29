@@ -418,44 +418,53 @@ static uint8_t find_char_and_desr_index(uint16_t handle)
 }
 
 /**
+ * @brief 主动上报app配网结果
+ * @param err_code 
+ * @param err_describe 
+ * @param server_err_code 
+ */
+void vesync_notify_app_net_result(char *trace_id,int err_code ,int server_err_code)
+{
+    uint8_t mode;
+    wifi_config_t cfg;
+    char upload_buf[200] ={0};
+    char ap_mac_addr[6 * 3];
+
+    if(vesync_get_router_link() == true){
+        vesync_get_wifi_ap_mac_string(ap_mac_addr); 
+    }
+    
+    sprintf(upload_buf, "{\"uri\":\"/NetResultReport\",\"err\":%d,\"server_code\":%d,\"traceId\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
+            err_code,server_err_code,trace_id,ap_mac_addr, /*wifi_station_get_rssi()*/12, FIRM_VERSION);
+    BLUFI_INFO("blufi send app %s\r\n", upload_buf);
+    BLUFI_INFO("blufi send len %d\r\n", strlen(upload_buf));
+
+    vesync_blufi_notify((uint8_t *)upload_buf, strlen(upload_buf));
+}
+
+void vesync_result_report(int err_code,char *err_describe)
+{
+    uint8_t buffer[200] ={0};
+    uint8_t buflen = 0;
+
+    buflen = sprintf((char *)buffer, "{\"uri\":\"NetResultReport\",\"err\":%d}",err_code);
+
+	if(vesync_blufi_notify(buffer, buflen) != ESP_OK){
+		BLUFI_INFO("Send wifi list to app failed !\n");
+	}
+	BLUFI_INFO("blufi send to APP : %s \r\n", buffer);
+}
+/**
  * @brief 回复APP设备的配网信息
  */
-static void vesync_reply_response(char *url,int err_code,char *err_describe)
+void vesync_reply_response(char *url,int err_code,char *err_describe)
 {
 	uint8_t buffer[200] ={0};
 	uint8_t buflen = 0;
 
-    if(err_code == 1){
-        buflen = sprintf((char *)buffer, "{\"uri\":\"%s\",\"err\":%d}",url,err_code);
-    }else{
-        if(strcmp(url,"/beginConfigRequest")==0){
-            uint8_t mode;
-            wifi_config_t cfg;
-            char upload_buf[256] ={0};
-            mode = vesync_get_wifi_mode();
-            if(WIFI_MODE_AP == mode){
-                vesync_get_wifi_config(WIFI_IF_AP, &cfg);
-                BLUFI_INFO("AP mode, %s %s", cfg.ap.ssid, cfg.ap.password);
-            }else if(WIFI_MODE_STA == mode){
-                char ap_mac_addr[6 * 3];
-                vesync_get_wifi_config(WIFI_IF_STA, &cfg);
-                BLUFI_INFO("sta mode, connected %s", cfg.sta.bssid);
-                sprintf(ap_mac_addr, MACSTR, MAC2STR(cfg.sta.bssid));
-                if(strlen(ap_mac_addr) < 12){
-                    sprintf(ap_mac_addr, "null");	
-                }
-                sprintf(upload_buf, "{\"uri\":\"/beginConfigReply\",\"err\":\"%d\",\"description\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
-                    err_code, err_describe, ap_mac_addr, /*wifi_station_get_rssi()*/12, FIRM_VERSION);
+    buflen = sprintf((char *)buffer, "{\"uri\":\"%s\",\"err\":%d}",url,err_code);
 
-                vesync_blufi_notify((uint8_t *)upload_buf, strlen(upload_buf));
-            }
-        }else{
-            BLUFI_ERROR("blufi send error %s",url);
-            buflen = sprintf((char *)buffer, "{\"uri\":\"%s\",\"err\":%d}",url,err_code);
-        }
-    }
-
-	if(esp_blufi_send_custom_data(buffer, buflen) != ESP_OK){
+	if(vesync_blufi_notify(buffer, buflen) != ESP_OK){
 		BLUFI_INFO("Send wifi list to app failed !\n");
 	}
 	BLUFI_INFO("blufi send to APP : %s \r\n", buffer);
@@ -470,18 +479,35 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
 	cJSON *root = json;
     uint32_t mask =0;
 
+    uint8_t cid_size = strlen((char *)product_config.cid);
+    if(cid_size != CID_LENGTH){
+        BLUFI_ERROR("CID was missed !\r\n");
+        vesync_result_report(ERR_CONFIG_CID_MISSED, "CONFIG_CID_MISSED");
+    }
+
 	cJSON *pid = cJSON_GetObjectItemCaseSensitive(root, "pid");
 	if(true == cJSON_IsString(pid)){
 		strcpy((char*)info->mqtt_config.pid, pid->valuestring);
-		BLUFI_INFO("pid : %s\r\n", info->mqtt_config.pid);
-        mask |=0x1;
+        if(0 == strcmp((char *)info->mqtt_config.pid,DEV_PID)){
+            mask |=0x1;
+        }else{
+            BLUFI_ERROR("pid not match[%s]\r\n" ,info->mqtt_config.pid);
+          	vesync_result_report(ERR_CONFIG_PID_DO_NOT_MATCHED, "CONFIG_PID_DO_NOT_MATCHED");
+        }
 	}
 
 	cJSON *configKey = cJSON_GetObjectItemCaseSensitive(root, "configKey");
 	if(true == cJSON_IsString(configKey)){
+        uint8_t key_size =0;
         strcpy((char*)info->mqtt_config.configKey, configKey->valuestring);
 		BLUFI_INFO("configKey : %s\r\n", info->mqtt_config.configKey);
-        mask |=0x2;
+        key_size = strlen((char *)info->mqtt_config.configKey);
+        if(key_size != 0 && key_size <=32 ){
+            mask |=0x2;
+        }else{
+            BLUFI_ERROR("configKey was missed[%s]\r\n" ,info->mqtt_config.configKey);
+            vesync_result_report(ERR_CONFIG_CONFIGKEY_MISSED, "CONFIG_CONFIGKEY_MISSED");
+        }
 	}
 
 	cJSON *serverDN = cJSON_GetObjectItemCaseSensitive(root, "serverDN");
@@ -506,31 +532,50 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
 			strcpy((char*)info->mqtt_config.serverIP, serverIP->valuestring);
 		}
         mask |=0x8;
-		BLUFI_INFO("serverIP : %s\r\n", (char*)info->mqtt_config.serverIP);
+        BLUFI_INFO("serverIP : %s\r\n", (char*)info->mqtt_config.serverIP);
 	}
+
     cJSON *serverUrl = cJSON_GetObjectItemCaseSensitive(root, "serverUrl");
     if(true == cJSON_IsString(serverUrl)){
 		char *str = strstr(serverUrl->valuestring, "//");
-        BLUFI_INFO("str : %s\r\n", str);
 		if(NULL != str){
 			strcpy((char*)info->station_config.server_url, str+2);
 		}else{
 			strcpy((char*)info->station_config.server_url, serverUrl->valuestring);
 		}
-        mask |=0x10;
-		BLUFI_INFO("server_url : %s\r\n", info->station_config.server_url);
+        if(strlen((char*)info->station_config.server_url) != 0){
+            mask |=0x10;
+            BLUFI_INFO("server_url : %s\r\n", info->station_config.server_url);
+        }else{
+            BLUFI_ERROR("server_url was missed !\r\n");
+            vesync_result_report(ERR_CONFIG_SERVER_URL_MISSED, "ERR_CONFIG_SERVER_URL_MISSED");
+        }
 	}
+
     cJSON *account_id = cJSON_GetObjectItemCaseSensitive(root, "accountID");
     if(true == cJSON_IsString(account_id)){
+        uint8_t account_size =0;
 		strcpy((char*)info->station_config.account_id, account_id->valuestring);
 		BLUFI_INFO("account : %s\r\n", (char*)info->station_config.account_id);
-        mask |=0x20;
+        account_size = strlen((char *)info->station_config.account_id);
+        if(account_size != 0){
+            mask |=0x20;
+        }else{
+            BLUFI_ERROR("account_id was missed !\r\n");
+            vesync_result_report(ERR_CONFIG_ACCOUNT_ID_MISSED, "ERR_CONFIG_ACCOUNT_ID_MISSED");
+        }
 	}
+
 	cJSON *wifiSSID = cJSON_GetObjectItemCaseSensitive(root, "wifiSSID");
 	if(true == cJSON_IsString(wifiSSID)){
 		strcpy((char*)info->station_config.wifiSSID, wifiSSID->valuestring);
 		BLUFI_INFO("wifiSSID : %s\r\n", (char*)info->station_config.wifiSSID);
-        mask |=0x40;
+        if(strlen((char *)info->station_config.wifiSSID) !=0){
+            mask |=0x40;
+        }else{
+            BLUFI_ERROR("wifiSSID was missed !\r\n");
+            vesync_result_report(ERR_CONFIG_WIFI_SSID_MISSED, "CONFIG_WIFI_SSID_MISSED");
+        }
 	}
 
 	cJSON *wifiPassword = cJSON_GetObjectItemCaseSensitive(root, "wifiPassword");
@@ -560,40 +605,13 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
 		BLUFI_INFO("wifiDNS : %s\r\n", (char*)info->station_config.wifiDNS);
         mask |=0x400;
 	}
-    if(mask & 0x30){
-        //vesync_refresh_wifi(info);
-    }
-    BLUFI_INFO("mask 0x%04x\r\n", mask);
-    if((mask & 0x7ff) == 0x7ff){
-        vesync_reply_response("/beginConfigRequest",ERR_CONFIG_CMD_SUCCESS,"CONFIG_CMD_SUCCESS");
+
+    if((mask & 0x7ff) == 0x7ff){    //设备已拿到并且校验正确的配网信息,开始配网
+        vesync_reply_response("/beginConfigRequest",ERR_CONFIG_CMD_SUCCESS,"CONFIG_CMD_SUCCESS");           //应答app，配网信息无误;
         vesync_set_device_status(DEV_CONFNET_NOT_CON);      //状态调整为设备未配网
         vesync_connect_wifi((char *)info->station_config.wifiSSID,(char *)info->station_config.wifiPassword);
     }else{
-        if(strlen((char *)product_config.cid) != CID_LENGTH){
-            BLUFI_ERROR("CID was missed !\r\n");
-            vesync_reply_response("/beginConfigRequest",ERR_CONFIG_CID_MISSED, "CONFIG_CID_MISSED");
-        }else if(info->station_config.wifiSSID == 0){
-            BLUFI_ERROR("wifiSSID was missed !\r\n");
-            vesync_reply_response("/beginConfigRequest",ERR_CONFIG_WIFI_SSID_MISSED, "CONFIG_WIFI_SSID_MISSED");
-        }else if(info->mqtt_config.configKey == 0){
-            BLUFI_ERROR("configKey was missed !\r\n");
-            vesync_reply_response("/beginConfigRequest",ERR_CONFIG_CONFIGKEY_MISSED, "CONFIG_CONFIGKEY_MISSED");
-        }else if(info->mqtt_config.serverIP == 0){
-            BLUFI_ERROR("serverIP was missed !\r\n");
-            vesync_reply_response("/beginConfigRequest",ERR_CONFIG_SERVER_IP_MISSED, "CONFIG_SERVER_IP_MISSED");
-        }else if(info->station_config.server_url == 0){
-            BLUFI_ERROR("server_url was missed !\r\n");
-            vesync_reply_response("/beginConfigRequest",ERR_CONFIG_SERVER_URL_MISSED, "ERR_CONFIG_SERVER_URL_MISSED");
-        }else if(info->station_config.account_id == 0){
-            BLUFI_ERROR("account_id was missed !\r\n");
-            vesync_reply_response("/beginConfigRequest",ERR_CONFIG_ACCOUNT_ID_MISSED, "ERR_CONFIG_ACCOUNT_ID_MISSED");
-        }
-        // else if(strcmp(info->mqtt_config.pid,DEV_PID) != 0){
-        //  	confignet_upload_realtime_log(ERR_CONFIG_PID_DO_NOT_MATCHED, "CONFIG_PID_DO_NOT_MATCHED");
-        // }
-        else{
-
-        }
+        vesync_result_report(ERR_CONFIG_NET_INFO_MISSED,"CONFIG_NET_INFO_MISSED");   //配网信息缺失
     }
 }
 
@@ -622,6 +640,7 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
 	cJSON *root = cJSON_Parse(data);
 	if(NULL == root){
 		BLUFI_INFO("Parse cjson error !\r\n");
+        vesync_reply_response("/beginConfigRequest",ERR_CONFIG_PARSE_JSON_FAIL, "CONFIG_PARSE_JSON_FAIL");
 		return;
 	}
 	//vesync_printf_cjson(root);				//json标准格式，带缩进
@@ -1102,13 +1121,14 @@ void vesync_hal_bt_client_deinit(void)
  * @param cb 
  * @return int32_t 
  */
-int32_t vesync_bt_client_init(char *adver_name,uint8_t version,uint8_t product_type,uint8_t product_num,uint8_t *custom,bool enable_blufi,
+int32_t vesync_bt_client_init(char *adver_name,uint8_t version,char *project_version,uint8_t product_type,uint8_t product_num,uint8_t *custom,bool enable_blufi,
                                     vesync_bt_status_cb_t bt_status_cb, bt_recv_cb_t cb)
 {
     esp_err_t ret =0;
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 
     //strncpy((char *)sw_version,(char *)adver_name,sizeof(sw_version)-1);
+    strncpy((char *)&sw_version[6],project_version,4);
     strcpy((char *)advertise_name,(char *)adver_name);
     uint8_t mac[6] ={0};
 

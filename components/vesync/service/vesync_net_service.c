@@ -256,6 +256,8 @@ cJSON* vesync_json_add_method_head(char *trace_id,char *method,cJSON *body)
 static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 {
 	char *index = strchr(read_buf,'{');	//截取有效json
+	char trace_id[13] ={"\0"};
+
 	cJSON *root = cJSON_Parse(index);
 	uint8_t ret = 1;
 	if(NULL == root){
@@ -267,6 +269,7 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 	cJSON *traceId = cJSON_GetObjectItemCaseSensitive(root, "traceId");
 	if(true == cJSON_IsString(traceId)){
 		LOG_I(TAG,"trace_id : %s\r\n", traceId->valuestring);
+		strcpy(trace_id,traceId->valuestring);
 	}
 
 	cJSON *code = cJSON_GetObjectItemCaseSensitive(root, "code");
@@ -283,6 +286,7 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 				cJSON *expireIn = cJSON_GetObjectItemCaseSensitive(result, "expireIn");
 				if(true == cJSON_IsNumber(expireIn)){
 					LOG_I(TAG,"expireIn : %d\r\n", expireIn->valueint);	//token的过期时间 单位s
+					vesync_notify_app_net_result(trace_id,ERR_CONFIG_HTTPS_NET_SUCCESS,code->valueint);
 					vesync_set_device_status(DEV_CONFNET_ONLINE);		//设备已连上服务器
 					if(mask == NETWORK_CONFIG_REQ){
 						vesync_flash_write_net_info(&net_info);
@@ -290,6 +294,9 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 				}
 			}
 			ret = 0;
+		}else{
+			vesync_set_device_status(DEV_CONFNET_NOT_CON);		//设备配网失败
+			vesync_notify_app_net_result(trace_id,ERR_CONNECT_HTTPS_SERVER_FAIL,code->valueint);
 		}
 	}
 	cJSON_Delete(root);	
