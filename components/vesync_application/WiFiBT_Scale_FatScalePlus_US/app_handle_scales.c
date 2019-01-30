@@ -230,7 +230,10 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						npwer_status = res->response_hardstate.power;
 
 						cnt++;
-						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
+						uint8_t send_buff[2];
+						send_buff[0] = opt[1];		//mcu上报的数据中，是电量在前开关机状态在后
+						send_buff[1] = opt[0];		//蓝牙发送的数据中，是开关机状态在前电量在后
+						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
 						if((npwer_status == 0) && (opwer_status == 1)){         //关机
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power off!!!");
