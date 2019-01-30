@@ -6,7 +6,11 @@
  */
 
 #include "driver/gpio.h"
+#include "driver/touch_pad.h"
 #include "touchkey.h"
+
+#define TOUCH_PAD_CHAN              TOUCH_PAD_NUM0      //触摸按键通道，GPIO4
+#define TOUCH_PAD_THRESH            785                 //触摸检测阈值
 
 static uint8_t power_status = POWER_ON;
 static uint8_t power_key_new = POWER_KEY_UP;
@@ -36,6 +40,10 @@ void touch_key_init(void)
 
     io_conf.pin_bit_mask = 1ULL << BAT_CHARGE_FULLY;
     gpio_config(&io_conf);
+
+    touch_pad_init();
+    touch_pad_config(TOUCH_PAD_CHAN, 0);
+    touch_pad_set_voltage(TOUCH_HVOLT_2V7, TOUCH_LVOLT_0V5, TOUCH_HVOLT_ATTEN_1V);
 }
 
 /**
@@ -44,7 +52,12 @@ void touch_key_init(void)
  */
 int get_touch_key_status(void)
 {
-    return gpio_get_level(TOUCH_KEY_GPIO);
+    uint16_t touch_value;
+    touch_pad_read(TOUCH_PAD_CHAN, &touch_value);
+    if(touch_value <= TOUCH_PAD_THRESH)
+        return 1;
+    else
+        return 0;
 }
 
 /**
