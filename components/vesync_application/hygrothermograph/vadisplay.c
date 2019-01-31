@@ -64,7 +64,7 @@ static void va_display_update(void *args)
                     va_display_trun_on_backlight(10);
                 else if(REACTION_AUTO == get_reaction_key_status())
                 {
-                    if(judge_voltage_change(voltage, 8))
+                    if(judge_voltage_change(voltage, 7))
                         va_display_trun_on_backlight(10);
                 }
             }

@@ -9,18 +9,42 @@
 #include "driver/touch_pad.h"
 #include "touchkey.h"
 
-#define TOUCH_PAD_CHAN              TOUCH_PAD_NUM0      //触摸按键通道，GPIO4
-#define TOUCH_PAD_THRESH            785                 //触摸检测阈值
+#include "vesync_log.h"
 
+#define TOUCH_PAD_CHAN              TOUCH_PAD_NUM0      //触摸按键通道，GPIO4
+#define TOUCH_PAD_THRESH            25                  //触摸检测阈值
+
+static uint16_t touch_initial_val = 0;
 static uint8_t power_status = POWER_ON;
 static uint8_t power_key_new = POWER_KEY_UP;
 static uint8_t power_key_last = POWER_KEY_UP;
+
+/**
+ * @brief 获取触摸引脚的初始值
+ * @return uint16_t [触摸引脚初始值]
+ */
+static uint16_t get_touch_initial_value(void)
+{
+    int i;
+    uint16_t temp = 0;
+    uint32_t value = 0;
+    for(i = 0; i < 50; i++)
+    {
+        touch_pad_read(TOUCH_PAD_CHAN, &temp);
+        value += temp;
+    }
+    return (uint16_t)(value/50);
+}
 
 /**
  * @brief 初始化触摸接口
  */
 void touch_key_init(void)
 {
+    touch_pad_init();
+    touch_pad_config(TOUCH_PAD_CHAN, 0);
+    touch_pad_set_voltage(TOUCH_HVOLT_2V7, TOUCH_LVOLT_0V5, TOUCH_HVOLT_ATTEN_1V);
+
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_INPUT;
@@ -41,9 +65,8 @@ void touch_key_init(void)
     io_conf.pin_bit_mask = 1ULL << BAT_CHARGE_FULLY;
     gpio_config(&io_conf);
 
-    touch_pad_init();
-    touch_pad_config(TOUCH_PAD_CHAN, 0);
-    touch_pad_set_voltage(TOUCH_HVOLT_2V7, TOUCH_LVOLT_0V5, TOUCH_HVOLT_ATTEN_1V);
+    touch_initial_val = get_touch_initial_value();
+    LOG_I("touchkey", "Touch initial value : %d", touch_initial_val);
 }
 
 /**
@@ -54,7 +77,7 @@ int get_touch_key_status(void)
 {
     uint16_t touch_value;
     touch_pad_read(TOUCH_PAD_CHAN, &touch_value);
-    if(touch_value <= TOUCH_PAD_THRESH)
+    if(touch_initial_val - touch_value >= TOUCH_PAD_THRESH)
         return 1;
     else
         return 0;
