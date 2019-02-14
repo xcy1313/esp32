@@ -5,18 +5,7 @@
  * @date 2018-09-04
  */
 
-#include <string.h>
-#include <stdlib.h>
-
-#include "vesync_log.h"
 #include "vesync_api.h"
-
-#include "vesync_wifi.h"
-#include "vesync_net_service.h"
-#include "vesync_production.h"
-#include "vesync_flash.h"
-#include "vesync_interface.h"
-#include "vesync_developer.h"
 
 #include "sht30.h"
 #include "vadisplay.h"

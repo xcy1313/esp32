@@ -8,9 +8,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/timers.h"
-#include "vesync_main.h"
+#include "vesync_api.h"
 
 #define BUZZER_TIMER_NUM                LEDC_TIMER_0
 #define BUZZER_TIMER_SPEED_MODE         LEDC_HIGH_SPEED_MODE

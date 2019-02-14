@@ -5,10 +5,8 @@
  * @date 2019-01-08
  */
 
-#include <string.h>
-
 #include "esp_i2c.h"
-#include "vesync_log.h"
+#include "vesync_api.h"
 
 #define BU9796A_BACKLIGHT_GPIO          2           //BU9796A背光引脚定义
 #define BACKLIGHT_ON                    1

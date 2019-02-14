@@ -5,16 +5,12 @@
  * @date 2019-01-15
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "driver/gpio.h"
 #include "driver/adc.h"
 #include "esp_system.h"
 #include "esp_adc_cal.h"
 
-#include "vesync_main.h"
+#include "vesync_api.h"
 
 #define DEFAULT_VREF                1100            //默认的ADC基准值
 #define NUM_OF_SAMPLES              100             //启动一次采集的ADC样本数

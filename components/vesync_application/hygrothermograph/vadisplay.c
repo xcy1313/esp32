@@ -5,18 +5,10 @@
  * @date 2019-01-21
  */
 
-#include <stdint.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/timers.h"
-#include "unistd.h"
 #include "driver/rtc_io.h"
 #include "driver/adc.h"
 
-#include "vesync_task_def.h"
-#include "vesync_log.h"
-#include "vesync_main.h"
-#include "vesync_power_management.h"
+#include "vesync_api.h"
 
 #include "bu9796a.h"
 #include "touchkey.h"
