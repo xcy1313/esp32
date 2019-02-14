@@ -132,7 +132,7 @@ int vesync_init_https_module(const char * ca_cert)
  */
 int vesync_https_request(char *server_addr, char *port, char *url, char *send_body, char *recv_buff, int *recv_len, int wait_time_ms)
 {
-    char https_buffer[1024];
+    char https_buffer[9000];
     int ret, flags, len;
 
     LOG_D(TAG, "Waiting for network connected...");

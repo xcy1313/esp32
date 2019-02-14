@@ -71,5 +71,7 @@ void app_product_ble_start(void);
 
 void ota_event_handler(uint32_t len,vesync_ota_status_t status);
 
+uint32_t app_handle_get_flash_data(const char *label_name,const char *key_name,uint8_t *data,uint32_t *len);
+
 #endif
 

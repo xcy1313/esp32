@@ -12,8 +12,11 @@
 #include "esp_log.h"
 #include <time.h>
 #include "vesync_crc8.h"
+#include "vesync_wifi.h"
 
 static const char *TAG = "body_FAT";
+
+char    mask_user_store_key[12];
 
 #define SPORT_MODE      0   //运动员模式;
 #define NORMAL_MODE     1   //普通人模式；
@@ -316,7 +319,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                             ret = true;
                             ESP_LOGI(TAG, "flash store user success");         //体脂参数计算正确
                         }
-                        //history.account = user_list[i].account;
+                        // history.account = user_list[i].account;
                         history.imped_value = new_imped;
                         history.utc_time = time((time_t *)NULL);
                         history.time_zone = 8;
@@ -331,18 +334,14 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         ESP_LOGI(TAG, "[history:weight_kg:[0x%04x]]" ,history.weight_kg);
                         ESP_LOGI(TAG, "[history:weight_lb:[0x%04x]]" ,history.weight_lb);
 
+                        strcpy(mask_user_store_key,user_list[i].user_store_key);
+
                         if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t))){
                             ESP_LOGE(TAG, "store history data error!!"); 
                         }
-#if 0                        
-                        if(app_handle_get_net_status() == NET_CONFNET_NOT_CON){ //设备未配网
-                            if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,user_list[i].user_store_key,(user_history_t *)&history ,sizeof(user_history_t))){
-                                ESP_LOGE(TAG, "store history data error!!"); 
-                            }
-                        }else{                                         //称重数据转储
+                        if((vesync_get_device_status() > DEV_CONFNET_NOT_CON) && (vesync_get_router_link() == true)){ //称重数据上报服务器 
                             app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,(uint8_t *)&history,sizeof(user_history_t));
                         }
-#endif                        
                     }else{
                         ESP_LOGI(TAG, "user mode para not match not same user!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理
                     }

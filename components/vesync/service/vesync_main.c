@@ -42,7 +42,11 @@ static void vesync_event_center_thread(void *args)
 			LOG_I(TAG, "Event center get new notified : %x.", notified_value);
 
 			if(notified_value & NETWORK_CONNECTED){
-
+				if(vesync_get_device_status() == DEV_CONFNET_NOT_CON){
+					vesync_register_https_net();
+				}else{
+					vesync_refresh_https_token();
+				}
 			}
 			if(notified_value & HTTPS_NET_CONFIG_REGISTER){
 				vesync_json_add_https_service_register(NETWORK_CONFIG_REQ);

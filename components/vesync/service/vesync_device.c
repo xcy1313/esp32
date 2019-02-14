@@ -42,13 +42,11 @@ void vesync_set_device_status(uint8_t status)
 	if(device_status != status){
 		switch(status){
 			case DEV_CONFNET_NOT_CON:
-				vesync_register_https_net();
 			break;
 			case DEV_CONFNET_ONLINE:
-
+				
 			break;
 			case DEV_CONFNET_OFFLINE:
-				vesync_refresh_https_token();
 			break; 
 		}
 		device_status = status;

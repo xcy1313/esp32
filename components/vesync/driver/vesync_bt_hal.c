@@ -423,37 +423,26 @@ static uint8_t find_char_and_desr_index(uint16_t handle)
  * @param err_describe 
  * @param server_err_code 
  */
-void vesync_notify_app_net_result(char *trace_id,int err_code ,int server_err_code)
+void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describe,int server_err_code)
 {
     uint8_t mode;
     wifi_config_t cfg;
-    char upload_buf[200] ={0};
-    char ap_mac_addr[6 * 3];
+    uint8_t upload_buf[400] ={0};
+    char ap_mac_addr[6 * 3]={'\0'};
+    uint16_t buflen = 0;
 
     if(vesync_get_router_link() == true){
         vesync_get_wifi_ap_mac_string(ap_mac_addr); 
     }
     
-    sprintf(upload_buf, "{\"uri\":\"/NetResultReport\",\"err\":%d,\"server_code\":%d,\"traceId\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
-            err_code,server_err_code,trace_id,ap_mac_addr, /*wifi_station_get_rssi()*/12, FIRM_VERSION);
-    BLUFI_INFO("blufi send app %s\r\n", upload_buf);
-    BLUFI_INFO("blufi send len %d\r\n", strlen(upload_buf));
+    buflen = sprintf((char *)upload_buf, "{\"uri\":\"/beginConfigReply\",\"err\":%d,\"description\":\"%s\",\"server_code\":%d,\"traceId\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
+            err_code,err_describe,server_err_code,trace_id,ap_mac_addr,12,FIRM_VERSION);
 
-    vesync_blufi_notify((uint8_t *)upload_buf, strlen(upload_buf));
+    BLUFI_INFO("blufi send app %s len %d \r\n", upload_buf,buflen);
+
+    vesync_blufi_notify(upload_buf, buflen);
 }
 
-void vesync_result_report(int err_code,char *err_describe)
-{
-    uint8_t buffer[200] ={0};
-    uint8_t buflen = 0;
-
-    buflen = sprintf((char *)buffer, "{\"uri\":\"NetResultReport\",\"err\":%d}",err_code);
-
-	if(vesync_blufi_notify(buffer, buflen) != ESP_OK){
-		BLUFI_INFO("Send wifi list to app failed !\n");
-	}
-	BLUFI_INFO("blufi send to APP : %s \r\n", buffer);
-}
 /**
  * @brief 回复APP设备的配网信息
  */
@@ -469,6 +458,7 @@ void vesync_reply_response(char *url,int err_code,char *err_describe)
 	}
 	BLUFI_INFO("blufi send to APP : %s \r\n", buffer);
 }
+
 /**
  * [Handle_ConfigNetJson  解析处理APP通过ble发来的配网json数据]
  * @param  json [配网json数据]
@@ -482,7 +472,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
     uint8_t cid_size = strlen((char *)product_config.cid);
     if(cid_size != CID_LENGTH){
         BLUFI_ERROR("CID was missed !\r\n");
-        vesync_result_report(ERR_CONFIG_CID_MISSED, "CONFIG_CID_MISSED");
+        vesync_notify_app_net_result("NULL",ERR_CONFIG_CID_MISSED, "CONFIG_CID_MISSED",0);
     }
 
 	cJSON *pid = cJSON_GetObjectItemCaseSensitive(root, "pid");
@@ -492,7 +482,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
             mask |=0x1;
         }else{
             BLUFI_ERROR("pid not match[%s]\r\n" ,info->mqtt_config.pid);
-          	vesync_result_report(ERR_CONFIG_PID_DO_NOT_MATCHED, "CONFIG_PID_DO_NOT_MATCHED");
+            vesync_notify_app_net_result("NULL",ERR_CONFIG_PID_DO_NOT_MATCHED, "CONFIG_PID_DO_NOT_MATCHED",0);
         }
 	}
 
@@ -506,7 +496,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
             mask |=0x2;
         }else{
             BLUFI_ERROR("configKey was missed[%s]\r\n" ,info->mqtt_config.configKey);
-            vesync_result_report(ERR_CONFIG_CONFIGKEY_MISSED, "CONFIG_CONFIGKEY_MISSED");
+            vesync_notify_app_net_result("NULL",ERR_CONFIG_CONFIGKEY_MISSED, "CONFIG_CONFIGKEY_MISSED",0);
         }
 	}
 
@@ -548,7 +538,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
             BLUFI_INFO("server_url : %s\r\n", info->station_config.server_url);
         }else{
             BLUFI_ERROR("server_url was missed !\r\n");
-            vesync_result_report(ERR_CONFIG_SERVER_URL_MISSED, "ERR_CONFIG_SERVER_URL_MISSED");
+            vesync_notify_app_net_result("NULL",ERR_CONFIG_SERVER_URL_MISSED, "ERR_CONFIG_SERVER_URL_MISSED",0);
         }
 	}
 
@@ -562,7 +552,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
             mask |=0x20;
         }else{
             BLUFI_ERROR("account_id was missed !\r\n");
-            vesync_result_report(ERR_CONFIG_ACCOUNT_ID_MISSED, "ERR_CONFIG_ACCOUNT_ID_MISSED");
+            vesync_notify_app_net_result("NULL",ERR_CONFIG_ACCOUNT_ID_MISSED, "ERR_CONFIG_ACCOUNT_ID_MISSED",0);
         }
 	}
 
@@ -574,7 +564,7 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
             mask |=0x40;
         }else{
             BLUFI_ERROR("wifiSSID was missed !\r\n");
-            vesync_result_report(ERR_CONFIG_WIFI_SSID_MISSED, "CONFIG_WIFI_SSID_MISSED");
+            vesync_notify_app_net_result("NULL",ERR_CONFIG_WIFI_SSID_MISSED, "CONFIG_WIFI_SSID_MISSED",0);
         }
 	}
 
@@ -607,11 +597,11 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
 	}
 
     if((mask & 0x7ff) == 0x7ff){    //设备已拿到并且校验正确的配网信息,开始配网
-        vesync_reply_response("/beginConfigRequest",ERR_CONFIG_CMD_SUCCESS,"CONFIG_CMD_SUCCESS");           //应答app，配网信息无误;
         vesync_set_device_status(DEV_CONFNET_NOT_CON);      //状态调整为设备未配网
         vesync_connect_wifi((char *)info->station_config.wifiSSID,(char *)info->station_config.wifiPassword);
     }else{
-        vesync_result_report(ERR_CONFIG_NET_INFO_MISSED,"CONFIG_NET_INFO_MISSED");   //配网信息缺失
+        vesync_set_device_status(DEV_CONFNET_OFFLINE);      //状态调整为配网失败
+        vesync_notify_app_net_result("NULL",ERR_CONFIG_NET_INFO_MISSED,"CONFIG_NET_INFO_MISSED",0);
     }
 }
 
@@ -640,7 +630,7 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
 	cJSON *root = cJSON_Parse(data);
 	if(NULL == root){
 		BLUFI_INFO("Parse cjson error !\r\n");
-        vesync_reply_response("/beginConfigRequest",ERR_CONFIG_PARSE_JSON_FAIL, "CONFIG_PARSE_JSON_FAIL");
+        vesync_notify_app_net_result(NULL,ERR_CONFIG_PARSE_JSON_FAIL, "CONFIG_PARSE_JSON_FAIL",0);
 		return;
 	}
 	//vesync_printf_cjson(root);				//json标准格式，带缩进
@@ -657,18 +647,23 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
 		}else if(!strcmp(uri->valuestring, "/cancelConfig")){			//取消配网
             vesync_reply_response("/cancelConfig",ERR_CONFIG_CMD_SUCCESS, "CONFIG_CMD_SUCCESS");
             vesync_scan_wifi_list_stop();
+            ESP_ERROR_CHECK( esp_wifi_stop() );
             //vesync_set_bt_status(BT_CONFIG_NET_CANCEL);                 //关闭配网超时定时器    
 		}else if(!strcmp(uri->valuestring, "/queryWifiList")){
             if(vesync_scan_wifi_list_start()!=0){
                 vesync_reply_response("/queryWifiList",ERR_CONFIG_WIFI_DEIVER_INIT, "CONFIG_WIFI_DEIVER_INIT");
-            }else{
-                vesync_set_bt_status(BT_CONFIG_NET_START);                  //开启配网超时定时器
             }
 		}else if(!strcmp(uri->valuestring, "/queryDeviceCid")){
             if(strlen((char *)product_config.cid) !=0){
                 vesync_reply_device_cid_information("/queryDeviceCid",ERR_CONFIG_CMD_SUCCESS,"CONFIG_CMD_SUCCESS");
             }else{
                 vesync_reply_response("/queryDeviceCid",ERR_NO_ALLOCATION_CID, "NO_ALLOCATION_CID");
+            }
+        }else if(!strcmp(uri->valuestring, "/queryDeviceNet")){
+            if(vesync_get_device_status() == DEV_CONFNET_ONLINE){
+                vesync_reply_response("/queryDeviceNet",ERR_CONFIG_HTTPS_NET_SUCCESS, "ERR_CONFIG_HTTPS_NET_SUCCESS");
+            }else{
+                vesync_reply_response("/queryDeviceNet",ERR_CONNECT_HTTPS_SERVER_FAIL, "ERR_CONNECT_HTTPS_SERVER_FAIL");
             }
         }else{
 			BLUFI_INFO("Config parameter error !");
@@ -914,8 +909,6 @@ static void vesynv_net_config_timerout_callback(TimerHandle_t timer)
     if(xTimerIsTimerActive(&timer) != pdFALSE){
         method_timer_delete(&timer);
         ESP_LOGI(GATTS_TABLE_TAG, "delete timer!");
-    }else{
-        vesync_set_bt_status(BT_CONFIG_NET_TIMEOUT);
     }
     ESP_LOGI(GATTS_TABLE_TAG, "net_config timer stop");
 }
@@ -945,18 +938,6 @@ static void vesync_set_bt_status(BT_STATUS_T new_status)
             case BT_CONNTED:
                 break;
             case BT_DISCONNTED:
-                break;
-            case BT_CONFIG_NET_START:
-                    method_timer_start(&net_config_timer);
-                break;
-            case BT_CONFIG_NET_TIMEOUT:
-                    method_timer_stop(&net_config_timer);
-                break;
-            case BT_CONFIG_NET_SUCCEED:
-                    method_timer_stop(&net_config_timer);
-                break;
-            case BT_CONFIG_NET_CANCEL:
-                    method_timer_stop(&net_config_timer);
                 break;
             default:
                 break;

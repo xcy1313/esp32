@@ -94,11 +94,7 @@ typedef enum{
     BT_ADVERTISE_START,
     BT_ADVERTISE_STOP,
     BT_CONNTED,
-    BT_DISCONNTED,
-    BT_CONFIG_NET_START,
-    BT_CONFIG_NET_TIMEOUT,
-    BT_CONFIG_NET_SUCCEED,
-    BT_CONFIG_NET_CANCEL,
+    BT_DISCONNTED
 }BT_STATUS_T;
 
 //设备WiFi参数配置
@@ -233,7 +229,7 @@ uint32_t vesync_bt_dynamic_set_ble_advertise_name(char *name);
 uint32_t vesync_bt_dynamic_ble_advertise_para(uint8_t product_type,uint8_t product_num);
 
 
-void vesync_notify_app_net_result(char *trace_id,int err_code ,int server_err_code);
+void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describe,int server_err_code);
 
 void vesync_reply_response(char *url,int err_code,char *err_describe);
 

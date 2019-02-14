@@ -123,16 +123,16 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_NO_AP_FOUND:
-			vesync_result_report(ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND");
-			//vesync_notify_app_net_result(NULL,ERR_CONFIG_NO_AP_FOUND,0xFFFFFFFF);
+			vesync_notify_app_net_result("NULL",ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND",0);
+			ESP_LOGE(TAG,"VESYNC_WIFI_NO_AP_FOUND");
 			break;
 		case VESYNC_WIFI_CONNECT_FAIL:
-			vesync_result_report(ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL");
-			//vesync_notify_app_net_result(NULL,ERR_CONFIG_CONNECT_WIFI_FAIL,0xFFFFFFFF);
+			vesync_notify_app_net_result("NULL",ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL",0);
+			ESP_LOGE(TAG,"VESYNC_WIFI_CONNECT_FAIL");
 			break;
 		case VESYNC_WIFI_WRONG_PASSWORD:
-			vesync_result_report(ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD");
-			//vesync_notify_app_net_result(NULL,ERR_CONFIG_WRONG_PASSWORD,0xFFFFFFFF);
+			vesync_notify_app_net_result("NULL",ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD",0);
+			ESP_LOGE(TAG,"VESYNC_WIFI_WRONG_PASSWORD");
 			break;
 		case VESYNC_WIFI_SCAN_DONE:{
 				uint16_t apCount = 0;

@@ -95,6 +95,7 @@ void app_scales_power_on(void)
 	bt_conn = vesync_bt_connected()?CMD_BT_STATUS_CONNTED:CMD_BT_STATUS_DISCONNECT;
 	app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
 	resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+
 	uint8_t wifi_conn =0 ;
 	switch(vesync_get_device_status()){
 		case DEV_CONFNET_NOT_CON:				//未配网
@@ -230,7 +231,11 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						npwer_status = res->response_hardstate.power;
 
 						cnt++;
-						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
+						uint8_t send_buff[2];
+						send_buff[0] = opt[1];		//mcu上报的数据中，是电量在前开关机状态在后
+						send_buff[1] = opt[0];		//蓝牙发送的数据中，是开关机状态在前电量在后
+						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
+
 						if((npwer_status == 0) && (opwer_status == 1)){         //关机
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power off!!!");
@@ -241,7 +246,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG,"[-----------------------");
 							LOG_I(TAG, "scales power on!!!");
 							LOG_I(TAG,"------------------------]");
-							//app_scales_power_on();
+							app_scales_power_on();
 						}
 					}
 					break;

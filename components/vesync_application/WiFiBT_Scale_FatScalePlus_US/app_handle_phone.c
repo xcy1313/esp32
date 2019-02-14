@@ -255,7 +255,9 @@ void vesync_prase_upgrade_url(char *url)
                 sprintf(&upgrade_url[url_len],"/%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                 LOG_I(TAG, "upgrade url %s",upgrade_url);
                 app_set_upgrade_source(UPGRADE_APP);
-                vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+                if((vesync_get_router_link() == false)){
+                    vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+                }
                 //vesync_client_connect_wifi("R6100-2.4G", "12345678");
                 vesync_ota_init(upgrade_url,ota_event_handler);
                 //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
@@ -911,16 +913,16 @@ static uint8_t ble_sum_verify(uint8_t *frame ,uint16_t len)
 }
 
 static void ble_send_inquiry_history_null_data(uint32_t account,uint8_t cnt){
-    uint8_t send_buf[15] ={0};
+    uint8_t send_buf[17] ={0};
     send_buf[0] = 0xA5;
     send_buf[1] = 0x10;  // 状态码
     send_buf[2] = cnt; // 计数
-    *(uint16_t *)&send_buf[3] = 8;
+    *(uint16_t *)&send_buf[3] = 8+2;
     *(uint16_t *)&send_buf[5] = CMD_INQUIRY_HISTORY; //
     *(uint32_t *)&send_buf[7] = account;
     *(uint32_t *)&send_buf[11] = 0;
-    send_buf[13] = ble_sum_verify(&send_buf[1],sizeof(send_buf)-1);
-    send_buf[14] = 0x5A;
+    send_buf[15] = ble_sum_verify(&send_buf[1],sizeof(send_buf)-1);
+    send_buf[16] = 0x5A;
     vesync_bt_notify_send(send_buf,sizeof(send_buf));
     esp_log_buffer_hex(TAG, send_buf, sizeof(send_buf));
 }
