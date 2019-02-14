@@ -15,6 +15,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/timers.h"
 
 #include "cJSON.h"
 
@@ -32,6 +33,7 @@
 #include "vesync_log.h"
 
 // service
+#include "vesync_task_def.h"
 #include "vesync_config_net.h"
 #include "vesync_device.h"
 #include "vesync_wifi_led.h"
