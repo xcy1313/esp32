@@ -130,7 +130,7 @@ void vesync_user_entry(void *args)
     LOG_I(TAG, "Application layer start !");
     LOG_E(TAG, "Application layer start version with[%s]",FIRM_VERSION);
     vesync_button_init(19,app_button_event_handler);
-    vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,ble_rec_handler);
+    vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,"1116",PRODUCT_TYPE,PRODUCT_NUM,NULL,true,NULL,ble_rec_handler);
     vesync_bt_advertise_start(0);
     vesync_regist_devstatus_cb(device_status);
     vesync_developer_start();

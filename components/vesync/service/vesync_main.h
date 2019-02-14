@@ -43,4 +43,7 @@ void vesync_entry(void *args);
  */
 void vesync_user_entry(void *args);
 
+typedef void (*vesync_application_cb_t)(void);
+void vesync_register_application_cb(vesync_application_cb_t cb);
+
 #endif

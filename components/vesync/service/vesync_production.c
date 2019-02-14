@@ -151,7 +151,6 @@ int vesync_production_connected_report_to_server(void)
         cJSON_AddStringToObject(root, "method", "updateDevInfo");
         cJSON_AddStringToObject(root, "pid", DEV_PID);
         cJSON_AddStringToObject(root, "cid", mac_string);
-        cJSON_AddStringToObject(root, "routerMac", ap_mac_string);
         cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
         if(NULL != info)
         {
@@ -159,7 +158,8 @@ int vesync_production_connected_report_to_server(void)
             cJSON_AddStringToObject(info, "initState", "first");
             cJSON_AddStringToObject(info, "mac", mac_string);
             cJSON_AddNumberToObject(info, "rssi", -60);         //==TODO==，add by watwu
-            
+            cJSON_AddStringToObject(info, "routerMac", ap_mac_string);
+
             cJSON_AddItemToObject(info, "version", version = cJSON_CreateObject());
             if(NULL != version)
             {

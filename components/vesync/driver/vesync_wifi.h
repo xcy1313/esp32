@@ -108,4 +108,7 @@ int vesync_wait_network_connected(uint32_t	wait_time);
  */
 vesync_wifi_status_e vesync_wifi_get_status(void);
 
+
+bool vesync_get_router_link(void);
+
 #endif
