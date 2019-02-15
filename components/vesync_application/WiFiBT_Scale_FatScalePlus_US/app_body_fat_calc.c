@@ -45,7 +45,7 @@ char    mask_user_store_key[12];
 #define FAT_HIGH_16_SPORT_WOMAN(F,W,H)  ff(424500/(F)+535.0-1593166000/((W)*(F))-(H)*(H)*11.38/(F))
 
 //MUSCLE计算
-#define MUSCLE(F)                       ff((1000-(F))*0.5)   
+#define MUSCLE(F)                       ff((1000-(F))*0.6875)   
 
 //WATER计算
 #define WATER_HIGH_16_MAN(F,W,H)        ff((696819000/(F)+299430)/(W)+37053*(H)*(H)/10000/(F)+296-107700/(F))

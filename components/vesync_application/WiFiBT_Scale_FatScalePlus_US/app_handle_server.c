@@ -443,7 +443,11 @@ static uint8_t app_json_https_service_parse(uint32_t mask,char *read_buf)
 	cJSON *code = cJSON_GetObjectItemCaseSensitive(root, "code");
 	if(true == cJSON_IsNumber(code)){
 		LOG_I(TAG,"code : %d\r\n", code->valueint);
-        ret = 0;
+        if(code->valueint == 0){
+            ret = 0;
+        }else if(code->valueint == -11001005){  // token 过期
+            ret = 3;
+        }
 	}else{
         ret = 2;
         LOG_E(TAG,"app https upload error \r\n");
@@ -466,7 +470,7 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
     int buff_len = sizeof(recv_buff);
     static uint8_t rst_len =0;
     static uint8_t send_len =0;
-    static uint16_t total_size =0;
+    static uint32_t total_size =0;
     static uint8_t  array_len = 0;
     static uint8_t user_read_data[1200] ={0};
     static uint8_t  calc_len = 0;
@@ -512,6 +516,7 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
                 cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
                 cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
                 cJSON_AddItemToObject(info,"data",data = cJSON_CreateArray());  //创建数组
+
                 if(NULL != info){
                     user_history_t *user_history = (user_history_t *)malloc(total_size);
                     memcpy((uint8_t *)&user_history->imped_value,(uint8_t *)&user_read_data[sizeof(user_history_t)*calc_len],sizeof(user_history_t)*send_len);
@@ -524,7 +529,7 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
                                 cJSON_AddNumberToObject(history_weight[i],"weigh_lb",user_history[i].weight_lb);
                                 cJSON_AddNumberToObject(history_weight[i],"impedence",user_history[i].imped_value);
                                 cJSON_AddNumberToObject(history_weight[i],"weighTime",user_history[i].utc_time);
-                                cJSON_AddStringToObject(history_weight[i],"unit",(char *)user_history[i].measu_unit);
+                                cJSON_AddNumberToObject(history_weight[i],"unit",user_history[i].measu_unit);
                                 cJSON_AddNumberToObject(history_weight[i],"timezone15m",user_history[i].time_zone);
                             }
                         }
@@ -564,42 +569,39 @@ static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
     char* out = cJSON_PrintUnformatted(report);
     LOG_I("JSON", "\n%s", out);
 
-    //if(app_handle_get_net_status() > NET_CONFNET_NOT_CON)
-        strcpy((char *)net_info.station_config.server_url,"test-online.vesync.com");
-        LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
-        LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
+    strcpy((char *)net_info.station_config.server_url,"test-online.vesync.com");
+    LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
+    LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
 
-        //vesync_set_https_server_address((char *)net_info.station_config.server_url);
-        ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 2 * 1000);
-        if(buff_len > 0 && ret == 0){
+    //vesync_set_https_server_address((char *)net_info.station_config.server_url);
+    ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 2 * 1000);
+    if(buff_len > 0 && ret == 0){
+        uint8_t if_resend;
+        LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        if_resend = app_json_https_service_parse(mask,recv_buff);
+        if(if_resend == 0){
             if(mask == UPLOAD_WEIGHT_DATA_REQ){
-                uint8_t if_resend;
-                LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-                if_resend = app_json_https_service_parse(mask,recv_buff);
-                if(if_resend == 0){ //服务器已经收到数据
-                    uint32_t ret;
-                    rst_len -= send_len;
-                    calc_len += send_len;
-                    if(rst_len == 0){
-                        gUserUploadStep = 0;
-                        calc_len = 0;
-                        ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);
-                        if(ret != 0){
-                            LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
-                        }
-                    }else{
-                        gUserUploadStep = 1;
-                        app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,NULL,0);
-                        LOG_I(TAG, "resend weight data to server");
+                uint32_t ret;
+                rst_len -= send_len;
+                calc_len += send_len;
+                if(rst_len == 0){
+                    gUserUploadStep = 0;
+                    calc_len = 0;
+                    ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);
+                    if(ret != 0){
+                        LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
                     }
-                    ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d rst_len %d",total_size , array_len,send_len,rst_len);
+                }else{
+                    gUserUploadStep = 1;
+                    app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,NULL,0);
+                    LOG_I(TAG, "resend weight data to server");
                 }
-                // else{
-                //     https_response = false;
-                //     app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,NULL,0);
-                // }
+                ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d rst_len %d",total_size , array_len,send_len,rst_len);
             }
+        }else if(if_resend == 3){
+            vesync_refresh_https_token();
         }
+    }
     ESP_LOGI(TAG, "gUserUploadStep end %d",gUserUploadStep);
     free(out);
     cJSON_Delete(report);

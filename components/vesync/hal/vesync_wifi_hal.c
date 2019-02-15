@@ -187,6 +187,7 @@ void vesync_hal_connect_wifi(char *ssid ,char *pwd)
 		LOG_E(TAG, "pwd is NULL");
 		return;
 	}
+	ESP_ERROR_CHECK( esp_wifi_disconnect() );	//不加导致配网时发送扫描不到ap的bug;
 	ESP_ERROR_CHECK( esp_wifi_stop() );
 
 	strcpy((char *)wifi_config.sta.ssid,(char *)ssid);
