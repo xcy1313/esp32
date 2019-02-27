@@ -75,7 +75,6 @@ void analog_adc_init(void)
 {
     check_efuse_vref();
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(TLV8811_OUT_GPIO_CHAN, ADC_ATTEN_11db);
     adc1_config_channel_atten(TLV8811_ENVI_TEMP_CHAN, ADC_ATTEN_11db);
     adc1_config_channel_atten(BAT_POWER_ADC_CHAN, ADC_ATTEN_11db);
 

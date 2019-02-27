@@ -23,6 +23,8 @@ static TimerHandle_t charging_timer;
 static uint8_t just_power_on = true;
 static uint8_t just_charging = false;
 
+extern void start_ulp_program();
+
 /**
  * @brief VA屏显示刷新任务
  */
@@ -47,18 +49,10 @@ static void va_display_update(void *args)
                     va_display_trun_on_backlight(10);
                     buzzer_beeps(2, 100);
                 }
-                // LOG_I(TAG, "Battery voltage : %dmv", 4 * analog_adc_read_battery_mv());
                 va_display_bat_dump_energy(4 * analog_adc_read_battery_mv());
                 bu9796a_update_display();
-                uint32_t voltage;
-                voltage = analog_adc_read_tlv8811_out_mv();
                 if(TOUCH_KEY_ON == get_touch_key_status())
                     va_display_trun_on_backlight(10);
-                else if(REACTION_AUTO == get_reaction_key_status())
-                {
-                    if(judge_voltage_change(voltage, 7))
-                        va_display_trun_on_backlight(10);
-                }
             }
             else
             {
@@ -68,14 +62,7 @@ static void va_display_update(void *args)
                     buzzer_beeps(3, 200);
                     bu9796a_backlight_off();
                     sleep(2);
-                    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-                    gpio_pullup_en(BAT_CHARGING);
-                    gpio_pulldown_dis(BAT_CHARGING);
-                    esp_sleep_enable_ext1_wakeup(1ULL << BAT_CHARGING, ESP_EXT1_WAKEUP_ALL_LOW);
-                    rtc_gpio_pullup_en(POWER_KEY);
-                    esp_sleep_enable_ext0_wakeup(POWER_KEY, 0);
-                    adc_power_off();    //不添加增加1.4mah功耗
-                    esp_deep_sleep_start();
+                    enter_deep_sleep_mode();
                 }
                 bu9796a_backlight_off();
             }
@@ -100,6 +87,7 @@ static void va_display_update(void *args)
 static void backlight_timer_callback(void *arg)
 {
     bu9796a_backlight_off();
+    enter_deep_sleep_mode();
 }
 
 /**
@@ -239,4 +227,22 @@ void va_display_bat_dump_energy(uint32_t bat_mv)
         bu9796a_display_bat_power_icon(1);
     else if(bat_mv > 3410 && bat_mv < 3600)
         bu9796a_display_bat_power_icon(0);
+}
+
+/**
+ * @brief 进入深度睡眠模式
+ */
+void enter_deep_sleep_mode(void)
+{
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_AUTO);
+    esp_sleep_enable_touchpad_wakeup();
+    // gpio_pullup_en(BAT_CHARGING);
+    // gpio_pulldown_dis(BAT_CHARGING);
+    // esp_sleep_enable_ext1_wakeup(1ULL << BAT_CHARGING, ESP_EXT1_WAKEUP_ALL_LOW);
+    // rtc_gpio_pullup_en(POWER_KEY);
+    // esp_sleep_enable_ext0_wakeup(POWER_KEY, 0);
+    start_ulp_program();
+    esp_sleep_enable_ulp_wakeup();
+    // adc_power_off();    //不添加增加1.4mah功耗
+    esp_deep_sleep_start();
 }

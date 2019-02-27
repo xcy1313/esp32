@@ -14,26 +14,45 @@
 #define TOUCH_PAD_CHAN              TOUCH_PAD_NUM0      //触摸按键通道，GPIO4
 #define TOUCH_PAD_THRESH            25                  //触摸检测阈值
 
+static const char *TAG = "touchkey";
+
 static uint16_t touch_initial_val = 0;
 static uint8_t power_status = POWER_ON;
 static uint8_t power_key_new = POWER_KEY_UP;
 static uint8_t power_key_last = POWER_KEY_UP;
+static int touch_flag = false;
 
-/**
- * @brief 获取触摸引脚的初始值
- * @return uint16_t [触摸引脚初始值]
+/*
+  Read values sensed at available touch pads.
+  Use 2 / 3 of read value as the threshold
+  to trigger interrupt when the pad is touched.
+  Note: this routine demonstrates a simple way
+  to configure activation threshold for the touch pads.
+  Do not touch any pads when this routine
+  is running (on application start).
  */
-static uint16_t get_touch_initial_value(void)
+static void touch_set_thresholds(void)
 {
-    int i;
-    uint16_t temp = 0;
-    uint32_t value = 0;
-    for(i = 0; i < 50; i++)
+    uint16_t touch_value;
+    touch_pad_read_filtered(TOUCH_PAD_CHAN, &touch_value);
+    touch_initial_val = touch_value * 19 / 20 + 10;
+    LOG_I(TAG, "Touch get value : %d, set thresh : %d", touch_value, touch_initial_val);
+    // ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, touch_value));
+    ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, 765));
+}
+
+/*
+  Handle an interrupt triggered when a pad is touched.
+  Recognize what pad has been touched and save it in a table.
+ */
+static void touch_rtc_intr(void * arg)
+{
+    uint32_t pad_intr = touch_pad_get_status();
+    touch_pad_clear_status();
+    if((pad_intr >> TOUCH_PAD_CHAN) & 0x01)
     {
-        touch_pad_read(TOUCH_PAD_CHAN, &temp);
-        value += temp;
+        touch_flag = true;
     }
-    return (uint16_t)(value/50);
 }
 
 /**
@@ -42,8 +61,14 @@ static uint16_t get_touch_initial_value(void)
 void touch_key_init(void)
 {
     touch_pad_init();
-    touch_pad_config(TOUCH_PAD_CHAN, 0);
+    touch_pad_set_fsm_mode(TOUCH_FSM_MODE_TIMER);
     touch_pad_set_voltage(TOUCH_HVOLT_2V7, TOUCH_LVOLT_0V5, TOUCH_HVOLT_ATTEN_1V);
+    touch_pad_config(TOUCH_PAD_CHAN, 0);
+    touch_pad_filter_start(10);
+    touch_set_thresholds();
+    touch_pad_isr_register(touch_rtc_intr, NULL);
+    touch_pad_set_trigger_mode(TOUCH_TRIGGER_BELOW);
+    touch_pad_intr_enable();
 
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
@@ -64,9 +89,6 @@ void touch_key_init(void)
 
     io_conf.pin_bit_mask = 1ULL << BAT_CHARGE_FULLY;
     gpio_config(&io_conf);
-
-    touch_initial_val = get_touch_initial_value();
-    LOG_I("touchkey", "Touch initial value : %d", touch_initial_val);
 }
 
 /**
@@ -74,13 +96,12 @@ void touch_key_init(void)
  * @return int [触摸状态，1为有触摸，0为无触摸]
  */
 int get_touch_key_status(void)
-{
-    uint16_t touch_value;
-    touch_pad_read(TOUCH_PAD_CHAN, &touch_value);
-    if(touch_initial_val - touch_value >= TOUCH_PAD_THRESH)
-        return 1;
-    else
-        return 0;
+{    
+    int status = touch_flag;
+    if(touch_flag == true)
+        touch_flag = false;
+
+    return status;
 }
 
 /**
