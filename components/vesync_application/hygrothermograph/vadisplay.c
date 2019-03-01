@@ -47,7 +47,7 @@ static void va_display_update(void *args)
                 {
                     just_power_on = false;
                     va_display_trun_on_backlight(10);
-                    buzzer_beeps(2, 100);
+                    // buzzer_beeps(2, 100);
                 }
                 va_display_bat_dump_energy(4 * analog_adc_read_battery_mv());
                 bu9796a_update_display();

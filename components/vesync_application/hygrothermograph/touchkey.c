@@ -38,7 +38,7 @@ static void touch_set_thresholds(void)
     touch_initial_val = touch_value * 19 / 20 + 10;
     LOG_I(TAG, "Touch get value : %d, set thresh : %d", touch_value, touch_initial_val);
     // ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, touch_value));
-    ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, 765));
+    ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, 785));
 }
 
 /*

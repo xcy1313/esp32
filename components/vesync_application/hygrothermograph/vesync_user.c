@@ -35,7 +35,7 @@ static void init_ulp_program()
     esp_deep_sleep_disable_rom_logging();   // 抑制boot上电信息
 
     ulp_wakeup_counter = 0;                 //ulp唤醒次数统计
-    ulp_threshold = 8;                      //人体红外ADC变化阈值
+    ulp_threshold = 6;                      //人体红外ADC变化阈值
 }
 
 /**
@@ -56,7 +56,7 @@ void start_ulp_program()
     rtc_gpio_isolate(GPIO_NUM_12);          //断开GPIO口的内部连接，防止漏电流增加功耗
     rtc_gpio_isolate(GPIO_NUM_15);
 
-    ulp_set_wakeup_period(0, 50 * 1000);    //唤醒周期，50ms
+    ulp_set_wakeup_period(0, 80 * 1000);    //唤醒周期，50ms
     esp_err_t err = ulp_run(&ulp_entry - RTC_SLOW_MEM);
     ESP_ERROR_CHECK(err);
 }
