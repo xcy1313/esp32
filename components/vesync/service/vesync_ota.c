@@ -109,7 +109,7 @@ static void vesync_ota_task_handler(void *pvParameters)
     }
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",update_partition->subtype, update_partition->address);
 
-    vesync_wait_network_connected(1000);
+    //vesync_wait_network_connected(1000);
 
     esp_http_client_handle_t client = esp_http_client_init(&client_config);
     if (client == NULL) {

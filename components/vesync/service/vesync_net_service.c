@@ -301,8 +301,11 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			}
 			ret = 0;
 		}else{
-			if(code->valueint == 0x12003009){	//提示配网信息未找到
-				vesync_flash_erase_net_info();	//删除旧的配网信息
+			if(code->valueint == -12003009){	//提示配网信息未找到
+				/**删除旧的配网信息**/
+				if(vesync_erase_net_info() != 0){
+					LOG_E(TAG,"server report error and erase net config info\r\n");
+				}
 			}
 			vesync_set_device_status(DEV_CONFIG_NET_NULL);							//设备未配网
 			vesync_notify_app_net_result(trace_id,ERR_CONNECT_HTTPS_SERVER_FAIL,"ERR_CONNECT_HTTPS_SERVER_FAIL",code->valueint);

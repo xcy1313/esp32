@@ -50,7 +50,7 @@ void app_sacle_pin_rst_delay(void)
 void vesync_user_entry(void *args)
 {
 	uint8_t unit;
-	//app_sacle_pin_rst_delay();
+	app_sacle_wakeup_pin_init();
 	vesync_regist_devstatus_cb(device_status);
 	vesync_developer_start();
 	vesync_set_production_status(PRODUCTION_EXIT);		//状态调整为未进入产测模式;

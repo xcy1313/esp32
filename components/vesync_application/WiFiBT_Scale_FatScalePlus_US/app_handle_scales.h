@@ -18,8 +18,8 @@
 #define UART_RX_PIN		(17)
 #define UART_BAUD_RATE  9600
 
-#define WAKE_UP_SCALE_KEY 5
-#define BUTTON_KEY  	19	//27（new）	19
+#define WAKE_UP_SCALE_KEY 12
+#define BUTTON_KEY  	27	//27（new）	19
 #define WAKE_UP_PIN     25
 #define SCALE_RST_PIN 	26
 
@@ -231,6 +231,10 @@ void app_bt_wifi_suspend_stop(void);
 void app_bt_wifi_suspend_start(uint32_t timeout);
 
 void app_sale_wakeup(bool status);
+
+void app_sacle_wakeup_pin_init(void);
+
+void app_scale_suspend_start(void);
 
 #endif
 

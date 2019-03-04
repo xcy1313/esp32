@@ -120,15 +120,15 @@ void vesync_entry(void *args)
 		vesync_application_cb();
 	}
 	vesync_flash_read_product_config(&product_config);
-	if(vesync_flash_read_net_info(&net_info) == true){
+	if(vesync_flash_read_net_info(&net_info) == 0){
 		vesync_set_device_status(DEV_CONFIG_NET_RECORDS);		//已配网但未连接上服务器
 		vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
 	}else{
-		LOG_E(TAG, "net config is NULL");
+		LOG_E(TAG, "config info NULL");
 		vesync_set_device_status(DEV_CONFIG_NET_NULL);			//第一次使用，未配网
 	}
-	// uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
-	// strcpy((char *)product_config.cid,(char *)test_cid);
+	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
+	strcpy((char *)product_config.cid,(char *)test_cid);
 
 	while(1){
 		sleep(5);

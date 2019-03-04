@@ -116,7 +116,13 @@ uint32_t vesync_flash_write_net_info(net_info_t *info);
  * @return true 
  * @return false 
  */
-bool vesync_flash_read_net_info(net_info_t *x_info);
+uint32_t vesync_flash_read_net_info(net_info_t *x_info);
+
+/**
+ * @brief 擦除配网信息键值对
+ * @return uint32_t 
+ */
+uint32_t vesync_erase_net_info(void);
 
 /**
  * @brief 写入配网参数信息
@@ -136,7 +142,5 @@ bool vesync_flash_read_product_config(product_config_t *x_info);
 uint32_t vesync_flash_write_token_config(char *token);
 
 uint32_t vesync_flash_read_token_config(char *token);
-
-int32_t vesync_flash_erase_net_info(void);
 
 #endif

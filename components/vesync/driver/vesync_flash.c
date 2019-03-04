@@ -269,6 +269,27 @@ uint32_t vesync_flash_read_i8(const char *label_name,const char *key_name,uint8_
 }
 
 /**
+ * @brief 擦除配网信息;
+ * @return uint32_t 
+ */
+uint32_t vesync_erase_net_info(void)
+{
+    esp_err_t err;
+    nvs_handle handle;
+
+    err = nvs_open(INFO_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
+        return err;
+    }
+    err = nvs_erase_all(handle);
+
+    nvs_close(handle);
+
+    return err;
+}
+
+/**
  * @brief 写配网参数flash
  * @param info 
  * @return esp_err_t 
@@ -283,7 +304,7 @@ uint32_t vesync_flash_write_net_info(net_info_t *info)
         ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
         return err;
     }
-    ESP_ERROR_CHECK(nvs_erase_all(handle));
+    nvs_erase_all(handle);  
 
     err = nvs_set_blob(handle, INFO_pid_KEY, info->mqtt_config.pid, sizeof(info->mqtt_config.pid));
     if (err != ESP_OK) {
@@ -372,136 +393,211 @@ int32_t vesync_flash_erase_net_info(void)
  * @brief 读取info 设备信息
  * @return device_info_t 
  */
-bool vesync_flash_read_net_info(net_info_t *x_info)
+uint32_t vesync_flash_read_net_info(net_info_t *x_info)
 {
     nvs_handle handle;
     net_info_t *info = x_info;
 
     esp_err_t err = nvs_open(INFO_NAMESPACE, NVS_READONLY, &handle);
-    if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
-        ESP_LOGE(TAG, "%s: NVS has not been initialized. "
-                "Call nvs_flash_init before starting WiFi/BT.", __func__);
-        return false;        
-    } else if(err != ESP_OK) {
+    if(err != ESP_OK) {
         ESP_LOGE(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
-        return false;
+        return err;
     }
 
     size_t length = 0;
     char *buf = NULL;
 
     err = nvs_get_blob(handle, INFO_pid_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, "INFO_pidKEY", buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "pid len[%d]",length);
-        memcpy(info->mqtt_config.pid,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->mqtt_config.pid,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_pid_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "pid len[%d]",length);
+            memcpy(info->mqtt_config.pid,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->mqtt_config.pid,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_config_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_config_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "config_key len[[%d]",length);
-        memcpy(info->mqtt_config.configKey,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->mqtt_config.configKey,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_config_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "config_key len[[%d]",length);
+            memcpy(info->mqtt_config.configKey,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->mqtt_config.configKey,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_DN_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_DN_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_server_DN_KEY len[%d]",length);
-        memcpy(info->mqtt_config.serverDN,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->mqtt_config.serverDN,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_DN_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_server_DN_KEY len[%d]",length);
+            memcpy(info->mqtt_config.serverDN,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->mqtt_config.serverDN,length);
+        }
+        free(buf);
     }
-    free(buf);
     
     err = nvs_get_blob(handle, INFO_IP_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_IP_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_server_IP_KEY len[%d]",length);
-        memcpy(info->mqtt_config.serverIP,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->mqtt_config.serverIP,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_IP_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_server_IP_KEY len[%d]",length);
+            memcpy(info->mqtt_config.serverIP,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->mqtt_config.serverIP,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_URL_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_URL_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_server_URL_KEY len[%d]",length);
-        memcpy(info->station_config.server_url,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->station_config.server_url,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_URL_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_server_URL_KEY len[%d]",length);
+            memcpy(info->station_config.server_url,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->station_config.server_url,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_ACCOUNT_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_ACCOUNT_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_server_ACCOUNT_KEY len[%d]",length);
-        memcpy(info->station_config.account_id,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->station_config.account_id,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_ACCOUNT_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_server_ACCOUNT_KEY len[%d]",length);
+            memcpy(info->station_config.account_id,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->station_config.account_id,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_SSID_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_SSID_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_SSID_KEY len[%d]",length);
-        memcpy(info->station_config.wifiSSID,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->station_config.wifiSSID,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_SSID_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_SSID_KEY len[%d]",length);
+            memcpy(info->station_config.wifiSSID,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->station_config.wifiSSID,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_PWD_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_PWD_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_PWD_KEY len[%d]",length);
-        memcpy(info->station_config.wifiPassword,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->station_config.wifiPassword,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_PWD_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_PWD_KEY len[%d]",length);
+            memcpy(info->station_config.wifiPassword,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->station_config.wifiPassword,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_static_IP_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_static_IP_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_static_IP_KEY len[%d]",length);
-        memcpy(info->station_config.wifiStaticIP,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->station_config.wifiStaticIP,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_static_IP_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_static_IP_KEY len[%d]",length);
+            memcpy(info->station_config.wifiStaticIP,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->station_config.wifiStaticIP,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_gateWay_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_gateWay_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_gateWay_KEY len[%d]",length);
-        memcpy(info->station_config.wifiGateway,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->station_config.wifiGateway,length);
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_gateWay_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_gateWay_KEY len[%d]",length);
+            memcpy(info->station_config.wifiGateway,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->station_config.wifiGateway,length);
+        }
+        free(buf);
     }
-    free(buf);
 
     err = nvs_get_blob(handle, INFO_DNS_KEY, NULL, &length);
-    buf = (char *)malloc(length);
-    err |= nvs_get_blob(handle, INFO_DNS_KEY, buf, &length);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "INFO_DNS_KEY len[%d]",length);
-        memcpy(info->station_config.wifiDNS,buf,length);
-        esp_log_buffer_char(TAG,(char *)info->station_config.wifiDNS,length);
-    }
-    free(buf);
-    
+    if(err == ESP_OK){
+        buf = (char *)malloc(length);
+        err |= nvs_get_blob(handle, INFO_DNS_KEY, buf, &length);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "INFO_DNS_KEY len[%d]",length);
+            memcpy(info->station_config.wifiDNS,buf,length);
+            esp_log_buffer_char(TAG,(char *)info->station_config.wifiDNS,length);
+        }
+        free(buf);
+    }    
     nvs_close(handle);
 
+    return err;
+}
+
+/**
+ * @brief 写入配网token信息
+ * @param token 
+ * @return uint32_t 
+ */
+uint32_t vesync_flash_write_token_config(char *token)
+{
+    esp_err_t err;
+    nvs_handle handle;
+
+    err = nvs_open(CONFIG_TOKEN_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
+        return err;
+    }
+    ESP_ERROR_CHECK(nvs_erase_all(handle));
+
+    err = nvs_set_str(handle, CONFIG_TOKEN_KEY, token);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: store pid failed(0x%x)\n", __func__, err);
+        return err;
+    }
+    err = nvs_commit(handle);       //写完后需要更新flash
+    if (err != ESP_OK) {
+        nvs_close(handle);
+        return err;
+    }
+
+    ESP_LOGI(TAG, "NVS store token ok!!!!!");
+    nvs_close(handle);
+    return err;
+}
+
+uint32_t vesync_flash_read_token_config(char *token)
+{
+    nvs_handle handle;    
+    esp_err_t err = nvs_open(CONFIG_TOKEN_NAMESPACE, NVS_READONLY, &handle);
+    if(err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
+        return err;
+    }
+
+    size_t length = 0;
+    char *buf = NULL;
+
+    err = nvs_get_str(handle, CONFIG_TOKEN_KEY, NULL, &length);
+    if(length != 0){
+        buf = (char *)malloc(length);
+        err = nvs_get_str(handle, CONFIG_TOKEN_KEY, buf, &length);
+        if (err == ESP_OK) {
+            strncpy(token,buf,length);
+        }
+        free(buf);
+    }    
+    nvs_close(handle);
     return true;
 }
 

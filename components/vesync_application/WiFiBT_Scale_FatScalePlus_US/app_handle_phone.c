@@ -284,7 +284,7 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
     LOG_I(TAG, "vesync_upgrade_config");
-    //if(app_handle_get_net_status() > NET_CONFNET_NOT_CON)
+    if(vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)
     {       //设备已配网
         static bool status = false;
         if(!status){
@@ -292,6 +292,8 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
             vesync_prase_upgrade_url((char *)opt);
         }
         ret = true;
+    }else{
+        LOG_E(TAG, "device not config net!!!!!");
     }
     return ret;
 }
@@ -632,9 +634,7 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
         case BT_CONNTED:
                 vesync_bt_advertise_stop();
                 bt_conn = 2;
-                app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏	
-                app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//称体无反应120s后进入关闭蓝牙	
-
+                app_scale_suspend_start();
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
             break;

@@ -22,6 +22,8 @@
 #include "vesync_flash.h"
 #include "driver/rtc_io.h"
 #include "driver/adc.h"
+#include "freertos/semphr.h"
+#include "freertos/FreeRTOS.h"
 
 #include "vesync_log.h"
 
@@ -36,6 +38,8 @@ hw_info info_str;
 static TimerHandle_t uart_resend_timer = NULL;
 static TimerHandle_t scale_suspend_timer = NULL;
 static TimerHandle_t bt_wifi_suspend_timer = NULL;
+
+static SemaphoreHandle_t scale_suspend_mux = NULL;
 
 static bool app_uart_resend_timer_stop(void);
 static bool bmask_scale = false;
@@ -76,6 +80,8 @@ static void app_power_save_enter(void)
 	gpio_pullup_en(BUTTON_KEY);
 	gpio_pulldown_dis(BUTTON_KEY);
 
+	gpio_pullup_en(WAKE_UP_SCALE_KEY);
+	
     esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask, ESP_EXT1_WAKEUP_ALL_LOW);
 	esp_sleep_enable_ext0_wakeup(BUTTON_KEY, 0);	//低电平唤醒
 	
@@ -90,14 +96,18 @@ void app_sacle_wakeup_pin_init(void)
 {
 	gpio_config_t io_conf;
 	gpio_num_t num = WAKE_UP_SCALE_KEY;
+	gpio_set_level(num, 1);
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
     io_conf.pin_bit_mask = (1ULL << num);
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 1;
 	gpio_config(&io_conf);
-
-	app_sale_wakeup(false);
+		
+	vTaskDelay(40 / portTICK_PERIOD_MS);
+	gpio_set_level(num, 0);
+	vTaskDelay(20 / portTICK_PERIOD_MS);
+	gpio_set_level(num, 1);
 }
 
 /**
@@ -112,6 +122,8 @@ void app_sale_wakeup(bool status)
 		gpio_set_level(num, 1);
 	}else{
 		gpio_set_level(num, 0);
+		vTaskDelay(50 / portTICK_PERIOD_MS);
+		gpio_set_level(num, 1);
 	}
 }
 /**
@@ -178,7 +190,7 @@ void app_bt_wifi_suspend_start(uint32_t timeout)
 			ESP_LOGI(TAG, "bt_wifi suspend timer [%d]ms" ,timeout);
 			method_timer_change_period(&bt_wifi_suspend_timer,timeout);
 			method_timer_start(&bt_wifi_suspend_timer);
-		}
+		} 
 	}
 }
 
@@ -192,6 +204,16 @@ void app_bt_wifi_suspend_stop(void)
 	}
 }
 
+void app_scale_suspend_start(void)
+{
+	xSemaphoreTake(scale_suspend_mux, portMAX_DELAY);
+
+	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏	
+	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//称体无反应120s后进入关闭蓝牙	
+
+	xSemaphoreGive(scale_suspend_mux);
+}
+
 /**
  * @brief 创建串口通信重传定时器
  */
@@ -203,8 +225,7 @@ static void app_create_scale_suspend_timer(void)
 	if(method_timer_create(&bt_wifi_suspend_timer ,BT_WIFI_ENTER_SUSPEND_TIME / portTICK_PERIOD_MS,false,app_bt_wifi_suspend_timerout_callback) != true){
         ESP_LOGE(TAG, "create scale suspend timer fail!!!");
     }
-	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏	
-	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//称体无反应120s后进入关闭蓝牙	
+	scale_suspend_mux = xSemaphoreCreateMutex();
 }
 
 /**
@@ -269,7 +290,7 @@ static void app_scales_power_off(void)
 	vesync_bt_advertise_stop();
 	resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 	app_uart_resend_timer_stop();	//称体休眠 下发数据无效
-	LOG_I(TAG, "scales power down!!!");
+	LOG_E(TAG, "wifi power down!!!");
 
 	vesync_hal_bt_client_deinit();
     vesync_uart_deint();
@@ -355,8 +376,8 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 																					res->response_weight_data.measu_unit,\
 																					res->response_weight_data.imped_value);                                  
 						// 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
-						app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏
-						app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);
+						// app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏
+						// app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);
 
 						cnt++;
 						if(body_fat_person(vesync_bt_connected(),res,&res->response_weight_data)){
@@ -381,9 +402,9 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
 						app_uart_encode_send(SLAVE_SEND,CMD_POWER_BATTERY,(unsigned char *)&ack,sizeof(uint8_t),false);//应答
 						if(res->response_hardstate.power == 0){
-							LOG_I(TAG, "app_scales_power_off\r\n");
+							LOG_E(TAG, "Scale power off!!!\r\n");
 						}else if(res->response_hardstate.power == 1){
-							LOG_I(TAG, "app_scales_power_on\r\n");
+							LOG_E(TAG, "Scale power on!!!\r\n");
 							app_scales_power_on();
 						}
 					}
@@ -463,9 +484,11 @@ void app_button_event_handler(void *p_event_data){
 	static uint16_t nchecktime = 0; 
 	static uint16_t lchecktime = 0; 
 
+	//if(info_str.response_hardstate.power == 0){}
 	app_sale_wakeup(false);
-	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);
-	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);
+	
+	app_scale_suspend_start();
+
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:
@@ -519,7 +542,10 @@ void app_button_event_handler(void *p_event_data){
 						enter_factory_mode_cnt =0;
 						app_bt_wifi_suspend_stop();	//进入产测模式禁止WIFI休眠
 						app_enter_scale_suspend_stop();//进入产测模式禁止称体休眠
+<<<<<<< HEAD
 
+=======
+>>>>>>> 75d5e12cfb3a4b0ef236ad4fec97fc1f4375485e
 						ESP_LOGE(TAG, "enter factory mode");
 						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 						resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
@@ -538,6 +564,9 @@ void app_button_event_handler(void *p_event_data){
 					uint8_t action = 3;
 					uint32_t ret;
 					factory_set = true;
+					if(vesync_erase_net_info() != 0){	//清除配网信息
+						LOG_E(TAG,"server report error and erase net config info\r\n");
+					}
 					app_uart_encode_send(MASTER_SET,CMD_CLEAR_USER,&action,sizeof(uint8_t),true);
 					ret = vesync_flash_erase_partiton(USER_MODEL_NAMESPACE);	//删除用户模型分区
 					if(ret != 0){
@@ -725,7 +754,6 @@ void app_button_start(void)
  */
 void app_scales_start(void)
 {
-	app_sacle_wakeup_pin_init();
 	app_button_start();
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
 }

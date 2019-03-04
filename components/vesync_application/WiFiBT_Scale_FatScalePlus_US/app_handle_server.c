@@ -185,8 +185,7 @@ void vesync_recv_json_data(char *data)
                 app_handle_production_cid_response();
                 vesync_set_production_status(PRODUCTION_EXIT);   //状态调整为产测模式已结束;
 
-                app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);
-                app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);
+                app_scale_suspend_start();
 
                 resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
@@ -665,6 +664,7 @@ static void vesync_send_all_data_https_req(void)
                 app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
                 LOG_I(TAG, "resend weight data to server");
             }
+            o_mask =0;
             ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d rst_len %d",total_size , array_len,send_len,rst_len);
         }else if(if_resend == 3){       //token过期
             LOG_E(TAG, "server report token error!!!!");
@@ -674,12 +674,14 @@ static void vesync_send_all_data_https_req(void)
             //vesync_refresh_https_token();
             app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
         }
-    }else{
-        if(usermode_len !=0){
-            o_mask =0;
-            app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);    //根据用户键值对轮寻沉淀数据
-        }
     }
+    // else{
+    //     if(usermode_len !=0){
+    //         LOG_E(TAG, "wifi not connted!");
+    //         o_mask =0;
+    //         app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);    //根据用户键值对轮寻沉淀数据
+    //     }
+    // }
     ESP_LOGI(TAG, "gUserUploadStep end %d",gUserUploadStep);
     free(out);
     cJSON_Delete(report);
@@ -902,8 +904,7 @@ void device_status(device_status_e status)
         case DEV_CONFIG_NET_SUCCESS:
 		case DEV_CONFIG_NET_RECORDS:				//已有配网记录
             wifi_conn = 2;
-            app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏	
-            app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//称体无反应120s后进入关闭蓝牙	
+            app_scale_suspend_start();	
 
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
@@ -928,5 +929,8 @@ void app_hadle_server_create(void)
     vesync_init_https_module(vesync_https_ca_cert_pem);
     //app_handle_https_message_queue_create();
     xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 16*1024, NULL, 4, &s_network_service_taskhd);
-    app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
+
+    if(vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS){   //有配网记录才开启沉淀数据上传
+        app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
+    }
 }
