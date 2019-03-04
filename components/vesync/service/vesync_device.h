@@ -25,10 +25,10 @@
  */
 typedef enum
 {
-	DEV_CONFNET_INIT    = 0,			//设备上电
-	DEV_CONFNET_NOT_CON = 1,			//未配网
-	DEV_CONFNET_ONLINE 	= 2,			//已连接上服务器
-	DEV_CONFNET_OFFLINE = 3				//已配网但未连接上服务器
+	DEV_CONFIG_NET_NULL 	= 1,			//没有配网记录
+	DEV_CONFIG_NET_READY 	= 2,			//配网中
+	DEV_CONFIG_NET_RECORDS 	= 3,			//有配网记录
+	DEV_CONFIG_NET_SUCCESS 	= 4				//配网完成
 } device_status_e;
 
 /**

@@ -52,7 +52,9 @@
 #define ERR_WIFI_LINK_BUSY                      82      //wifi链路忙，不能进入扫描模式
 #define ERR_NO_ALLOCATION_CID                   83      //未分配cid
 #define ERR_CONNECT_MQTT_SERVER_FAIL            84      //连接MQTT服务器失败
-#define ERR_CONNECT_HTTPS_SERVER_FAIL           85      //连接https服务器失败
+#define ERR_CONNECT_HTTPS_SERVER_FAIL           85      //连接https配网失败
+#define ERR_NOT_NET_CONFIG                      86      //设备未配网
+#define ERR_STORE_NET_CONFIG                    87      //设备有配网信息
 
 #define ERR_TOTAL                               100     
 

@@ -6,6 +6,7 @@
  */
 #include "vesync_ota.h"
 #include "vesync_wifi.h"
+#include "vesync_net_service.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -16,6 +17,7 @@
 #include "esp_http_client.h"
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
+#include "esp_task_wdt.h"
 
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -107,13 +109,12 @@ static void vesync_ota_task_handler(void *pvParameters)
     }
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",update_partition->subtype, update_partition->address);
 
-    vesync_wait_network_connected(5000);
+    //vesync_wait_network_connected(1000);
 
     esp_http_client_handle_t client = esp_http_client_init(&client_config);
     if (client == NULL) {
         vesync_ota_event_post_to_user(0,OTA_URL_ERROR);
         ESP_LOGE(TAG, "Failed to initialise HTTP connection");
-        vesync_ota_event_post_to_user(0,OTA_URL_ERROR);
         task_fatal_error();
     }
     err = esp_http_client_open(client, 0);
@@ -151,6 +152,7 @@ static void vesync_ota_task_handler(void *pvParameters)
     ESP_LOGI(TAG, "total_len %d \n" ,total_len);
     /*deal with all receive packet*/
     while (1) {
+        esp_task_wdt_reset();
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
         if (data_read < 0) {
             time_out++;
@@ -163,12 +165,16 @@ static void vesync_ota_task_handler(void *pvParameters)
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             ESP_LOGE(TAG, "Error: SSL data read error");
         }else if(data_read > 0){            //固件下载中
+            static uint8_t write_error_cnt =0;
             err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "write flash error");
-                vesync_ota_event_post_to_user(0,OTA_FLASH_ERROR);
-                http_cleanup(client);
-                task_fatal_error();
+                if(write_error_cnt++ >=2){
+                    write_error_cnt =0;
+                    vesync_ota_event_post_to_user(0,OTA_TIME_OUT);
+                    http_cleanup(client);
+                    task_fatal_error();
+                }
             }
             binary_file_length += data_read;
             
@@ -177,7 +183,7 @@ static void vesync_ota_task_handler(void *pvParameters)
             data_read_cnt = 0;
         }else if (data_read == 0){         //固件下载完成
             ESP_LOGI(TAG, "Connection closed,all data received");
-            if(data_read_cnt++ >=5){
+            if(data_read_cnt++ >=2){       //请求3次的确下载完
                 data_read_cnt = 0;
                 if (esp_ota_end(update_handle) != ESP_OK){
                     ESP_LOGE(TAG, "esp_ota_end failed!");
@@ -187,12 +193,13 @@ static void vesync_ota_task_handler(void *pvParameters)
                 }else{
                     err = esp_ota_set_boot_partition(update_partition);
                     if (err != ESP_OK) {
+                        vesync_ota_event_post_to_user(0,OTA_TIME_OUT);
                         ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
                         http_cleanup(client);
                         task_fatal_error();
                     }else{
                         vesync_ota_event_post_to_user(binary_file_length,OTA_SUCCESS);
-                        vTaskDelay(OTA_FAILED_TIME_OUT / portTICK_PERIOD_MS);
+                        vesync_refresh_upgrade_result();
                         break;
                     }
                 }
@@ -202,9 +209,7 @@ static void vesync_ota_task_handler(void *pvParameters)
     ESP_LOGI(TAG, "Total Write binary data length : %d", binary_file_length);
     free((char*)client_config.url);
     free(ota_write_data);
-
-    esp_restart();
-    return ;
+    vTaskDelete(NULL);    
 }
 
 vesync_ota_status_t vesync_ota_init(char *url,vesync_ota_event_cb_t cb)

@@ -40,8 +40,9 @@ static char vesync_https_service_token[64] ={"\0"};
  */
 void vesync_get_https_token(char *token)
 {
-	strcpy(token,vesync_https_service_token);
-	LOG_I(TAG, "https token：[%s]" ,token);
+	vesync_flash_read_token_config(token);
+	strcpy(vesync_https_service_token,token);
+	LOG_I(TAG, "https token：[%s]   " ,token);
 }
 
 /**
@@ -277,25 +278,36 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 		LOG_I(TAG,"code : %d\r\n", code->valueint);
 		if(code->valueint == 0){
 			cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
+			if(mask == UPGRADE_REFRESH_ATTRIBUTE_REQ){
+				esp_restart();
+    			return ;
+			}
 			if(true == cJSON_IsObject(result)){
 				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
 				if(true == cJSON_IsString(token)){
-					strcpy((char *)vesync_https_service_token,token->valuestring);
-					LOG_I(TAG,"token : %s\r\n", vesync_https_service_token);
+					vesync_flash_write_token_config(token->valuestring);
+					LOG_I(TAG,"token : %s\r\n", token->valuestring);
 				}
 				cJSON *expireIn = cJSON_GetObjectItemCaseSensitive(result, "expireIn");
 				if(true == cJSON_IsNumber(expireIn)){
 					LOG_I(TAG,"expireIn : %d\r\n", expireIn->valueint);	//token的过期时间 单位s
 					vesync_notify_app_net_result(trace_id,ERR_CONFIG_HTTPS_NET_SUCCESS,"ERR_CONFIG_HTTPS_NET_SUCCESS",code->valueint);
-					vesync_set_device_status(DEV_CONFNET_ONLINE);		//设备已连上服务器
 					if(mask == NETWORK_CONFIG_REQ){
-						vesync_flash_write_net_info(&net_info);
+						if(vesync_flash_write_net_info(&net_info) == 0){
+							vesync_set_device_status(DEV_CONFIG_NET_SUCCESS);		//设备配网成功
+						}
 					}
 				}
 			}
 			ret = 0;
 		}else{
-			vesync_set_device_status(DEV_CONFNET_INIT);		//设备配网失败
+			if(code->valueint == -12003009){	//提示配网信息未找到
+				/**删除旧的配网信息**/
+				if(vesync_erase_net_info() != 0){
+					LOG_E(TAG,"server report error and erase net config info\r\n");
+				}
+			}
+			vesync_set_device_status(DEV_CONFIG_NET_NULL);							//设备未配网
 			vesync_notify_app_net_result(trace_id,ERR_CONNECT_HTTPS_SERVER_FAIL,"ERR_CONNECT_HTTPS_SERVER_FAIL",code->valueint);
 		}
 	}
@@ -310,7 +322,6 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
  */
 void vesync_json_add_https_service_register(uint8_t mask)
 {
-	vesync_wait_network_connected(5000);
     cJSON *root = cJSON_CreateObject();
 	if(NULL == root)    return;
 
@@ -326,6 +337,8 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	char traceId_buf[64];
 	itoa(seconds, traceId_buf, 10);
 
+	int rssi = vesync_get_ap_rssi(8);
+	
     switch(mask){
         case NETWORK_CONFIG_REQ:
             cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
@@ -336,7 +349,7 @@ void vesync_json_add_https_service_register(uint8_t mask)
                 cJSON_AddStringToObject(info, "accountID", (char *)net_info.station_config.account_id);
                 cJSON_AddStringToObject(info, "mac", mac);
                 cJSON_AddStringToObject(info, "version", FIRM_VERSION);
-                cJSON_AddNumberToObject(info, "rssi", -56);
+                cJSON_AddNumberToObject(info, "rssi", rssi);
                 cJSON_AddStringToObject(info, "timeZone", "8");
                 req_method = "deviceRegister";
 				LOG_I("https", "\nNETWORK_CONFIG_REQ");
@@ -347,10 +360,27 @@ void vesync_json_add_https_service_register(uint8_t mask)
 				info = NULL;
 				LOG_I("https", "\nREFRESH_TOKEN_REQ");
             break;
+		case UPGRADE_REFRESH_ATTRIBUTE_REQ:
+				req_method = "updateDevInfo";
+                cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+                if(NULL != info){
+                    cJSON* version = NULL; 
+                    cJSON_AddNumberToObject(info, "rssi", rssi);
+                    cJSON_AddItemToObject(info, "version", version = cJSON_CreateObject());
+                    if(NULL != version){
+                        cJSON_AddStringToObject(version, "firmVersion", FIRM_VERSION);
+                    }
+                }
+			break;
 		default:
 			break;
 	}
 	cJSON *report = vesync_json_add_method_head(traceId_buf,req_method,info);
+	if(mask == UPGRADE_REFRESH_ATTRIBUTE_REQ){
+		static char token[128];
+		vesync_get_https_token(token);
+		cJSON_AddStringToObject(report, "token", token);
+	}
     char* out = cJSON_PrintUnformatted(report);
     LOG_I("JSON", "\n%s", out);
 
@@ -358,7 +388,7 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
 	LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
 
-	ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 2 * 1000);
+	ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 1 * 1000);
 	if(buff_len > 0 && ret == 0){
 		LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
 		vesync_json_https_service_parse(mask,recv_buff);
@@ -424,4 +454,12 @@ uint32_t vesync_refresh_https_token(void)
 void vesync_register_https_net(void)
 {
 	xTaskNotify(event_center_taskhd, HTTPS_NET_CONFIG_REGISTER, eSetBits);			//通知事件处理中心任务
+}
+
+/**
+ * @brief 更新升级后固件在云端的版本属性
+ */
+void vesync_refresh_upgrade_result(void)
+{
+	xTaskNotify(event_center_taskhd, UPGRADE_REFRESH_DEVICE_ATTRIBUTE, eSetBits);			//通知事件处理中心任务
 }

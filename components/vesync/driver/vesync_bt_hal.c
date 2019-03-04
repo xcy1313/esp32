@@ -18,6 +18,7 @@
 #include "esp_blufi_api.h"
 #include "blufi_security.h"
 #include "vesync_build_cfg.h"
+#include "vesync_net_service.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -430,13 +431,14 @@ void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describ
     uint8_t upload_buf[400] ={0};
     char ap_mac_addr[6 * 3]={'\0'};
     uint16_t buflen = 0;
+    int rssi = vesync_get_ap_rssi(8);
 
     if(vesync_get_router_link() == true){
         vesync_get_wifi_ap_mac_string(ap_mac_addr); 
     }
     
     buflen = sprintf((char *)upload_buf, "{\"uri\":\"/beginConfigReply\",\"err\":%d,\"description\":\"%s\",\"server_code\":%d,\"traceId\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
-            err_code,err_describe,server_err_code,trace_id,ap_mac_addr,12,FIRM_VERSION);
+            err_code,err_describe,server_err_code,trace_id,ap_mac_addr,rssi,FIRM_VERSION);
 
     BLUFI_INFO("blufi send app %s len %d \r\n", upload_buf,buflen);
 
@@ -595,12 +597,11 @@ static void vesync_Handle_ConfigNetJson(net_info_t *info,cJSON *json)
 		BLUFI_INFO("wifiDNS : %s\r\n", (char*)info->station_config.wifiDNS);
         mask |=0x400;
 	}
-
     if((mask & 0x7ff) == 0x7ff){    //设备已拿到并且校验正确的配网信息,开始配网
-        vesync_set_device_status(DEV_CONFNET_NOT_CON);      //状态调整为设备未配网
+        vesync_set_device_status(DEV_CONFIG_NET_READY);
         vesync_connect_wifi((char *)info->station_config.wifiSSID,(char *)info->station_config.wifiPassword);
     }else{
-        vesync_set_device_status(DEV_CONFNET_OFFLINE);      //状态调整为配网失败
+        vesync_set_device_status(DEV_CONFIG_NET_NULL);
         vesync_notify_app_net_result("NULL",ERR_CONFIG_NET_INFO_MISSED,"CONFIG_NET_INFO_MISSED",0);
     }
 }
@@ -618,6 +619,34 @@ static void vesync_reply_device_cid_information(char *url,int err_code,char *err
 		BLUFI_INFO("Send device cid to app failed !\n");
 	}
 	BLUFI_INFO("blufi send to APP : %s \r\n", buffer);
+}
+
+static void vesync_reply_net_info_response(char *url,int err_code,char *err_describe)
+{
+    cJSON *root = cJSON_CreateObject();
+    cJSON *netWorkInfo = NULL;
+
+    cJSON_AddStringToObject(root, "uri", url);
+    cJSON_AddNumberToObject(root, "err", err_code);
+
+    cJSON_AddItemToObject(root,"netWorkInfo",netWorkInfo = cJSON_CreateObject());  //创建数组
+    cJSON_AddStringToObject(netWorkInfo, "pid", (char *)net_info.mqtt_config.pid);
+    cJSON_AddStringToObject(netWorkInfo, "configKey", (char *)net_info.mqtt_config.configKey);
+    cJSON_AddStringToObject(netWorkInfo, "serverDN", (char *)net_info.mqtt_config.serverDN);
+    cJSON_AddStringToObject(netWorkInfo, "serverIP", (char *)net_info.mqtt_config.serverIP);
+    cJSON_AddStringToObject(netWorkInfo, "serverUrl", (char *)net_info.station_config.server_url);
+    cJSON_AddStringToObject(netWorkInfo, "accountID", (char *)net_info.station_config.account_id);
+    cJSON_AddStringToObject(netWorkInfo, "wifiSSID", (char *)net_info.station_config.wifiSSID);
+    cJSON_AddStringToObject(netWorkInfo, "wifiPassword", (char *)net_info.station_config.wifiPassword);
+    cJSON_AddStringToObject(netWorkInfo, "wifiStaticIP", (char *)net_info.station_config.wifiStaticIP);
+    cJSON_AddStringToObject(netWorkInfo, "wifiGateway", (char *)net_info.station_config.wifiGateway);
+    cJSON_AddStringToObject(netWorkInfo, "wifiDNS", (char *)net_info.station_config.wifiDNS);
+
+    char* out = cJSON_PrintUnformatted(root);
+    BLUFI_INFO("\n%s", out);
+
+    vesync_blufi_notify((uint8_t *)out, strlen(out));
+    cJSON_Delete(root);
 }
 /**
  * [handle_tcp_message  解析APP端通过蓝牙接口直接发送过来的数据]
@@ -660,14 +689,16 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
                 vesync_reply_response("/queryDeviceCid",ERR_NO_ALLOCATION_CID, "NO_ALLOCATION_CID");
             }
         }else if(!strcmp(uri->valuestring, "/queryDeviceNet")){
-            if(vesync_get_device_status() == DEV_CONFNET_ONLINE){
-                vesync_reply_response("/queryDeviceNet",ERR_CONFIG_HTTPS_NET_SUCCESS, "ERR_CONFIG_HTTPS_NET_SUCCESS");
+            if(vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS){
+                vesync_reply_net_info_response("/queryDeviceNet",ERR_STORE_NET_CONFIG, "ERR_CONFIG_HTTPS_NET_SUCCESS");
             }else{
-                vesync_reply_response("/queryDeviceNet",ERR_CONNECT_HTTPS_SERVER_FAIL, "ERR_CONNECT_HTTPS_SERVER_FAIL");
+                vesync_reply_net_info_response("/queryDeviceNet",ERR_NOT_NET_CONFIG, "ERR_NOT_NET_CONFIG");
             }
-        }else{
-			BLUFI_INFO("Config parameter error !");
-		}
+        }else if(!strcmp(uri->valuestring, "/beginRefreshToken")){
+            vesync_refresh_https_token();
+		}else{
+            BLUFI_INFO("Config parameter error !");
+        }
 	}
 	cJSON_Delete(root);									
 }
