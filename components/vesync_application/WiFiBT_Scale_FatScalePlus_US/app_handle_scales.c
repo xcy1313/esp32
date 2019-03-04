@@ -542,10 +542,6 @@ void app_button_event_handler(void *p_event_data){
 						enter_factory_mode_cnt =0;
 						app_bt_wifi_suspend_stop();	//进入产测模式禁止WIFI休眠
 						app_enter_scale_suspend_stop();//进入产测模式禁止称体休眠
-<<<<<<< HEAD
-
-=======
->>>>>>> 75d5e12cfb3a4b0ef236ad4fec97fc1f4375485e
 						ESP_LOGE(TAG, "enter factory mode");
 						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 						resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;

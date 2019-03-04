@@ -139,14 +139,11 @@ static bool body_fat_calc(user_fat_data_t *fat_data,uint16_t mask,user_config_da
                     }
                 }
                 ESP_LOGI(TAG, "man calc_fat: %f",calc_fat);
-<<<<<<< HEAD
-=======
 
                 if(calc_fat < MIN_FAT) 
                     calc_fat = MIN_FAT;
                 else if(calc_fat > MAX_FAT) 
                     calc_fat = MAX_FAT;
->>>>>>> 75d5e12cfb3a4b0ef236ad4fec97fc1f4375485e
             }
             if(mask & 0x0002){
                 calc_muscle = MUSCLE(((double)calc_fat));
