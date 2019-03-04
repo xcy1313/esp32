@@ -17,6 +17,7 @@
 #define ALL_CALC    0x1F
 
 extern char    mask_user_store_key[12];
+extern uint32_t match_account_id;
 
 /**
  * @brief 根据flash存储用户模型 判断是否为绑定的用户数据

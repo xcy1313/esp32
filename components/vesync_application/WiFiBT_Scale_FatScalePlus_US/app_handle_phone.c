@@ -127,6 +127,9 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
     uint8_t ota_souce = app_get_upgrade_source();
     switch(status){
         case OTA_TIME_OUT:
+                bt_conn = 5;
+                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
                 }else if(ota_souce == UPGRADE_APP){
@@ -145,6 +148,9 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 }
             break;
         case OTA_FAILED:
+                bt_conn = 5;
+                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
                 }else if(ota_souce == UPGRADE_APP){
@@ -166,7 +172,7 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 app_handle_production_upgrade_response_result("1547029501529",0);     //升级成功
             }else if(ota_souce == UPGRADE_APP){
                 app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_SUCCESS,0);
-                app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE,0,0);
+                //app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE,0,0);
             }
             break;
         default:
@@ -255,10 +261,10 @@ void vesync_prase_upgrade_url(char *url)
                 sprintf(&upgrade_url[url_len],"/%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                 LOG_I(TAG, "upgrade url %s",upgrade_url);
                 app_set_upgrade_source(UPGRADE_APP);
+                
                 if((vesync_get_router_link() == false)){
                     vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
                 }
-                //vesync_client_connect_wifi("R6100-2.4G", "12345678");
                 vesync_ota_init(upgrade_url,ota_event_handler);
                 //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
             }
@@ -325,6 +331,7 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
 bool vesync_set_unix_time(uint8_t *opt ,uint8_t len)
 {
     uint32_t unix_time = *(uint32_t *)&opt[1];
+        //memcpy((uint8_t *)&info->user_config_data.measu_unit,(uint8_t *)opt,len);
     //Rtc_SyncSet_Time((unsigned int *)&unix_time,(char)opt[0]);
     return true;
 }
@@ -365,7 +372,7 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                 uint8_t nlen =0;
                 uint32_t if_modyfy_account = *(uint32_t *)&opt[1];
                 ESP_LOGI(TAG, "modify user\n");
-
+                
                 vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&length);   //读取当前所有配置用户模型 
                 nlen = length/sizeof(user_config_data_t);
                 ESP_LOGI(TAG, "nlen[%d]",nlen);
@@ -393,7 +400,8 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                 }else{
                     ret = 2;    //超过最大用户下限(0)
                     ESP_LOGE(TAG, "change user account config is NULL");
-                }
+                } 
+                
             } 
             break;
         case 1:{ //删除对应的旧账户模型信息
@@ -624,6 +632,8 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
         case BT_CONNTED:
                 vesync_bt_advertise_stop();
                 bt_conn = 2;
+                app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏	
+                app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//称体无反应120s后进入关闭蓝牙	
 
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
@@ -760,8 +770,9 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                             ESP_LOGI(TAG, "inquirt account[0x%04x]",if_inquiry_account);
                             ret = vesync_inquiry_weight_history(if_inquiry_account,&len);
                             if(ret == 1){
-                                resp_strl.buf[0] = 1;   //具体产品对应的错误码
-                                resp_strl.len = 1;
+                                *(uint32_t *)&resp_strl.buf[0] = if_inquiry_account;   //4字节用户
+                                *(uint32_t *)&resp_strl.buf[4] = 0;                    //4字节沉底数据长度
+                                resp_strl.len = 8;
                                 res_ctl.bitN.error_flag = 1;
                             }else if(ret == 2){
                                 return;

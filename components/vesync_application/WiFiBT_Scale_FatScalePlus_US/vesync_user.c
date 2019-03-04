@@ -49,17 +49,22 @@ void app_sacle_pin_rst_delay(void)
  */
 void vesync_user_entry(void *args)
 {
-	app_sacle_pin_rst_delay();
-	vesync_register_application_cb(app_sacle_pin_rst_delay);
+	uint8_t unit;
+	//app_sacle_pin_rst_delay();
 	vesync_regist_devstatus_cb(device_status);
-	// uint8_t test_cid[] = "-LBjKhfYG-U1i3TvOrshQNN5StRl3uT1";
-	// strcpy((char *)product_config.cid,(char *)test_cid);
-	LOG_I(TAG, "find product test cid ok[%s]",product_config.cid);
 	vesync_developer_start();
 	vesync_set_production_status(PRODUCTION_EXIT);		//状态调整为未进入产测模式;
+	LOG_I(TAG, "find product test cid ok[%s]",product_config.cid);
 	LOG_E(TAG, "Application layer start with versiom[%s]",FIRM_VERSION);
-	app_ble_init();
+
+	if(0 == vesync_flash_read_i8(UNIT_NAMESPACE,UNIT_KEY,&info_str.user_config_data.measu_unit)){	//上电读取默认单位;
+        ESP_LOGE(TAG, "read last unit is[%d]",info_str.user_config_data.measu_unit);
+    }else{
+		info_str.user_config_data.measu_unit = UNIT_LB;
+		ESP_LOGE(TAG, "default unit is[%d]",info_str.user_config_data.measu_unit);
+	}
 	app_uart_start();
+	app_ble_init();
 	app_scales_start();
 	app_hadle_server_create();
 	

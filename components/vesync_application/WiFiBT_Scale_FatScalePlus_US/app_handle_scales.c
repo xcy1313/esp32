@@ -7,6 +7,7 @@
 #include "app_handle_scales.h"
 #include "app_handle_phone.h"
 #include "vesync_power_management.h"
+#include "vesync_freertos_timer.h"
 #include "vesync_uart.h"
 #include "vesync_bt_hal.h"
 #include "vesync_wifi.h"
@@ -32,10 +33,13 @@ static const char* TAG = "app_handle_scales";
 RESEND_COMD_BIT resend_cmd_bit =0;
 uni_frame_t uart_frame = {0};
 hw_info info_str;
-static TimerHandle_t uart_resend_timer;
+static TimerHandle_t uart_resend_timer = NULL;
+static TimerHandle_t scale_suspend_timer = NULL;
+static TimerHandle_t bt_wifi_suspend_timer = NULL;
+
 static bool app_uart_resend_timer_stop(void);
 static bool bmask_scale = false;
-
+static void app_scales_power_off(void);
 /**
  * @brief  进入深度休眠模式 io中断唤醒 rtc内部上拉 低电平唤醒
  * @param pin 
@@ -62,32 +66,168 @@ static void app_power_save_enter(void)
     //rtc_gpio_isolate(GPIO_NUM_12);
 
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+
     gpio_pullup_en(WAKE_UP_PIN);
     gpio_pulldown_dis(WAKE_UP_PIN);
+
+    const int ext_wakeup_pin_1 = WAKE_UP_PIN;
+    const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
 
 	gpio_pullup_en(BUTTON_KEY);
 	gpio_pulldown_dis(BUTTON_KEY);
 
-    adc_power_off();    //不添加增加1.4mah功耗
-    const int ext_wakeup_pin_1 = WAKE_UP_PIN;
-    const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
-
-	const int ext_wakeup_pin_0 = BUTTON_KEY;
-    const uint64_t ext_wakeup_pin_0_mask = 1ULL << ext_wakeup_pin_0;
-
     esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask, ESP_EXT1_WAKEUP_ALL_LOW);
-	esp_sleep_enable_ext0_wakeup(ext_wakeup_pin_0_mask, ESP_EXT1_WAKEUP_ALL_LOW);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+	esp_sleep_enable_ext0_wakeup(BUTTON_KEY, 0);	//低电平唤醒
+	
+    adc_power_off();    //不添加增加1.4mah功耗
 
     esp_deep_sleep_start();
 }
+/**
+ * @brief 初始化称体唤醒IO口
+ */
+void app_sacle_wakeup_pin_init(void)
+{
+	gpio_config_t io_conf;
+	gpio_num_t num = WAKE_UP_SCALE_KEY;
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << num);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 1;
+	gpio_config(&io_conf);
 
+	app_sale_wakeup(false);
+}
+
+/**
+ * @brief 唤醒称体mcu 地电平唤醒，
+ * @param status 
+ */
+void app_sale_wakeup(bool status)
+{
+	gpio_num_t num = WAKE_UP_SCALE_KEY;
+	
+	if(status){
+		gpio_set_level(num, 1);
+	}else{
+		gpio_set_level(num, 0);
+	}
+}
+/**
+ * @brief 30S计时时间到通知称体进入休眠模式
+ */
+static void app_notify_scale_suspend_timerout_callback(TimerHandle_t timer)
+{
+	uint8_t send_bit = 0x1;
+	app_sale_wakeup(true);
+	app_uart_encode_send(MASTER_SET,CMD_SCALE_SUSPEND,(unsigned char *)&send_bit,sizeof(uint8_t),true);
+	resend_cmd_bit |= RESEND_CMD_ENTER_SUSPEND;	//通知称体30s后熄屏;
+
+	ESP_LOGI(TAG, "app_notify_scale_suspend_timerout_callback");
+}
+
+/**
+ * @brief 开启称体休眠计时
+ * @param timeout 
+ */
+void app_enter_scale_suspend_start(uint32_t timeout)
+{   
+	if(NULL != scale_suspend_timer){
+		method_timer_stop(&scale_suspend_timer);
+		if(timeout != 0){
+			/* 创建广播监测超时定时器 */
+			ESP_LOGI(TAG, "scale suspend timer [%d]ms" ,timeout);
+			method_timer_change_period(&scale_suspend_timer,timeout);
+			method_timer_start(&scale_suspend_timer);
+		}
+	}
+}
+
+/**
+ * @brief 停止称体休眠计时
+ */
+void app_enter_scale_suspend_stop(void)
+{
+	if(NULL != scale_suspend_timer){
+    	method_timer_stop(&scale_suspend_timer);
+	}
+}
+
+/**
+ * @brief 2分钟计时时间到通知称体进入休眠模式
+ */
+static void app_bt_wifi_suspend_timerout_callback(TimerHandle_t timer)
+{
+	method_timer_delete(&scale_suspend_timer);
+	method_timer_delete(&bt_wifi_suspend_timer);
+	app_scales_power_off();
+	ESP_LOGI(TAG, "app_bt_wifi_suspend_timerout_callback");
+}
+
+/**
+ * @brief 开启称体休眠计时
+ * @param timeout 
+ */
+void app_bt_wifi_suspend_start(uint32_t timeout)
+{   
+	if(NULL != bt_wifi_suspend_timer){
+		method_timer_stop(&bt_wifi_suspend_timer);
+		if(timeout != 0){
+			/* 创建广播监测超时定时器 */
+			ESP_LOGI(TAG, "bt_wifi suspend timer [%d]ms" ,timeout);
+			method_timer_change_period(&bt_wifi_suspend_timer,timeout);
+			method_timer_start(&bt_wifi_suspend_timer);
+		}
+	}
+}
+
+/**
+ * @brief 停止称体休眠计时
+ */
+void app_bt_wifi_suspend_stop(void)
+{
+	if(NULL != bt_wifi_suspend_timer){
+    	method_timer_stop(&bt_wifi_suspend_timer);
+	}
+}
+
+/**
+ * @brief 创建串口通信重传定时器
+ */
+static void app_create_scale_suspend_timer(void)
+{
+	if(method_timer_create(&scale_suspend_timer ,SCALE_ENTER_SUSPEND_TIME / portTICK_PERIOD_MS,false,app_notify_scale_suspend_timerout_callback) != true){
+        ESP_LOGE(TAG, "create scale suspend timer fail!!!");
+    }
+	if(method_timer_create(&bt_wifi_suspend_timer ,BT_WIFI_ENTER_SUSPEND_TIME / portTICK_PERIOD_MS,false,app_bt_wifi_suspend_timerout_callback) != true){
+        ESP_LOGE(TAG, "create scale suspend timer fail!!!");
+    }
+	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏	
+	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//称体无反应120s后进入关闭蓝牙	
+}
+
+/**
+ * @brief 获取称体固件版本号
+ * @param data 
+ * @param len 
+ */
+static void app_scale_hw_version(void *data,uint8_t len)
+{
+	//*(uint16_t *)&data = info_str.response_version_data.firmware;
+	memcpy((uint8_t *)data,(uint8_t *)&info_str.response_version_data.firmware,2);
+}
+
+/**
+ * @brief 检测到称体开机下发实时状态给称体显示
+ */
 void app_scales_power_on(void)
 {
 	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
 
-	vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+	app_uart_encode_send(MASTER_INQUIRY,CMD_HW_VN,NULL,0,true);
+	resend_cmd_bit |= RESEND_CMD_HW_VN_BIT;
+
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 
@@ -98,17 +238,18 @@ void app_scales_power_on(void)
 
 	uint8_t wifi_conn =0 ;
 	switch(vesync_get_device_status()){
-		case DEV_CONFNET_NOT_CON:				//未配网
+		case DEV_CONFIG_NET_NULL:				//未配网
 			wifi_conn = 0;
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
-		case DEV_CONFNET_ONLINE:				//已连接上服务器
+		case DEV_CONFIG_NET_RECORDS:
+		case DEV_CONFIG_NET_SUCCESS:			//已连接上服务器
 			wifi_conn = 2;
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
-		case DEV_CONFNET_OFFLINE:				//已配网但未连接上服务器
+		case DEV_CONFIG_NET_READY:				//配网中
 			wifi_conn = 1;
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
@@ -121,7 +262,7 @@ void app_scales_power_on(void)
 /**
  * @brief 
  */
-void app_scales_power_off(void)
+static void app_scales_power_off(void)
 {
 	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
 
@@ -131,11 +272,11 @@ void app_scales_power_off(void)
 	LOG_I(TAG, "scales power down!!!");
 
 	vesync_hal_bt_client_deinit();
-    //vesync_wifi_deinit();
     vesync_uart_deint();
 	vesync_flash_config(false,"nvs");
 	app_power_save_enter();
 }
+
 /**
  * @brief 
  * @param reg  用户配置结构体
@@ -144,6 +285,7 @@ void app_scales_power_off(void)
  */
 static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 {
+	esp_log_buffer_hex(TAG, data, len);
 	for(unsigned short i=0;i<len;i++){
 		uni_frame_t *frame = &uart_frame;
         if(1 == Comm_frame_parse(data[i],0,frame)){        
@@ -198,9 +340,11 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						printf("\r\n hardware =0x%02x ,firmware =0x%02x ,protocol =0x%02x\r\n",res->response_version_data.hardware,\
 																				res->response_version_data.firmware,\
 																				res->response_version_data.protocol);
+						resend_cmd_bit &= ~RESEND_CMD_HW_VN_BIT;
 						break;
 					case CMD_BODY_WEIGHT:{
 						static uint8_t cnt =0;
+
 						resp_cnt =&cnt;
 						res_ctl.data = 0x0;       //表示设备主动上传
 						*(uint16_t *)&bt_command = CMD_REPORT_WEIGHT;
@@ -211,40 +355,35 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 																					res->response_weight_data.measu_unit,\
 																					res->response_weight_data.imped_value);                                  
 						// 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
+						app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//称体无反应30s后进入熄屏
+						app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);
+
+						cnt++;
 						if(body_fat_person(vesync_bt_connected(),res,&res->response_weight_data)){
 							LOG_I(TAG, "------>the same person! \r\n");
 						}
-						cnt++;
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
 					}
 					break;
 					case CMD_POWER_BATTERY:{
 						static uint8_t cnt =0;
-						static uint8_t opwer_status =0;
-						static uint8_t npwer_status =0;
 						resp_cnt =&cnt;
 
 						res_ctl.data = 0x0;       //表示设备主动上传
 						*(uint16_t *)&bt_command = CMD_REPORT_POWER;
 						memcpy((uint8_t *)&res->response_hardstate.power,opt,frame->frame_data_len-1);
-						opwer_status = npwer_status;
-						npwer_status = res->response_hardstate.power;
 
 						cnt++;
 						uint8_t send_buff[2];
 						send_buff[0] = opt[1];		//mcu上报的数据中，是电量在前开关机状态在后
 						send_buff[1] = opt[0];		//蓝牙发送的数据中，是开关机状态在前电量在后
+						uint8_t ack =0;				//ack 应答处理成功
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
-						if((npwer_status == 0) && (opwer_status == 1)){         //关机
-							LOG_I(TAG,"[-----------------------");
-							LOG_I(TAG, "scales power off!!!");
-							LOG_I(TAG,"------------------------]");
-							vTaskDelay(200 / portTICK_PERIOD_MS);	//正常使用10ms；
-							app_scales_power_off();
-						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
-							LOG_I(TAG,"[-----------------------");
-							LOG_I(TAG, "scales power on!!!");
-							LOG_I(TAG,"------------------------]");
+						app_uart_encode_send(SLAVE_SEND,CMD_POWER_BATTERY,(unsigned char *)&ack,sizeof(uint8_t),false);//应答
+						if(res->response_hardstate.power == 0){
+							LOG_I(TAG, "app_scales_power_off\r\n");
+						}else if(res->response_hardstate.power == 1){
+							LOG_I(TAG, "app_scales_power_on\r\n");
 							app_scales_power_on();
 						}
 					}
@@ -261,6 +400,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						LOG_E(TAG,"battery low error [%d] ,",res->response_error_notice.type[2]);
 						LOG_E(TAG,"imped error [%d] ,",res->response_error_notice.type[3]);
 						LOG_E(TAG,"------------------------");
+						app_uart_encode_send(SLAVE_SEND,CMD_HADRWARE_ERROR,(unsigned char *)&res_ctl.data,sizeof(uint8_t),false);	//应答
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,res->response_error_notice.type ,sizeof(response_error_notice_t));  //透传控制码
 						cnt++;
 					}
@@ -286,6 +426,9 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						break;
 					case CMD_BT_STATUS:
 							resend_cmd_bit &= ~RESEND_CMD_BT_STATUS_BIT;
+						break;
+					case CMD_SCALE_SUSPEND:
+							resend_cmd_bit &= ~RESEND_CMD_ENTER_SUSPEND;
 						break;
 					case CMD_WIFI_STATUS:
 							resend_cmd_bit &= ~RESEND_CMD_WIFI_STATUS_BIT;
@@ -320,9 +463,13 @@ void app_button_event_handler(void *p_event_data){
 	static uint16_t nchecktime = 0; 
 	static uint16_t lchecktime = 0; 
 
+	app_sale_wakeup(false);
+	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);
+	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:
+				//app_scales_power_off();
 				if(vesync_get_production_status() >= PRODUCTION_EXIT){
 					uint8_t backup_unix = info_str.user_config_data.measu_unit;
 					if(backup_unix == UNIT_LB){
@@ -370,12 +517,15 @@ void app_button_event_handler(void *p_event_data){
 					if(abs(lchecktime-nchecktime) < 400){
 						uint8_t mac_addr[6];
 						enter_factory_mode_cnt =0;
+						app_bt_wifi_suspend_stop();	//进入产测模式禁止WIFI休眠
+						app_enter_scale_suspend_stop();//进入产测模式禁止称体休眠
+
 						ESP_LOGE(TAG, "enter factory mode");
 						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 						resend_cmd_bit |= RESEND_CMD_FACTORY_START_BIT;
 
 						vesync_regist_recvjson_cb(vesync_recv_json_data);
-						vesync_enter_production_testmode(NULL);
+						vesync_enter_production_testmode(app_scale_hw_version,NULL);
 						esp_wifi_get_mac(ESP_MAC_WIFI_STA, mac_addr);
 						app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_START,mac_addr,sizeof(mac_addr),true);
 					}
@@ -385,17 +535,36 @@ void app_button_event_handler(void *p_event_data){
 		case Very_Long_key:{
 				static bool factory_set = false;
 				if(factory_set == false){
+					uint8_t action = 3;
 					uint32_t ret;
 					factory_set = true;
-					ret = vesync_flash_erase_partiton(USER_MODEL_NAMESPACE);
+					app_uart_encode_send(MASTER_SET,CMD_CLEAR_USER,&action,sizeof(uint8_t),true);
+					ret = vesync_flash_erase_partiton(USER_MODEL_NAMESPACE);	//删除用户模型分区
 					if(ret != 0){
 						LOG_E(TAG, "erase USER_MODEL_NAMESPACE\r\n");
 					}
-					ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);
+					ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);//删除用户历史数据分区
 					if(ret != 0){
 						LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
 					}
-					//esp_restart();
+					// ret = nvs_flash_erase();    //删除"nvs"分区对应的所有内容;
+					// if(ret != 0){
+					// 	LOG_E(TAG, "erase nvs\r\n");
+					// }
+					// ret = nvs_flash_init();
+					// if(ret != 0){
+					// 	LOG_E(TAG, "nvs_flash_init\r\n");
+					// }
+					// LOG_I(TAG, "device cid[%s]\r\n",(char *)product_config.cid);
+					// if(vesync_flash_write_product_config(&product_config)!=0){
+					// 	LOG_E(TAG, "write cid error\r\n");
+					// }
+					vTaskDelay(4000 / portTICK_PERIOD_MS);	//正常使用10ms；
+					app_sale_wakeup(true);
+					action = 4;
+					app_uart_encode_send(MASTER_SET,CMD_CLEAR_USER,&action,sizeof(uint8_t),true);
+					vTaskDelay(1000 / portTICK_PERIOD_MS);	//正常使用10ms；
+					esp_restart();
 				}
 			}
 			return;
@@ -433,11 +602,11 @@ static bool app_uart_resend_timer_start(void)
 
 static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 {
-	//ESP_LOGI(TAG, "uart resend timer stop [0x%04x] status =%d" ,resend_cmd_bit,vesync_get_production_status());
-	// if(/*(info_str.response_hardstate.power == 0 ) && */(vesync_get_production_status() == PRODUCTION_EXIT)){
-	// 	resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
-	// 	return;
-	// }
+	ESP_LOGI(TAG, "uart resend timer stop [0x%04x] power = %d,status =%d" ,resend_cmd_bit,info_str.response_hardstate.power,vesync_get_production_status());
+	if((info_str.response_hardstate.power == 0 ) && (vesync_get_production_status() == PRODUCTION_EXIT)){
+		resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
+		return;
+	}
 	if(vesync_get_production_status() == RPODUCTION_RUNNING){
 		if((resend_cmd_bit & RESEND_CMD_FACTORY_CHARGE_BIT) == RESEND_CMD_FACTORY_CHARGE_BIT){
 			app_uart_encode_send(MASTER_SET,CMD_FACTORY_CHARGING,0,0,true);
@@ -456,6 +625,9 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 			app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
 		}
 	}
+	if((resend_cmd_bit & RESEND_CMD_HW_VN_BIT) == RESEND_CMD_HW_VN_BIT){
+		app_uart_encode_send(MASTER_INQUIRY,CMD_HW_VN,NULL,0,true);
+	}
 	if((resend_cmd_bit & RESEND_CMD_MEASURE_UNIT_BIT) == RESEND_CMD_MEASURE_UNIT_BIT){
 		app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	}
@@ -470,24 +642,30 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 	if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
 		uint8_t wifi_conn =0 ;
 		switch(vesync_get_device_status()){
-			case DEV_CONFNET_NOT_CON:				//未配网
+			case DEV_CONFIG_NET_NULL:				//未配网
 				wifi_conn = 0;
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;
-			case DEV_CONFNET_ONLINE:				//已连接上服务器
+			case DEV_CONFIG_NET_RECORDS:
+			case DEV_CONFIG_NET_SUCCESS:			//已连接上服务器
 				wifi_conn = 2;
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;
-			case DEV_CONFNET_OFFLINE:				//已配网但未连接上服务器
-				wifi_conn = 1;
+			case DEV_CONFIG_NET_READY:				//配网中
+				wifi_conn = 1; 
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;
 			default:
 				break;				
 		}
+	}
+	if((resend_cmd_bit & RESEND_CMD_ENTER_SUSPEND) == RESEND_CMD_ENTER_SUSPEND){
+		uint8_t send_bit = 0x1;
+		app_uart_encode_send(MASTER_SET,CMD_SCALE_SUSPEND,(unsigned char *)&send_bit,sizeof(uint8_t),true);
+		resend_cmd_bit |= RESEND_CMD_ENTER_SUSPEND;
 	}
 }
 
@@ -513,7 +691,7 @@ void app_uart_encode_send(uint8_t ctl,uint8_t cmd,const unsigned char *data,uint
  */
 static bool app_uart_resend_timer_init(void)
 {
-    uart_resend_timer = xTimerCreate("uart_resend_timer_timer", 500 / portTICK_PERIOD_MS, false,
+    uart_resend_timer = xTimerCreate("uart_resend_timer_timer", 800 / portTICK_PERIOD_MS, false,
                                          NULL, app_uart_resend_timerout_callback);
     if (uart_resend_timer == NULL){
         return false;
@@ -527,10 +705,12 @@ static bool app_uart_resend_timer_init(void)
  */
 void app_uart_start(void)
 {
-	app_uart_init();
+	app_create_scale_suspend_timer();
+
     if(app_uart_resend_timer_init() == false){
         ESP_LOGE(TAG, "vesync_uart_resend_timer_init fail");
     }
+	app_uart_init();
 }
 /**
  * @brief 
@@ -545,27 +725,9 @@ void app_button_start(void)
  */
 void app_scales_start(void)
 {
-	uint8_t unit;
-	if(vesync_get_device_status() == DEV_CONFNET_NOT_CON){
-		ESP_LOGE(TAG, "device not config net!");
-	}
+	app_sacle_wakeup_pin_init();
 	app_button_start();
-	//vesync_flash_config(true ,USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
-	if(ESP_OK == vesync_flash_read_i8(UNIT_NAMESPACE,UNIT_KEY,&unit)){
-        switch(unit){
-            case UNIT_KG:
-            case UNIT_LB:
-            case UNIT_ST:
-                info_str.user_config_data.measu_unit = unit;
-            break;
-            default:
-                info_str.user_config_data.measu_unit = UNIT_KG;
-                ESP_LOGI(TAG, "read unit error");
-                break;
-        }
-    }
-	app_scales_power_on();
 }
 
 

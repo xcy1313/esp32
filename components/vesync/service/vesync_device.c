@@ -19,7 +19,7 @@ static const char* TAG = "vesync_device";
 
 // static vesync_device_conf_t s_device_config;					//设备配置信息
 // static vesync_product_conf_t s_product_config;				//设备产品信息
-static device_status_e device_status = DEV_CONFNET_INIT;		//设备配网状态，默认为离线状态
+static device_status_e device_status = DEV_CONFIG_NET_NULL;		//设备配网状态，默认为离线状态
 
 static device_status_cb_t dev_status_callback = NULL;			//定义配网状态回调函数指针
 
@@ -40,15 +40,6 @@ device_status_e vesync_get_device_status(void)
 void vesync_set_device_status(uint8_t status)
 {
 	if(device_status != status){
-		switch(status){
-			case DEV_CONFNET_NOT_CON:
-			break;
-			case DEV_CONFNET_ONLINE:
-				
-			break;
-			case DEV_CONFNET_OFFLINE:
-			break; 
-		}
 		device_status = status;
 		if(dev_status_callback != NULL)
 			dev_status_callback(device_status);
@@ -127,40 +118,6 @@ void vesync_get_product_config(vesync_product_conf_t *product_conf)
 	vesync_get_device_cid(product_conf->cid);
 	vesync_get_device_authkey(product_conf->authkey);
 	vesync_get_device_pid(product_conf->pid);
-}
-
-/**
- * [vesync_device_init 设备初始化]
- * @param  dev_conf [设备配置信息结构体指针]
- * @return			[无]
- */
-void vesync_device_init(vesync_device_conf_t* dev_conf)
-{
-	// if( get_production_status() != PRODUCTION_EXIT )	//设备被标记进入产测模式
-	// {
-	// 	LOG_I(TAG, "Enter production mode !");
-	// }
-	// else
-	if(dev_conf->sta_holder != DEVCONF_HOLDER)		//属于首次使用，未进行过配网
-	{
-		LOG_I(TAG, "This is device's first used !");
-
-		vesync_set_device_status(DEV_CONFNET_NOT_CON);	//设备未配网
-		vesync_reset_device_conf(dev_conf);
-	}
-	else												//正常使用时启动
-	{
-		vesync_set_device_status(DEV_CONFNET_OFFLINE);	//设备已配网但未连接上服务器
-		// connect_wifi_if_need_static_ip();				//判断是否需要使用静态IP连接WiFi
-		// vesync_connect_wifi ( dev_conf->wifi_conf.ssid, dev_conf->wifi_conf.password, NULL );
-		// vesync_init_mqtt_client(MQTT_INIT_FOR_NORMAL_USE);	//正常使用初始化MQTT客户端
-	}
-
-#ifdef TCP_DEBUG_ENABLE
-	dev_conf->tcp_debug = TCP_DEBUG_ON;
-#endif
-
-	// vesync_regist_networkconnected_cb(connect_to_mqtt_server);  //注册WiFi连接成功后进行连接mqtt服务器
 }
 
 /**

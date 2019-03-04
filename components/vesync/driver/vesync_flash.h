@@ -26,6 +26,9 @@
 #define CONFIG_CID_AUTH_KEY "config_auth"
 #define CONFIG_CID_PID_KEY "config_pid"
 
+#define CONFIG_TOKEN_NAMESPACE "token"
+#define CONFIG_TOKEN_KEY    "https_token"
+
 #define INFO_NAMESPACE "vesync"
 #define INFO_pid_KEY "vesync_pids"
 #define INFO_config_KEY  "vesync_config"
@@ -129,5 +132,11 @@ uint32_t vesync_flash_write_product_config(product_config_t *info);
  * @return false 
  */
 bool vesync_flash_read_product_config(product_config_t *x_info);
+
+uint32_t vesync_flash_write_token_config(char *token);
+
+uint32_t vesync_flash_read_token_config(char *token);
+
+int32_t vesync_flash_erase_net_info(void);
 
 #endif

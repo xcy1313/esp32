@@ -28,6 +28,7 @@
 #define CONFIG_NET_MQTT_READY			0X00000020
 #define REFRESH_HTTPS_TROKEN            0x00000040
 #define HTTPS_NET_CONFIG_REGISTER       0x00000080
+#define UPGRADE_REFRESH_DEVICE_ATTRIBUTE 0x00000100
 #define TIMER_BLOCK_TIME				100				//定时器操作的最大等待时间，单位系统时钟节拍
 
 extern TaskHandle_t event_center_taskhd;

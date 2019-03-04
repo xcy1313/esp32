@@ -199,7 +199,7 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
             LOG_E(TAG, "mbedtls_ssl_write returned -0x%x", -ret);
             goto exit;
         }
-        LOG_I(TAG, "Writing HTTP request len [%d],content is [%s]",strlen(https_buffer),https_buffer);
+        //LOG_I(TAG, "Writing HTTP request len [%d],content is [%s]",strlen(https_buffer),https_buffer);
     } while(written_bytes < strlen(https_buffer));
 
     LOG_I(TAG, "Reading HTTP response...");

@@ -21,6 +21,7 @@ static const char* TAG = "vesync_production";
 
 static production_status_e production_status = PRODUCTION_EXIT;
 static production_status_cb_t production_status_cb = NULL;
+static production_para_cb_t   production_para_cb = NULL;
 
 // 产测交互的四个MQTT主题中，cid那一栏使用mac地址填充后主题字符串的最长长度为37字节
 static char production_request_topic[40];
@@ -54,9 +55,10 @@ void vesync_set_production_status(production_status_e status)
  * @brief 进入产测模式
  * @param cb   [产测状态回调函数]
  */
-void vesync_enter_production_testmode(production_status_cb_t cb)
+void vesync_enter_production_testmode(production_para_cb_t para_cb,production_status_cb_t cb)
 {
     production_status_cb = cb;
+    production_para_cb = para_cb;
 
     vesync_client_connect_wifi(PRODUCTION_WIFI_SSID, PRODUCTION_WIFI_KEY);	// wifi driver初始化，否则无法获取mac地址
     vesync_set_production_status(RPODUCTION_START);
@@ -129,19 +131,28 @@ int vesync_response_production_command(char* data, int qos, int retain)
 /**
  * @brief 产测系统连接成功后上报固定数据
  */
-int vesync_production_connected_report_to_server(void)
+int vesync_production_connected_report_to_server(char *state)
 {
     int ret;
-
+    char read_buf[20]={"\0"};
+    uint16_t mcu_version;
     //上电上报信息中携带设备mac地址
     char mac_string[6 * 3];
     vesync_get_wifi_sta_mac_string(mac_string);
     char ap_mac_string[6*3];
     vesync_get_wifi_ap_mac_string(ap_mac_string);
+    char str_mcu_version[4];
+    int rssi = vesync_get_ap_rssi(8);
 
+    if(production_para_cb != NULL){
+        production_para_cb(read_buf,2);
+        mcu_version = *(uint16_t *)&read_buf[0];
+        sprintf(str_mcu_version,"%04x",mcu_version);
+        LOG_I(TAG, "mcu version[0x%04x]",mcu_version);
+        LOG_I(TAG, "str mcu version[%s]",str_mcu_version);
+    }
     cJSON *root = cJSON_CreateObject();
-    if(NULL != root)
-    {
+    if(NULL != root){
         cJSON *info = NULL;
         time_t seconds;
 		seconds = time((time_t *)NULL);
@@ -152,22 +163,19 @@ int vesync_production_connected_report_to_server(void)
         cJSON_AddStringToObject(root, "pid", DEV_PID);
         cJSON_AddStringToObject(root, "cid", mac_string);
         cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
-        if(NULL != info)
-        {
+        if(NULL != info){
             cJSON *version = NULL;
-            cJSON_AddStringToObject(info, "initState", "first");
+            cJSON_AddStringToObject(info, "initState", state);
             cJSON_AddStringToObject(info, "mac", mac_string);
-            cJSON_AddNumberToObject(info, "rssi", -60);         //==TODO==，add by watwu
+            cJSON_AddNumberToObject(info, "rssi", rssi);         //==TODO==，add by watwu
             cJSON_AddStringToObject(info, "routerMac", ap_mac_string);
-
+            cJSON_AddStringToObject(info, "mcuVersion", str_mcu_version);
             cJSON_AddItemToObject(info, "version", version = cJSON_CreateObject());
-            if(NULL != version)
-            {
+            if(NULL != version){
                 cJSON_AddStringToObject(version, "firmVersion", FIRM_VERSION);
             }
         }
-    }
-    else
+    }else
         return -1;
 
     char* out = cJSON_PrintUnformatted(root);

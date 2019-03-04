@@ -11,11 +11,15 @@
 #include "etekcity_comm.h"
 #include <stdint.h>
 
+#define SCALE_ENTER_SUSPEND_TIME	30000
+#define BT_WIFI_ENTER_SUSPEND_TIME	120000
+
 #define UART_TX_PIN		(16)
 #define UART_RX_PIN		(17)
 #define UART_BAUD_RATE  9600
 
-#define BUTTON_KEY  	19
+#define WAKE_UP_SCALE_KEY 5
+#define BUTTON_KEY  	19	//27（new）	19
 #define WAKE_UP_PIN     25
 #define SCALE_RST_PIN 	26
 
@@ -47,6 +51,7 @@ typedef enum{
 	RESEND_CMD_FACTORY_STOP_BIT	 = 0x0100,
 	RESEND_CMD_FACTORY_CHARGE_BIT= 0x0200,
 	RESEND_CMD_FACTORY_WEIGHT_BIT= 0x0400,
+	RESEND_CMD_ENTER_SUSPEND     = 0x0800,
 	RESEND_CMD_ALL_BIT			 = 0xffff
 }RESEND_COMD_BIT;
 extern RESEND_COMD_BIT resend_cmd_bit;
@@ -75,7 +80,9 @@ enum{
 #define CMD_HADRWARE_ERROR	    60
 #define CMD_BODY_FAT	        64
 #define CMD_UNUSED3	            76
+#define CMD_SCALE_SUSPEND		122
 #define CMD_POWER_BATTERY	    123
+#define CMD_CLEAR_USER			124
 #define CMD_BT_STATUS	        125
 #define CMD_WIFI_STATUS	        126
 #define CMD_MEASURE_UNIT	    127
@@ -181,6 +188,7 @@ typedef struct {
 	response_error_notice_t   response_error_notice;
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
+	user_config_data_t		  user_config_list[MAX_CONUT];
 }hw_info;
 extern hw_info info_str;
 
@@ -206,6 +214,23 @@ void app_scales_start(void);
  * @param resend 是否重传
  */
 void app_uart_encode_send(uint8_t ctl,uint8_t cmd,const unsigned char *data,uint16_t len,bool resend);
+
+/**
+ * @brief 开启称体休眠计时
+ * @param timeout 
+ */
+void app_enter_scale_suspend_start(uint32_t timeout);
+
+/**
+ * @brief 停止称体休眠计时
+ */
+void app_enter_scale_suspend_stop(void);
+
+void app_bt_wifi_suspend_stop(void);
+
+void app_bt_wifi_suspend_start(uint32_t timeout);
+
+void app_sale_wakeup(bool status);
 
 #endif
 
