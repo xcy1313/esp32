@@ -50,9 +50,4 @@ void va_display_stop_charging(void);
  */
 void va_display_bat_dump_energy(uint32_t bat_mv);
 
-/**
- * @brief 进入深度睡眠模式
- */
-void enter_deep_sleep_mode(void);
-
 #endif

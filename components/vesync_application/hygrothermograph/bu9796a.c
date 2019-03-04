@@ -85,7 +85,7 @@ int32_t bu9796a_initialize_sequence(void)
     i2cData[0] = ICSET_SOFT_RESET | NEXT_IS_COMMAND;//软件复位
     i2cData[1] = MODESET_DIS_OFF | NEXT_IS_COMMAND; //关闭显示
     i2cData[2] = ADSET_ZERO;                        //设置显示地址为0
-    i2c_master_write_slave_stop_condition(BU9796A_IIC_PORT);    //产生stop信号
+    // i2c_master_write_slave_stop_condition(BU9796A_IIC_PORT);    //产生stop信号
     error = i2c_master_write_slave(BU9796A_IIC_PORT, SLAVE_ADDRESS, i2cData, 3); //写入以上初始化序列指令
 
     return error;

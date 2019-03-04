@@ -15,6 +15,7 @@
 #include "analog_param.h"
 #include "vadisplay.h"
 #include "buzzer.h"
+#include "low_power.h"
 
 static const char *TAG = "va";
 
@@ -22,8 +23,6 @@ static TimerHandle_t backlight_timer;
 static TimerHandle_t charging_timer;
 static uint8_t just_power_on = true;
 static uint8_t just_charging = false;
-
-extern void start_ulp_program();
 
 /**
  * @brief VA屏显示刷新任务
@@ -62,7 +61,7 @@ static void va_display_update(void *args)
                     buzzer_beeps(3, 200);
                     bu9796a_backlight_off();
                     sleep(2);
-                    enter_deep_sleep_mode();
+                    enter_low_power_mode();
                 }
                 bu9796a_backlight_off();
             }
@@ -87,7 +86,7 @@ static void va_display_update(void *args)
 static void backlight_timer_callback(void *arg)
 {
     bu9796a_backlight_off();
-    enter_deep_sleep_mode();
+    enter_low_power_mode();
 }
 
 /**
@@ -227,22 +226,4 @@ void va_display_bat_dump_energy(uint32_t bat_mv)
         bu9796a_display_bat_power_icon(1);
     else if(bat_mv > 3410 && bat_mv < 3600)
         bu9796a_display_bat_power_icon(0);
-}
-
-/**
- * @brief 进入深度睡眠模式
- */
-void enter_deep_sleep_mode(void)
-{
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_AUTO);
-    esp_sleep_enable_touchpad_wakeup();
-    // gpio_pullup_en(BAT_CHARGING);
-    // gpio_pulldown_dis(BAT_CHARGING);
-    // esp_sleep_enable_ext1_wakeup(1ULL << BAT_CHARGING, ESP_EXT1_WAKEUP_ALL_LOW);
-    // rtc_gpio_pullup_en(POWER_KEY);
-    // esp_sleep_enable_ext0_wakeup(POWER_KEY, 0);
-    start_ulp_program();
-    esp_sleep_enable_ulp_wakeup();
-    // adc_power_off();    //不添加增加1.4mah功耗
-    esp_deep_sleep_start();
 }

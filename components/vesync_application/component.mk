@@ -14,7 +14,7 @@ ULP_S_SOURCES = $(addprefix $(COMPONENT_PATH)/ulp/, \
 #
 # 3. List all the component object files which include automatically
 #    generated ULP export file, $(ULP_APP_NAME).h:
-ULP_EXP_DEP_OBJECTS := vesync_user.o analog_param.o
+ULP_EXP_DEP_OBJECTS := low_power.o vesync_user.o
 #
 # 4. Include build rules for ULP program 
 include $(IDF_PATH)/components/ulp/component_ulp_common.mk

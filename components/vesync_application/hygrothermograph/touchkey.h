@@ -20,7 +20,6 @@
 #define REACTION_AUTO           1
 #define REACTION_MANUAL         0
 
-#define TOUCH_KEY_GPIO          17              //触摸按键
 #define POWER_KEY               26              //电源按键
 #define REACTION_KEY            18              //人体感应开关按键
 #define BAT_CHARGING            25              //电池充电状态引脚，为0则是充电中
