@@ -602,64 +602,6 @@ uint32_t vesync_flash_read_token_config(char *token)
 }
 
 /**
- * @brief 写入配网token信息
- * @param token 
- * @return uint32_t 
- */
-uint32_t vesync_flash_write_token_config(char *token)
-{
-    esp_err_t err;
-    nvs_handle handle;
-
-    err = nvs_open(CONFIG_TOKEN_NAMESPACE, NVS_READWRITE, &handle);
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
-        return err;
-    }
-    ESP_ERROR_CHECK(nvs_erase_all(handle));
-
-    err = nvs_set_str(handle, CONFIG_TOKEN_KEY, token);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store pid failed(0x%x)\n", __func__, err);
-        return err;
-    }
-    err = nvs_commit(handle);       //写完后需要更新flash
-    if (err != ESP_OK) {
-        nvs_close(handle);
-        return err;
-    }
-
-    ESP_LOGI(TAG, "NVS store token ok!!!!!");
-    nvs_close(handle);
-    return err;
-}
-
-uint32_t vesync_flash_read_token_config(char *token)
-{
-    nvs_handle handle;    
-    esp_err_t err = nvs_open(CONFIG_TOKEN_NAMESPACE, NVS_READONLY, &handle);
-    if(err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
-        return err;
-    }
-
-    size_t length = 0;
-    char *buf = NULL;
-
-    err = nvs_get_str(handle, CONFIG_TOKEN_KEY, NULL, &length);
-    if(length != 0){
-        buf = (char *)malloc(length);
-        err = nvs_get_str(handle, CONFIG_TOKEN_KEY, buf, &length);
-        if (err == ESP_OK) {
-            strncpy(token,buf,length);
-        }
-        free(buf);
-    }    
-    nvs_close(handle);
-    return true;
-}
-
-/**
  * @brief 写产测参数flash
  * @param info 
  * @return uint32_t 
