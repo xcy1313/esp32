@@ -52,7 +52,9 @@
 #define ERR_WIFI_LINK_BUSY                      82      //wifi链路忙，不能进入扫描模式
 #define ERR_NO_ALLOCATION_CID                   83      //未分配cid
 #define ERR_CONNECT_MQTT_SERVER_FAIL            84      //连接MQTT服务器失败
-#define ERR_CONNECT_HTTPS_SERVER_FAIL           85      //连接https服务器失败
+#define ERR_CONNECT_HTTPS_SERVER_FAIL           85      //连接https配网失败
+#define ERR_NOT_NET_CONFIG                      86      //设备未配网
+#define ERR_STORE_NET_CONFIG                    87      //设备有配网信息
 
 #define ERR_TOTAL                               100     
 
@@ -94,11 +96,7 @@ typedef enum{
     BT_ADVERTISE_START,
     BT_ADVERTISE_STOP,
     BT_CONNTED,
-    BT_DISCONNTED,
-    BT_CONFIG_NET_START,
-    BT_CONFIG_NET_TIMEOUT,
-    BT_CONFIG_NET_SUCCEED,
-    BT_CONFIG_NET_CANCEL,
+    BT_DISCONNTED
 }BT_STATUS_T;
 
 //设备WiFi参数配置
@@ -233,7 +231,7 @@ uint32_t vesync_bt_dynamic_set_ble_advertise_name(char *name);
 uint32_t vesync_bt_dynamic_ble_advertise_para(uint8_t product_type,uint8_t product_num);
 
 
-void vesync_notify_app_net_result(char *trace_id,int err_code ,int server_err_code);
+void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describe,int server_err_code);
 
 void vesync_reply_response(char *url,int err_code,char *err_describe);
 

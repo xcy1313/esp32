@@ -108,7 +108,18 @@ int vesync_wait_network_connected(uint32_t	wait_time);
  */
 vesync_wifi_status_e vesync_wifi_get_status(void);
 
-
+/**
+ * @brief 获取路由器连接状态
+ * @return true 
+ * @return false 
+ */
 bool vesync_get_router_link(void);
+
+/**
+ * @brief 获取当前ap信号强度;
+ * @param points 
+ * @return int 
+ */
+int vesync_get_ap_rssi(int points);
 
 #endif

@@ -29,6 +29,8 @@ typedef enum
  */
 typedef void (*production_status_cb_t)(production_status_e status);
 
+typedef void (*production_para_cb_t)(void *data,uint8_t len);
+
 /**
  * @brief 获取产测状态
  * @return production_status_e [产测状态值]
@@ -45,7 +47,7 @@ void vesync_set_production_status(production_status_e status);
  * @brief 进入产测模式
  * @param cb   [产测状态回调函数]
  */
-void vesync_enter_production_testmode(production_status_cb_t cb);
+void vesync_enter_production_testmode(production_para_cb_t para_cb,production_status_cb_t cb);
 
 /**
  * @brief 订阅产测系统的mqtt主题
@@ -74,7 +76,7 @@ int vesync_response_production_command(char* data, int qos, int retain);
 /**
  * @brief 产测系统连接成功后上报数据
  */
-int vesync_production_connected_report_to_server(void);
+int vesync_production_connected_report_to_server(char *state);
 
 /**
  * @brief 解析产测系统数据流

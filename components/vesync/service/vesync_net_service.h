@@ -25,7 +25,7 @@ typedef enum
 
 #define NETWORK_CONFIG_REQ				0x1
 #define REFRESH_TOKEN_REQ				0x2
-
+#define UPGRADE_REFRESH_ATTRIBUTE_REQ	0x3
 /**
  * @brief 获取mqtt客户端在线状态
  * @return vesync_mqtt_status_e [mqtt客户端在线状态]
@@ -129,5 +129,10 @@ void vesync_register_https_net(void);
  * @param token 
  */
 void vesync_get_https_token(char *token);
+
+/**
+ * @brief 更新升级后固件在云端的版本属性
+ */
+void vesync_refresh_upgrade_result(void);
 
 #endif

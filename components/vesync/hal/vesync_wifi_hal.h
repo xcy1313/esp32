@@ -135,4 +135,11 @@ int vesync_hal_scan_wifi_list_start(void);
  */
 int vesync_hal_scan_stop(void);
 
+/**
+ * @brief 硬件抽象层获取rssi信号强度
+ * @param points 
+ * @return int 
+ */
+int vesync_hal_get_ap_rssi(int points);
+
 #endif

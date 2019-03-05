@@ -27,7 +27,7 @@ static void init_ulp_program()
     esp_deep_sleep_disable_rom_logging();   // 抑制boot上电信息
 
     ulp_wakeup_counter = 0;                 //ulp唤醒次数统计
-    ulp_threshold = 6;                      //人体红外ADC变化阈值
+    ulp_threshold = 12;                      //人体红外ADC变化阈值
 }
 
 /**

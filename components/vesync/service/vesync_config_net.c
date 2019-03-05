@@ -204,7 +204,7 @@ void vesync_start_config_net_monitor_timer(uint32_t out_time)
 	{
 		netconf_timer_init_flag = true;
 		//创建配网超时定时器，单次模式
-		netconf_timeout_timer = xTimerCreate("net_conf", 1000 / portTICK_RATE_MS, pdTRUE, NULL, netconf_timeout_callback);
+		netconf_timeout_timer = xTimerCreate("net_conf", 1000 / portTICK_RATE_MS, false, NULL, netconf_timeout_callback);
 	}
 	xTimerStop(netconf_timeout_timer, TIMER_BLOCK_TIME);
 	xTimerChangePeriod(netconf_timeout_timer, out_time / portTICK_RATE_MS, TIMER_BLOCK_TIME);

@@ -26,6 +26,9 @@
 #define CONFIG_CID_AUTH_KEY "config_auth"
 #define CONFIG_CID_PID_KEY "config_pid"
 
+#define CONFIG_TOKEN_NAMESPACE "token"
+#define CONFIG_TOKEN_KEY    "https_token"
+
 #define INFO_NAMESPACE "vesync"
 #define INFO_pid_KEY "vesync_pids"
 #define INFO_config_KEY  "vesync_config"
@@ -40,7 +43,7 @@
 #define INFO_DNS_KEY "vesync_dns"
 
 /**
- * @brief 擦除对应分区的所有数据内容
+ * @brief 
  * @param part_name 
  * @return uint32_t 
  */
@@ -113,7 +116,13 @@ uint32_t vesync_flash_write_net_info(net_info_t *info);
  * @return true 
  * @return false 
  */
-bool vesync_flash_read_net_info(net_info_t *x_info);
+uint32_t vesync_flash_read_net_info(net_info_t *x_info);
+
+/**
+ * @brief 擦除配网信息键值对
+ * @return uint32_t 
+ */
+uint32_t vesync_erase_net_info(void);
 
 /**
  * @brief 写入配网参数信息
@@ -129,5 +138,9 @@ uint32_t vesync_flash_write_product_config(product_config_t *info);
  * @return false 
  */
 bool vesync_flash_read_product_config(product_config_t *x_info);
+
+uint32_t vesync_flash_write_token_config(char *token);
+
+uint32_t vesync_flash_read_token_config(char *token);
 
 #endif

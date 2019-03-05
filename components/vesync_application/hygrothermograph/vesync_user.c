@@ -9,6 +9,7 @@
 
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
+#include "driver/adc.h"
 #include "esp32/ulp.h"
 #include "ulp_adc.h"
 
@@ -42,6 +43,7 @@ static void temp_humi_update_timer_callback(void *arg)
     LOG_I(TAG, "Battery voltage : %dmv", 4 * analog_adc_read_battery_mv());
     LOG_I(TAG, "Bettery charge status : %d", get_battery_charge_status());
     LOG_I(TAG, "Bettery charge fully status : %d", get_battery_charge_fully_status());
+    // LOG_I(TAG, "TLV8811 out mv : %d", analog_adc_read_tlv8811_out_mv());
 
     va_display_temperature(temp, CELSIUS_UNIT);
     va_display_humidity(humi);
@@ -69,6 +71,8 @@ void application_task(void *args)
     // vesync_client_connect_wifi("R6100-2.4G", "12345678");
     temp_humi_update_timer = xTimerCreate("temp_humi", 1000 / portTICK_RATE_MS, pdTRUE, NULL, temp_humi_update_timer_callback);
     xTimerStart(temp_humi_update_timer, TIMER_BLOCK_TIME);
+
+    // adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_11db);
 
     // esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     // if(cause != ESP_SLEEP_WAKEUP_ULP && cause != ESP_SLEEP_WAKEUP_TOUCHPAD)

@@ -187,6 +187,7 @@ void vesync_hal_connect_wifi(char *ssid ,char *pwd)
 		LOG_E(TAG, "pwd is NULL");
 		return;
 	}
+	ESP_ERROR_CHECK( esp_wifi_disconnect() );	//不加导致配网时发送扫描不到ap的bug;
 	ESP_ERROR_CHECK( esp_wifi_stop() );
 
 	strcpy((char *)wifi_config.sta.ssid,(char *)ssid);
@@ -231,11 +232,27 @@ int vesync_hal_get_router_mac_string(char *router_mac)
 	return ret;
 }
 
-// int vesync_hal_get_rssi(int interface, char *mac_str_buffer)
-// {
-// 	wifi_config_t wifi_cfg;
-// 	esp_wifi_get_config(interface,&wifi_cfg);
-// }
+/**
+ * @brief 获取AP RSSI信号强度
+ * @param points 
+ * @return int 
+ */
+int vesync_hal_get_ap_rssi(int points)
+{
+	wifi_ap_record_t ap_cfg;
+	long rssi =0;
+	int averageRSSI =0;
+
+	for(int i=0;i < points;i++){
+		if(esp_wifi_sta_get_ap_info(&ap_cfg) == 0){
+			rssi += ap_cfg.rssi;
+			vTaskDelay(25 / portTICK_PERIOD_MS);
+		}
+	}
+	averageRSSI = rssi /points;
+	ESP_LOGI(TAG, "rssi strength[%d]" ,averageRSSI);
+	return averageRSSI;
+}
 /**
  * @brief 启动扫描WiFi列表
  * @return int [扫描结果]
