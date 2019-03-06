@@ -31,6 +31,12 @@
 void touch_key_init(void);
 
 /**
+ * @brief 获取原始触摸值
+ * @return uint16_t [触摸值]
+ */
+uint16_t get_touch_key_value(void);
+
+/**
  * @brief 获取触摸状态
  * @return int [触摸状态，1为有触摸，0为无触摸]
  */

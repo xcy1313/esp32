@@ -37,8 +37,8 @@ static void touch_set_thresholds(void)
     touch_pad_read_filtered(TOUCH_PAD_CHAN, &touch_value);
     touch_initial_val = touch_value * 19 / 20 + 10;
     LOG_I(TAG, "Touch get value : %d, set thresh : %d", touch_value, touch_initial_val);
-    // ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, touch_value));
-    ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, 785));
+    // ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, touch_initial_val));
+    ESP_ERROR_CHECK(touch_pad_set_thresh(TOUCH_PAD_CHAN, 765));
 }
 
 /*
@@ -87,6 +87,17 @@ void touch_key_init(void)
 
     io_conf.pin_bit_mask = 1ULL << BAT_CHARGE_FULLY;
     gpio_config(&io_conf);
+}
+
+/**
+ * @brief 获取原始触摸值
+ * @return uint16_t [触摸值]
+ */
+uint16_t get_touch_key_value(void)
+{
+    uint16_t touch_value;
+    touch_pad_read_filtered(TOUCH_PAD_CHAN, &touch_value);
+    return touch_value;
 }
 
 /**

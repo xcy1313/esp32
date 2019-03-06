@@ -18,6 +18,16 @@
 #define DEVICE_TYPE						"WiFiBT_Hygrometer_SmartHygrometer_US"
 #define FIRM_VERSION					"0.0.01"
 
+#define PRODUCT_VER		                0x01
+#define PRODUCT_TYPE                    0xC4
+#define PRODUCT_NUM		                0xF0
+#define PRODUCT_NAME	                "LV-SG1"
+
+// #define PRODUCT_VER		                0x12
+// #define PRODUCT_TYPE                    0xC0
+// #define PRODUCT_NUM		                0xA4
+// #define PRODUCT_NAME	                "ESF00+"
+
 //产品PID
 #define DEV_PID							"2b9lja6xd0yd40jc"
 

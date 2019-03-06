@@ -51,7 +51,10 @@ static void va_display_update(void *args)
                 va_display_bat_dump_energy(4 * analog_adc_read_battery_mv());
                 bu9796a_update_display();
                 if(TOUCH_KEY_ON == get_touch_key_status())
+                {
+                    LOG_E(TAG, "Fucking touch on !");
                     va_display_trun_on_backlight(10);
+                }
             }
             else
             {
@@ -86,7 +89,6 @@ static void va_display_update(void *args)
 static void backlight_timer_callback(void *arg)
 {
     bu9796a_backlight_off();
-    enter_low_power_mode();
 }
 
 /**
@@ -157,7 +159,7 @@ void va_display_init(void)
     bu9796a_display_off_sequence();
     touch_key_init();
 
-    backlight_timer = xTimerCreate("buzzer", 100 / portTICK_RATE_MS, pdFALSE, NULL, backlight_timer_callback);
+    backlight_timer = xTimerCreate("backlight", 1000 / portTICK_RATE_MS, pdFALSE, NULL, backlight_timer_callback);
     charging_timer = xTimerCreate("charge", 1000 / portTICK_RATE_MS, pdTRUE, NULL, charging_timer_callback);
     va_display_trun_on_backlight(10);
 
