@@ -8,10 +8,18 @@
 #ifndef ANALOG_PARAM_H
 #define ANALOG_PARAM_H
 
+#define INFRARED__THRESHOLD                 12      //人体红外感应ADC的感应变化阈值
+
 /**
  * @brief 模拟量ADC采集初始化
  */
 void analog_adc_init(void);
+
+/**
+ * @brief 读取tlv8811芯片的原始输出值
+ * @return uint32_t [模拟量输出值，原始ADC采样值]
+ */
+uint32_t analog_adc_read_tlv8811_out_raw(void);
 
 /**
  * @brief 读取tlv8811芯片的输出值

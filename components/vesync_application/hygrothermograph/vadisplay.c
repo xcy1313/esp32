@@ -21,7 +21,6 @@ static const char *TAG = "va";
 
 static TimerHandle_t backlight_timer;
 static TimerHandle_t charging_timer;
-static uint8_t just_power_on = true;
 static uint8_t just_charging = false;
 
 /**
@@ -39,34 +38,18 @@ static void va_display_update(void *args)
                 va_display_stop_charging();
             }
 
-            check_power_key_status();
-            if(POWER_ON == get_device_power_status())
+            va_display_bat_dump_energy(4 * analog_adc_read_battery_mv());
+            bu9796a_update_display();
+            if(TOUCH_KEY_ON == get_touch_key_status())
             {
-                if(true == just_power_on)               //刚开机
-                {
-                    just_power_on = false;
-                    va_display_trun_on_backlight(10);
-                    // buzzer_beeps(2, 100);
-                }
-                va_display_bat_dump_energy(4 * analog_adc_read_battery_mv());
-                bu9796a_update_display();
-                if(TOUCH_KEY_ON == get_touch_key_status())
-                {
-                    LOG_E(TAG, "Fucking touch on !");
-                    va_display_trun_on_backlight(10);
-                }
+                LOG_E(TAG, "Fucking touch on !");
+                va_display_trun_on_backlight(10);
             }
-            else
+            uint32_t infrared_adc = analog_adc_read_tlv8811_out_raw();
+            if(judge_voltage_change(infrared_adc, INFRARED__THRESHOLD))
             {
-                if(false == just_power_on)              //刚关机
-                {
-                    just_power_on = true;
-                    buzzer_beeps(3, 200);
-                    bu9796a_backlight_off();
-                    sleep(2);
-                    enter_low_power_mode();
-                }
-                bu9796a_backlight_off();
+                LOG_E(TAG, "Fucking infrared get human !");
+                va_display_trun_on_backlight(10);
             }
         }
         else if(0 == get_battery_charge_status())

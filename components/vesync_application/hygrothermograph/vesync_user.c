@@ -49,16 +49,15 @@ static void temp_humi_update_timer_callback(void *arg)
     LOG_I(TAG, "Bettery charge status : %d", get_battery_charge_status());
     LOG_I(TAG, "Bettery charge fully status : %d", get_battery_charge_fully_status());
     LOG_I(TAG, "Touch value : %d", get_touch_key_value());
-    // LOG_I(TAG, "TLV8811 out mv : %d", analog_adc_read_tlv8811_out_mv());
 
     va_display_temperature(temp, CELSIUS_UNIT);
     va_display_humidity(humi);
     bu9796a_display_ble_icon(true);
     bu9796a_display_wifi_icon(true);
 
-    // LOG_I(TAG, "last result=%d, sample counter=%d, wake up counter=%d,adc max=%d, min=%d.",
-    //       ulp_last_result & UINT16_MAX, ulp_all_sample_counter & UINT16_MAX, ulp_wakeup_counter & UINT16_MAX,
-    //       ulp_adc_max & UINT16_MAX, ulp_adc_min & UINT16_MAX);
+    LOG_I(TAG, "last result=%d, sample counter=%d, wake up counter=%d,adc max=%d, min=%d.",
+          ulp_last_result & UINT16_MAX, ulp_all_sample_counter & UINT16_MAX, ulp_wakeup_counter & UINT16_MAX,
+          ulp_adc_max & UINT16_MAX, ulp_adc_min & UINT16_MAX);
 }
 
 /**
@@ -129,16 +128,14 @@ void application_task(void *args)
     vesync_bt_client_init(PRODUCT_NAME, PRODUCT_VER, "0001", PRODUCT_TYPE, PRODUCT_NUM, NULL, true, ble_status_callback, ble_recv_data_callback);
     vesync_bt_advertise_start(0);
 
-    // adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_11db);
-
-    // esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-    // if(cause != ESP_SLEEP_WAKEUP_ULP && cause != ESP_SLEEP_WAKEUP_TOUCHPAD)
-    // {
-    //     LOG_I(TAG, "Not ULP or touch wakeup.");
-    //     init_ulp_program();
-    // }
-    // else
-    //     LOG_I(TAG, "Deep sleep wakeup.");
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+    if(cause != ESP_SLEEP_WAKEUP_ULP && cause != ESP_SLEEP_WAKEUP_TOUCHPAD)
+    {
+        LOG_E(TAG, "Not ULP or touch wakeup : %d.", cause);
+        // init_ulp_program();
+    }
+    else
+        LOG_E(TAG, "Deep sleep wakeup : %d.", cause);
 
     BaseType_t notified_ret;
     uint32_t notified_value;
