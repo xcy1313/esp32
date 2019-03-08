@@ -24,10 +24,16 @@
 
 #include "vesync_build_cfg.h"
 
+#define BLE_CONNECTED           1
+#define BLE_DISCONNECTED        0
+
 static const char* TAG = "vesync_user";
 
 static TimerHandle_t temp_humi_update_timer;            //温湿度值刷新定时器
 static TimerHandle_t enter_low_power_timer;             //开机后进入低功耗模式定时器
+static float temperature;
+static float humidity;
+static uint32_t ble_connect_status = BLE_DISCONNECTED;
 
 //任务句柄定义
 TaskHandle_t app_event_center_taskhd = NULL;
@@ -38,26 +44,32 @@ TaskHandle_t app_event_center_taskhd = NULL;
  */
 static void temp_humi_update_timer_callback(void *arg)
 {
-    float temp;
-    float humi;
-
-    sht30_get_temp_and_humi(&temp, &humi);
-    LOG_I(TAG, "Get sht30 data, temp : %f, humi : %f", temp, humi);
+    sht30_get_temp_and_humi(&temperature, &humidity);
+    LOG_I(TAG, "Get sht30 data, temperature : %f, humidity : %f", temperature, humidity);
     // printf_os_task_manager();
 
     LOG_I(TAG, "Battery voltage : %dmv", 4 * analog_adc_read_battery_mv());
     LOG_I(TAG, "Bettery charge status : %d", get_battery_charge_status());
     LOG_I(TAG, "Bettery charge fully status : %d", get_battery_charge_fully_status());
     LOG_I(TAG, "Touch value : %d", get_touch_key_value());
+    LOG_I(TAG, "TLV8811 out : %d", analog_adc_read_tlv8811_out_mv());
 
-    va_display_temperature(temp, CELSIUS_UNIT);
-    va_display_humidity(humi);
+    va_display_temperature(temperature, CELSIUS_UNIT);
+    va_display_humidity(humidity);
     bu9796a_display_ble_icon(true);
     bu9796a_display_wifi_icon(true);
 
     LOG_I(TAG, "last result=%d, sample counter=%d, wake up counter=%d,adc max=%d, min=%d.",
           ulp_last_result & UINT16_MAX, ulp_all_sample_counter & UINT16_MAX, ulp_wakeup_counter & UINT16_MAX,
           ulp_adc_max & UINT16_MAX, ulp_adc_min & UINT16_MAX);
+
+    static uint32_t second_count = 0;           //秒统计值
+    second_count++;
+    if(second_count == 20)
+    {
+        second_count = 0;
+        xTaskNotify(app_event_center_taskhd, UPDATE_TEMP_HUMI_TO_APP, eSetBits);			//通知事件处理中心任务
+    }
 }
 
 /**
@@ -68,6 +80,35 @@ static void enter_low_power_timer_callback(void *arg)
 {
     LOG_E(TAG, "Enter low power mode !");
     enter_low_power_mode();
+}
+
+/**
+ * @brief 更新温湿度值到APP，通过ble蓝牙
+ */
+static void update_temp_humi_to_app(void)
+{
+    static uint8_t cnt = 0;
+    frame_ctrl_t send_ctl =     //发送数据格式码
+    {
+        .data = 0x0
+    };
+    struct                      //数据包
+    {
+        int16_t temp;
+        int16_t humi;
+        uint32_t timestamp;
+    } send_data = {0};
+
+    uint16_t send_cmd = REPORT_TEMP_HUMI;
+    uint16_t send_len = 8;
+
+    send_data.temp = (int16_t)(temperature * 10);
+    send_data.humi = (int16_t)(humidity * 10);
+    send_data.timestamp = 1544410793;
+
+    cnt++;
+    vesync_bt_notify(send_ctl, &cnt, send_cmd, (unsigned char *)&send_data, send_len);
+    LOG_I(TAG, "Update temp humi to app !");
 }
 
 /**
@@ -97,9 +138,14 @@ static void ble_status_callback(BT_STATUS_T bt_status)
             break;
         case BT_CONNTED:
             vesync_bt_advertise_stop();
+            xTimerStop(enter_low_power_timer, TIMER_BLOCK_TIME);
+            xTaskNotify(app_event_center_taskhd, UPDATE_TEMP_HUMI_TO_APP, eSetBits);			//通知事件处理中心任务
+            ble_connect_status = BLE_CONNECTED;
             break;
         case BT_DISCONNTED:
-            vesync_bt_advertise_start(120 * 1000);
+            // vesync_bt_advertise_start(120 * 1000);
+            xTimerStart(enter_low_power_timer, TIMER_BLOCK_TIME);
+            ble_connect_status = BLE_DISCONNECTED;
             break;
         default:
             break;
@@ -121,7 +167,7 @@ void application_task(void *args)
     va_display_init();
     // vesync_client_connect_wifi("R6100-2.4G", "12345678");
     temp_humi_update_timer = xTimerCreate("temp_humi", 1000 / portTICK_RATE_MS, pdTRUE, NULL, temp_humi_update_timer_callback);
-    enter_low_power_timer = xTimerCreate("low_power", 60 * 1000 / portTICK_RATE_MS, pdFALSE, NULL, enter_low_power_timer_callback);
+    enter_low_power_timer = xTimerCreate("low_power", 10 * 1000 / portTICK_RATE_MS, pdFALSE, NULL, enter_low_power_timer_callback);
     xTimerStart(temp_humi_update_timer, TIMER_BLOCK_TIME);
     xTimerStart(enter_low_power_timer, TIMER_BLOCK_TIME);
 
@@ -145,10 +191,11 @@ void application_task(void *args)
         notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
         if(pdPASS == notified_ret)
         {
-            LOG_I(TAG, "Event center get new notified : %x.", notified_value);
+            LOG_I(TAG, "App event center get new notified : %x.", notified_value);
 
-            if(notified_value & NETWORK_CONNECTED)
+            if(notified_value & UPDATE_TEMP_HUMI_TO_APP)
             {
+                update_temp_humi_to_app();
             }
         }
         else
