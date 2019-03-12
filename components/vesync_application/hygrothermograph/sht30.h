@@ -26,4 +26,11 @@ uint32_t sht30_init(void);
  */
 uint32_t sht30_get_temp_and_humi(float *temp, float *humi);
 
+/**
+ * @brief 摄氏度转换成华氏度
+ * @param celsius   [摄氏度值]
+ * @return float    [华氏度值]
+ */
+float celsius_to_fahrenheit(float celsius);
+
 #endif

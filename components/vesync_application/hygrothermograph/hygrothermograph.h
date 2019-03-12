@@ -10,6 +10,12 @@
 
 #include "vesync_api.h"
 
+//蓝牙通信协议控制码定义
+#define ACTIVE_REPORT_CTL                       0X00        //主动上报数据格式
+#define COMMAND_CTL                             0X20        //查询或设置命令格式
+#define ACK_WITH_NO_ERROR                       0X10        //查询或设置命令格式的应答格式，无错误标志位
+#define ACK_WITH_ERROR                          0X50        //查询或设置命令格式的应答格式，由错误标志位
+
 //蓝牙通信命令定义
 #define REPORT_TEMP_HUMI                        0x0301      //设备上报温湿度值
 #define QUERY_HISTORY                           0x0302      //查询温湿度历史记录
@@ -34,7 +40,7 @@ typedef struct                                              //温湿度数据结
 
 typedef struct
 {
-    uint32_t history_amount;                                //当前已保存的历史记录总数
+    uint16_t history_amount;                                //当前已保存的历史记录总数
     temp_humi_data_t history_list[HISTORY_LIST_MAX];        //历史记录列表
 }temp_humi_history_t;
 
