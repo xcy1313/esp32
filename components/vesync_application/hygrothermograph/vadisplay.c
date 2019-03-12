@@ -137,10 +137,10 @@ void va_display_stop_charging(void)
  */
 void va_display_init(void)
 {
+    touch_key_init();
     bu9796a_init();
     bu9796a_initialize_sequence();
     bu9796a_display_off_sequence();
-    touch_key_init();
 
     backlight_timer = xTimerCreate("backlight", 1000 / portTICK_RATE_MS, pdFALSE, NULL, backlight_timer_callback);
     charging_timer = xTimerCreate("charge", 1000 / portTICK_RATE_MS, pdTRUE, NULL, charging_timer_callback);

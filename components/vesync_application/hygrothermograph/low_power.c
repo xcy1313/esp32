@@ -14,6 +14,7 @@
 #include "ulp_adc.h"
 
 #include "analog_param.h"
+#include "bu9796a.h"
 
 extern const uint8_t ulp_adc_bin_start[] asm("_binary_ulp_adc_bin_start");
 extern const uint8_t ulp_adc_bin_end[]   asm("_binary_ulp_adc_bin_end");
@@ -60,6 +61,9 @@ static void start_ulp_program()
  */
 void enter_low_power_mode(void)
 {
+    bu9796a_clear_display();
+    bu9796a_update_display();
+    bu9796a_display_off_sequence();
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_AUTO);
     esp_sleep_enable_touchpad_wakeup();
     // gpio_pullup_en(BAT_CHARGING);
