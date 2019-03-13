@@ -26,7 +26,7 @@ static void hal_call_wifi_connect_callback(vesync_wifi_status_e wifi_status)
 {
 	if(NULL != s_wifi_connect_callback)
 	{
-		LOG_I(TAG, "hal_call_wifi_connect_callback %d", wifi_status);
+		//LOG_I(TAG, "hal_call_wifi_connect_callback %d", wifi_status);
 		s_wifi_connect_callback(wifi_status);
 	}
 }
@@ -250,7 +250,7 @@ int vesync_hal_get_ap_rssi(int points)
 		}
 	}
 	averageRSSI = rssi /points;
-	ESP_LOGI(TAG, "rssi strength[%d]" ,averageRSSI);
+	//ESP_LOGI(TAG, "rssi strength[%d]" ,averageRSSI);
 	return averageRSSI;
 }
 /**
@@ -321,5 +321,17 @@ void vesync_hal_init_wifi_module(vesync_wifi_cb callback,bool power_save)
 		ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MODEM));			//开启wifi省电模式;
 	}
 	ESP_ERROR_CHECK( esp_wifi_start() );
-	LOG_I(TAG,"vesync wifi hal init\n");
 }
+
+/**
+ * @brief 硬件抽象层关闭WIFI模块
+ */
+void vesync_hal_deinit_wifi_module(void)
+{
+	s_wifi_connect_callback = NULL;
+
+	ESP_ERROR_CHECK(esp_wifi_stop());
+	ESP_ERROR_CHECK(esp_wifi_deinit());
+}
+
+

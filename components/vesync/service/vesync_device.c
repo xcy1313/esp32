@@ -15,7 +15,7 @@
 
 #include "freertos/timers.h"
 
-static const char* TAG = "vesync_device";
+// static const char* TAG = "vesync_device";
 
 // static vesync_device_conf_t s_device_config;					//设备配置信息
 // static vesync_product_conf_t s_product_config;				//设备产品信息

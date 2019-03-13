@@ -35,12 +35,11 @@ static void vesync_event_center_thread(void *args)
     BaseType_t notified_ret;
     uint32_t notified_value;
 
-    while(1)
-    {
-        notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
-        if(pdPASS == notified_ret)
-        {
-            LOG_I(TAG, "Event center get new notified : %x.", notified_value);
+	while(1)
+	{
+		notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
+		if(pdPASS == notified_ret){
+			//LOG_I(TAG, "Event center get new notified : %x.", notified_value);
 
 			if(notified_value & NETWORK_CONNECTED){
 				if(strlen((char *)product_config.cid) !=0){
@@ -116,7 +115,6 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "Create event center task fail !");
 	}
 	vesync_clinet_wifi_module_init(true);
-	vesync_init_sntp_service(1544410793,8,"ntp.vesync.com");
 	vesync_init_https_module(vesync_https_ca_cert_pem);
 	if(NULL != vesync_application_cb){
 		vesync_application_cb();
@@ -124,7 +122,6 @@ void vesync_entry(void *args)
 	vesync_flash_read_product_config(&product_config);
 	if(vesync_flash_read_net_info(&net_info) == 0){
 		vesync_set_device_status(DEV_CONFIG_NET_RECORDS);		//已配网但未连接上服务器
-		vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
 	}else{
 		LOG_E(TAG, "config info NULL");
 		vesync_set_device_status(DEV_CONFIG_NET_NULL);			//第一次使用，未配网
@@ -135,5 +132,7 @@ void vesync_entry(void *args)
 
 	while(1){
 		sleep(5);
+		//vesync_printf_system_time();
+		//printf_os_task_manager();
 	}
 }

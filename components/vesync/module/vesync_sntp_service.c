@@ -14,25 +14,46 @@ static const char* TAG = "vesync_sntp";
 /**
  * @brief 初始化sntp服务
  */
-void vesync_init_sntp_service(uint32_t unix_time,uint8_t area,char *url)
+void vesync_init_sntp_service(char *url)
 {
-	ESP_LOGI(TAG, "Initializing SNTP");
-	struct timeval tv = {
-		.tv_sec = unix_time,
-	};
-	struct timezone tz = {
-		0, 0
-	};
-	settimeofday(&tv, &tz);
 	sntp_setoperatingmode(SNTP_OPMODE_POLL);
 	sntp_setservername(0, url);
 	sntp_init();
-	// Set timezone to China Standard Time
-	setenv("TZ", "CST-8", 1);
-	tzset();
+	ESP_LOGI(TAG, "Initializing SNTP service");
+}
+
+/**
+ * @brief 设置本地utc时间
+ * @param utc_time 
+ * @param time_zone 
+ */
+void vesync_set_time(uint32_t utc_time,int8_t time_zone)
+{
+	struct timeval tv ={0,0};
+	struct timezone tz = {
+		0, 0
+	};
+	tv.tv_sec = utc_time;
+	settimeofday(&tv, &tz);
+
 	struct timeval tv_start;
     gettimeofday(&tv_start, NULL);
     ESP_LOGI(TAG, "The set is %ld", tv_start.tv_sec);
+
+	// 	struct timeval tv = {
+	// 	.tv_sec = unix_time,
+	// };
+	// struct timezone tz = {
+	// 	0, 0
+	// };
+	// settimeofday(&tv, &tz);
+	// // Set timezone to China Standard Time
+	// setenv("TZ", "CST-8", 1);
+	// tzset();
+	// struct timeval tv_start;
+    // gettimeofday(&tv_start, NULL);
+    // ESP_LOGI(TAG, "The set is %ld", tv_start.tv_sec);
+
 }
 
 /**

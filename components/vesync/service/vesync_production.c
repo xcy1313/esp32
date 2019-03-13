@@ -76,7 +76,8 @@ void vesync_enter_production_testmode(production_para_cb_t para_cb,production_st
     LOG_I(TAG, "ssid : %s", PRODUCTION_WIFI_SSID);
     LOG_I(TAG, "pwd : %s", PRODUCTION_WIFI_KEY);
     LOG_I(TAG, "==============================");
-
+    
+    vesync_wait_network_connected(10000);
     //vesync_config_cloud_mqtt_client(cid_mac, TEST_MQTT_SERVER_ADDR, 61613, "etekcity", "hardware");
     vesync_config_cloud_mqtt_client_with_tls(cid_mac, PRODUCTION_SERVER_ADDR, 1883, username, "0");
     vesync_mqtt_client_connect_to_cloud();

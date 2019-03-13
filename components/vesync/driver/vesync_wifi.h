@@ -23,6 +23,11 @@ int vesync_wait_network_connected(uint32_t	wait_time);
 void vesync_init_wifi_module(vesync_wifi_cb callback,bool power_save);
 
 /**
+ * @brief 关闭wifi模块
+ */
+void vesync_deinit_wifi_module(void);
+
+/**
  * @brief 设置设备为开放热点
  * @param ap_ssid [热点的名称]
  */

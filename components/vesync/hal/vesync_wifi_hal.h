@@ -142,4 +142,9 @@ int vesync_hal_scan_stop(void);
  */
 int vesync_hal_get_ap_rssi(int points);
 
+/**
+ * @brief 硬件抽象层关闭WIFI模块
+ */
+void vesync_hal_deinit_wifi_module(void);
+
 #endif

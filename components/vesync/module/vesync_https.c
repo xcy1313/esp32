@@ -11,6 +11,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "esp_task_wdt.h"
 
 #include "esp_event_loop.h"
 
@@ -65,14 +66,14 @@ int vesync_init_https_module(const char * ca_cert)
     mbedtls_ssl_config_init(&s_ssl_conf);
     mbedtls_entropy_init(&s_entropy);
 
-    LOG_I(TAG, "Seeding the random number generator");
+    //LOG_I(TAG, "Seeding the random number generator");
     if((ret = mbedtls_ctr_drbg_seed(&s_ctr_drbg, mbedtls_entropy_func, &s_entropy, NULL, 0)) != 0)
     {
         LOG_E(TAG, "mbedtls_ctr_drbg_seed returned %d", ret);
         return ret;
     }
 
-    LOG_I(TAG, "Loading the CA root certificate...");
+    //LOG_I(TAG, "Loading the CA root certificate...");
     ret = mbedtls_x509_crt_parse(&s_cacert, (unsigned char*)ca_cert, strlen(ca_cert) + 1);
     if(ret < 0)
     {
@@ -88,7 +89,7 @@ int vesync_init_https_module(const char * ca_cert)
     // 	return ret;
     // }
 
-    LOG_I(TAG, "Setting up the SSL/TLS structure...");
+    //LOG_I(TAG, "Setting up the SSL/TLS structure...");
     if((ret = mbedtls_ssl_config_defaults(&s_ssl_conf,
                                           MBEDTLS_SSL_IS_CLIENT,
                                           MBEDTLS_SSL_TRANSPORT_STREAM,
@@ -132,9 +133,10 @@ int vesync_init_https_module(const char * ca_cert)
  */
 int vesync_https_request(char *server_addr, char *port, char *url, char *send_body, char *recv_buff, int *recv_len, int wait_time_ms)
 {
-    char https_buffer[9000];
+    char https_buffer[6000];
     int ret, flags, len;
 
+    esp_task_wdt_reset();
     LOG_D(TAG, "Waiting for network connected...");
     if(vesync_wait_network_connected(wait_time_ms) != 0)
     {
@@ -163,6 +165,7 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
             LOG_E(TAG, "mbedtls_ssl_handshake returned -0x%x", -ret);
             goto exit;
         }
+        LOG_E(TAG, "mbedtls_ssl_handshake returned 0x%x", ret);
     }
 
     LOG_D(TAG, "Verifying peer X.509 certificate...");
@@ -233,9 +236,9 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
 
         len = ret;
         LOG_I(TAG, "%d bytes read", len);
-        for(int i = 0; i < len; i++) {
-                putchar(https_buffer[i]);
-        }
+        // for(int i = 0; i < len; i++) {
+        //         putchar(https_buffer[i]);
+        // }
         if(len < *recv_len)
         {
             memcpy(recv_buff, https_buffer, len);
