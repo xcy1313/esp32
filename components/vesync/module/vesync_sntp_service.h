@@ -6,7 +6,14 @@
 /**
  * @brief 初始化sntp服务
  */
-void vesync_init_sntp_service(uint32_t unix_time,uint8_t area,char *url);
+void vesync_init_sntp_service(char *url);
+
+/**
+ * @brief 设置utc时间
+ * @param utc_time 
+ * @param time_zone 
+ */
+void vesync_set_time(uint32_t utc_time ,int8_t time_zone);
 
 /**
  * @brief 打印系统时间

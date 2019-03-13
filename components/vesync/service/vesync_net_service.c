@@ -7,6 +7,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "esp_task_wdt.h"
 
 #include "vesync_main.h"
 #include "vesync_wifi.h"
@@ -228,6 +229,13 @@ void vesync_clinet_wifi_module_init(bool power_save)
 }
 
 /**
+ * @brief 用户调用关闭wifi模块
+ */
+void vesync_client_wifi_module_deinit(void)
+{
+	vesync_deinit_wifi_module();
+}
+/**
  * @brief 为cjson格式的协议方法添加固定的接口头部
  * @param method 	[接口方法名]
  * @param body 		[方法的数据体]
@@ -280,7 +288,7 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
 			if(mask == UPGRADE_REFRESH_ATTRIBUTE_REQ){
 				esp_restart();
-    			return ;
+    			return 0;
 			}
 			if(true == cJSON_IsObject(result)){
 				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
@@ -338,7 +346,7 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	itoa(seconds, traceId_buf, 10);
 
 	int rssi = vesync_get_ap_rssi(8);
-	
+
     switch(mask){
         case NETWORK_CONFIG_REQ:
             cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
@@ -388,7 +396,7 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
 	LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
 
-	ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 1 * 1000);
+	ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 10000);
 	if(buff_len > 0 && ret == 0){
 		LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
 		vesync_json_https_service_parse(mask,recv_buff);

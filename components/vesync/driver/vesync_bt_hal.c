@@ -363,7 +363,7 @@ uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const unsig
     if(vesync_get_bt_status() != BT_CONNTED)    return 1;
     sendlen = bt_data_frame_encode(ctl,cnt,cmd,notify_data,len,sendbuf);
 
-    esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
+    //esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
     ret = esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
                                         (uint16_t)sendlen, (uint8_t *)sendbuf, false);
 
@@ -383,14 +383,23 @@ uint32_t vesync_bt_notify_send(const uint8_t *notify_data ,unsigned short len)
 }
 
 /**
- * @brief 更新连接参数请求 满足ios系统需求
+ * @brief 更新蓝牙连接间隔
+ * @param min_interval min_interval = x*1.25ms
+ * @param max_interval max_interval = x*1.25ms 
+ * @param time_out     timeout = x*10ms 
  * @return uint32_t 
+ * interval Max*(slave latency+1)<=2s
+ * interval min>=20ms
+ * interval min+20ms<=interval max
+ * slve latency<=4
+ * connsupervisiontimeout <= 6s
+ * interval max*(slave latency+1)*3 < connsupervisiontimeout
  */
-static uint32_t vesync_update_connect_interval(uint16_t min_interval,uint16_t max_interval,uint16_t time_out)
+uint32_t vesync_update_connect_interval(uint16_t min_interval,uint16_t max_interval,uint16_t time_out)
 {
-    uint32_t ret =1;
+    uint32_t ret;
     esp_ble_conn_update_params_t conn_params = {0};
-    //memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
+    memcpy(conn_params.bda, remote_device_addr, sizeof(esp_bd_addr_t));
 
     conn_params.latency = 0;
     conn_params.min_int = min_interval;    // min_int = 0x10*1.25ms = 20ms
@@ -398,6 +407,10 @@ static uint32_t vesync_update_connect_interval(uint16_t min_interval,uint16_t ma
     conn_params.timeout = time_out;        // timeout = 400*10ms = 4000ms
 
     ret = esp_ble_gap_update_conn_params(&conn_params);
+
+    //esp_log_buffer_hex(GATTS_TABLE_TAG, remote_device_addr, 6);
+    ESP_LOGI(GATTS_TABLE_TAG,"update_connect_interval min:%d ms,max:%d ms,timeout:%d ms" ,(int)(min_interval*1.25),(int)(max_interval*1.25),(int)(time_out*10));
+
     return ret;
 }
 /**
@@ -426,8 +439,6 @@ static uint8_t find_char_and_desr_index(uint16_t handle)
  */
 void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describe,int server_err_code)
 {
-    uint8_t mode;
-    wifi_config_t cfg;
     uint8_t upload_buf[400] ={0};
     char ap_mac_addr[6 * 3]={'\0'};
     uint16_t buflen = 0;
@@ -662,14 +673,17 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
         vesync_notify_app_net_result(NULL,ERR_CONFIG_PARSE_JSON_FAIL, "CONFIG_PARSE_JSON_FAIL",0);
 		return;
 	}
-	//vesync_printf_cjson(root);				//json标准格式，带缩进
-	BLUFI_INFO("Handler custom message !\r\n");
+
+    BLUFI_INFO("============================");
+    char *out = cJSON_Print(root);
+	BLUFI_INFO("%s", out);
+	free(out);
+    BLUFI_INFO("============================");
 
 	//获取uri，判断是否为配网的json数据
 	cJSON *uri = cJSON_GetObjectItemCaseSensitive(root, "uri");
 
 	if(true == cJSON_IsString(uri)){
-		BLUFI_INFO("Found uri !");
 		if(!strcmp(uri->valuestring, "/beginConfigRequest")){		    //开始配网
 			//确认是配网信息
 			vesync_Handle_ConfigNetJson(info,root); 					//解析处理json数据
@@ -695,7 +709,12 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
                 vesync_reply_net_info_response("/queryDeviceNet",ERR_NOT_NET_CONFIG, "ERR_NOT_NET_CONFIG");
             }
         }else if(!strcmp(uri->valuestring, "/beginRefreshToken")){
-            vesync_refresh_https_token();
+            if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ 
+                if(vesync_get_router_link() == false){
+                    vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+                }
+                vesync_refresh_https_token();
+            }
 		}else{
             BLUFI_INFO("Config parameter error !");
         }
@@ -715,23 +734,23 @@ static void vesync_blufi_event_handler(esp_blufi_cb_event_t event, esp_blufi_cb_
 
     switch (event){
         case ESP_BLUFI_EVENT_INIT_FINISH:
-            BLUFI_INFO("BLUFI init finish\n");
+            BLUFI_INFO("BLUFI init finish");
             break;
         case ESP_BLUFI_EVENT_DEINIT_FINISH:
-            BLUFI_INFO("BLUFI deinit finish\n");
+            BLUFI_INFO("BLUFI deinit finish");
             break;
         case ESP_BLUFI_EVENT_BLE_CONNECT:
-            ESP_LOGI(GATTS_TABLE_TAG,"BLUFI ble connect\n");
+            ESP_LOGI(GATTS_TABLE_TAG,"BLUFI ble connect");
             blufi_server_if = param->connect.server_if;
             blufi_conn_id = param->connect.conn_id;
             blufi_security_init();  //使能配网加密
             break;
         case ESP_BLUFI_EVENT_BLE_DISCONNECT:
-            ESP_LOGI(GATTS_TABLE_TAG,"BLUFI ble disconnect\n");
+            ESP_LOGI(GATTS_TABLE_TAG,"BLUFI ble disconnect");
             blufi_security_deinit();
             break;
         case ESP_BLUFI_EVENT_REPORT_ERROR:
-            ESP_LOGE(GATTS_TABLE_TAG,"BLUFI report error, error code %d\n", param->report_error.state);
+            ESP_LOGE(GATTS_TABLE_TAG,"BLUFI report error, error code %d", param->report_error.state);
             esp_blufi_send_error_info(param->report_error.state);
             vesync_reply_response("/report_error",(ERR_TOTAL+param->report_error.state),"report_error");
             break;
@@ -770,9 +789,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             ret = esp_ble_gap_config_adv_data(&scan_rsp_data);
             if (ret){
                 ESP_LOGE(GATTS_TABLE_TAG, "config scan response data failed, error code = %x", ret);
-            }
-            ESP_LOGI(GATTS_TABLE_TAG, "gatts register with adv data");
-            
+            }            
             //添加设备属性表 uuid 0x180a
             esp_err_t create_attr_ret = esp_ble_gatts_create_attr_tab(device_info_att_db, gatts_if, DEV_DEV_NB, SVC_INST_ID);
             if (create_attr_ret){
@@ -822,10 +839,10 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_MTU_EVT, MTU %d", param->mtu.mtu);
             break;
         case ESP_GATTS_CONF_EVT:
-            ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_CONF_EVT, status = %d", param->conf.status);
+            //ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_CONF_EVT, status = %d", param->conf.status);
             break;
         case ESP_GATTS_START_EVT:
-            ESP_LOGI(GATTS_TABLE_TAG, "SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
+            //ESP_LOGI(GATTS_TABLE_TAG, "SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
             break;
         case ESP_GATTS_CONNECT_EVT:
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_CONNECT_EVT, conn_id = %d gatts_if =%d", param->connect.conn_id,gatts_if);
@@ -850,7 +867,6 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                     }
                 }
                 
-                ESP_LOGI(GATTS_TABLE_TAG, "create attribute table successfully, the number handle = %d\n",param->add_attr_tab.num_handle);
                 memcpy(heart_rate_handle_table, param->add_attr_tab.handles, sizeof(heart_rate_handle_table));
                 esp_ble_gatts_start_service(heart_rate_handle_table[IDX_SVC]);
             }
@@ -978,7 +994,6 @@ static void vesync_set_bt_status(BT_STATUS_T new_status)
             vesync_bt_connect_status_callback(new_status);
         }
     }
-    ESP_LOGI(GATTS_TABLE_TAG, "vesync set new status bits [%d]" ,new_status);
 }
 
 /**
@@ -1056,9 +1071,6 @@ static void vesync_blufi_init(void)
     esp_err_t ret;
     esp_bt_controller_status_t bt_status;
     bt_status = esp_bt_controller_get_status();
-
-    ESP_LOGI(GATTS_TABLE_TAG,"BLUFI status %d\n", bt_status);
-    ESP_LOGI(GATTS_TABLE_TAG,"BLUFI VERSION %04x\n", esp_blufi_get_version());
 
     if(bt_status == ESP_BT_CONTROLLER_STATUS_ENABLED ){
         ret = esp_blufi_register_callbacks(&vesync_blufi_callbacks);

@@ -18,6 +18,8 @@
 #include "etekcity_comm.h"
 #include "vesync_wifi.h"
 
+#define VESYNC_OTA_TIMEOUT_TIME     20000   //OTA升级20s超时
+
 typedef enum{
     OTA_IDLE,
     OTA_BUSY,
