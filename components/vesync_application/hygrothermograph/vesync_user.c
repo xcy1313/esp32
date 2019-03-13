@@ -8,6 +8,7 @@
 #include "driver/rtc_io.h"
 #include "vesync_user.h"
 #include "hygrothermograph.h"
+#include "interface.h"
 
 static const char* TAG = "vesync_user";
 

@@ -10,19 +10,6 @@
 
 #include "vesync_api.h"
 
-//蓝牙通信协议控制码定义
-#define ACTIVE_REPORT_CTL                       0X00        //主动上报数据格式
-#define COMMAND_CTL                             0X20        //查询或设置命令格式
-#define ACK_WITH_NO_ERROR                       0X10        //查询或设置命令格式的应答格式，无错误标志位
-#define ACK_WITH_ERROR                          0X50        //查询或设置命令格式的应答格式，由错误标志位
-
-//蓝牙通信命令定义
-#define REPORT_TEMP_HUMI                        0x0301      //设备上报温湿度值
-#define QUERY_HISTORY                           0x0302      //查询温湿度历史记录
-#define CLEAR_HISTORY                           0x0303      //清空温湿度历史记录
-#define QUERY_PREWARNING                        0x0304      //查询温湿度预警值
-#define SET_PREWARNING                          0x0305      //设置温湿度预警值
-
 #define BLE_CONNECTED                           1
 #define BLE_DISCONNECTED                        0
 
@@ -55,9 +42,16 @@ typedef struct
 }hygrother_warning_t;
 
 /**
- * @brief 更新温湿度值到APP，通过ble蓝牙
+ * @brief 获取温度值
+ * @return float [温度值，单位与设置保持一致]
  */
-void update_temp_humi_to_app(void);
+float get_device_temperature(void);
+
+/**
+ * @brief 获取湿度值
+ * @return float [湿度值]
+ */
+float get_device_humidity(void);
 
 /**
  * @brief 蓝牙数据接收回调函数
