@@ -126,9 +126,6 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "config info NULL");
 		vesync_set_device_status(DEV_CONFIG_NET_NULL);			//第一次使用，未配网
 	}
-	uint8_t test_cid[] = "0LWEYn9q8S7l2CJwFfLECk7f5B1D2_61";	//MAC地址：96:92
-	// uint8_t test_cid[] = "0LWEYn9q8S7l2CJwFfLECk7f5B1D2_71";	//MAC地址：BB:8A
-	strcpy((char *)product_config.cid,(char *)test_cid);
 
 	while(1){
 		sleep(5);

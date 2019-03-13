@@ -36,4 +36,10 @@ void reply_temp_humi_history_to_app(void);
  */
 void update_temp_humi_to_app(void);
 
+/**
+ * @brief 上传温湿度历史记录到服务器
+ * @param history_data [温湿度历史数据]
+ */
+void upload_temp_humi_history_to_server(temp_humi_history_t* history_data);
+
 #endif

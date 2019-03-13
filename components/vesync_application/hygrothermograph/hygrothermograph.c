@@ -55,16 +55,16 @@ static void temp_humi_update_timer_callback(void *arg)
     update_temp_humi_display();
     // printf_os_task_manager();
 
-    LOG_I(TAG, "Battery voltage : %dmv", 4 * analog_adc_read_battery_mv());
-    LOG_I(TAG, "Bettery charge status : %d", get_battery_charge_status());
-    LOG_I(TAG, "Bettery charge fully status : %d", get_battery_charge_fully_status());
-    LOG_I(TAG, "Touch value : %d", get_touch_key_value());
-    LOG_I(TAG, "TLV8811 out : %d", analog_adc_read_tlv8811_out_mv());
-    vesync_printf_system_time();
+    // LOG_I(TAG, "Battery voltage : %dmv", 4 * analog_adc_read_battery_mv());
+    // LOG_I(TAG, "Bettery charge status : %d", get_battery_charge_status());
+    // LOG_I(TAG, "Bettery charge fully status : %d", get_battery_charge_fully_status());
+    // LOG_I(TAG, "Touch value : %d", get_touch_key_value());
+    // LOG_I(TAG, "TLV8811 out : %d", analog_adc_read_tlv8811_out_mv());
+    // // vesync_printf_system_time();
 
-    LOG_I(TAG, "last result=%d, sample counter=%d, wake up counter=%d,adc max=%d, min=%d.",
-          ulp_last_result & UINT16_MAX, ulp_all_sample_counter & UINT16_MAX, ulp_wakeup_counter & UINT16_MAX,
-          ulp_adc_max & UINT16_MAX, ulp_adc_min & UINT16_MAX);
+    // LOG_I(TAG, "last result=%d, sample counter=%d, wake up counter=%d,adc max=%d, min=%d.",
+    //       ulp_last_result & UINT16_MAX, ulp_all_sample_counter & UINT16_MAX, ulp_wakeup_counter & UINT16_MAX,
+    //       ulp_adc_max & UINT16_MAX, ulp_adc_min & UINT16_MAX);
 
     static uint32_t second_count = 0;           //秒统计值
     second_count++;
@@ -256,7 +256,7 @@ void hygrothermograph_init(void)
     update_temp_humi_display();
 
     temp_humi_update_timer = xTimerCreate("temp_humi", 1000 / portTICK_RATE_MS, pdTRUE, NULL, temp_humi_update_timer_callback);
-    enter_low_power_timer = xTimerCreate("low_power", 10 * 1000 / portTICK_RATE_MS, pdFALSE, NULL, enter_low_power_timer_callback);
+    enter_low_power_timer = xTimerCreate("low_power", 60 * 1000 / portTICK_RATE_MS, pdFALSE, NULL, enter_low_power_timer_callback);
     xTimerStart(temp_humi_update_timer, TIMER_BLOCK_TIME);
     xTimerStart(enter_low_power_timer, TIMER_BLOCK_TIME);
 

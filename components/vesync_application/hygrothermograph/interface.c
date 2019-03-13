@@ -123,3 +123,53 @@ void reply_temp_humi_history_to_app(void)
         vesync_bt_notify(send_ctl, &seq, send_cmd, (unsigned char *)&send_data, send_len);
     }
 }
+
+/**
+ * @brief 上传温湿度历史记录到服务器
+ * @param history_data [温湿度历史数据]
+ */
+void upload_temp_humi_history_to_server(temp_humi_history_t* history_data)
+{
+    cJSON *root = NULL;
+    cJSON *info = NULL;
+
+    root = cJSON_CreateObject();
+    if(NULL != root)
+    {
+        cJSON_AddItemToObject(root, "info", info = cJSON_CreateArray());
+        if(NULL != info)
+        {
+            uint16_t amount = history_data->history_amount;
+            if(amount > 0)
+            {
+                for(uint16_t i = 0; i < amount; i++)
+                {
+                    cJSON *data_root = cJSON_CreateObject();
+                    if(NULL != data_root)
+                    {
+                        cJSON_AddNumberToObject(data_root, "temp", history_data->history_list[i].temp);
+                        cJSON_AddNumberToObject(data_root, "humidity", history_data->history_list[i].humi);
+                        cJSON_AddNumberToObject(data_root, "sampleTime", history_data->history_list[i].timestamp);
+                        cJSON_AddItemToArray(info, data_root);
+                    }
+                }
+            }
+        }
+    }
+
+    time_t seconds;
+    seconds = time((time_t *)NULL);
+    char traceId_buf[64];
+    itoa(seconds, traceId_buf, 10);
+    cJSON *report = vesync_json_add_method_head(traceId_buf, "addHumitureData", info);
+
+    char token[128];
+    vesync_get_https_token(token);
+    cJSON_AddStringToObject(report, "token", token);
+    char* out = cJSON_PrintUnformatted(report);
+    LOG_I("JSON", "%s", out);
+
+    free(out);
+    cJSON_Delete(report);
+    cJSON_Delete(root);
+}

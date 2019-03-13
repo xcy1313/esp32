@@ -75,6 +75,11 @@ void vesync_user_entry(void *args)
     //停止协处理器的硬件定时器，暂停ulp的运行
     CLEAR_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN);
 
+    //调试时的cid
+    uint8_t test_cid[] = "0LWEYn9q8S7l2CJwFfLECk7f5B1D2_61";	//MAC地址：96:92
+	// uint8_t test_cid[] = "0LWEYn9q8S7l2CJwFfLECk7f5B1D2_71";	//MAC地址：BB:8A
+	strcpy((char *)product_config.cid,(char *)test_cid);
+
     vesync_developer_start();
 
     printf("\n");
