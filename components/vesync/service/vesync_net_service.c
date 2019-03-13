@@ -288,7 +288,7 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
 			if(mask == UPGRADE_REFRESH_ATTRIBUTE_REQ){
 				esp_restart();
-    			return ;
+    			return 0;
 			}
 			if(true == cJSON_IsObject(result)){
 				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
@@ -346,8 +346,6 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	itoa(seconds, traceId_buf, 10);
 
 	int rssi = vesync_get_ap_rssi(8);
-	
-	esp_task_wdt_feed();
 
     switch(mask){
         case NETWORK_CONFIG_REQ:

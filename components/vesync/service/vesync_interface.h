@@ -8,7 +8,7 @@
 #ifndef VESYNC_INTERFACE_H
 #define VESYNC_INTERFACE_H
 
-#define VESYNC_VERSION					"1.0.0"		//标准vesync固件版本号定义
+#define VESYNC_VERSION					"1.0.1"		//标准vesync固件版本号定义
 
 #include "cJSON.h"
 
