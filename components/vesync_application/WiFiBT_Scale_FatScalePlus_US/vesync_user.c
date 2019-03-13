@@ -50,6 +50,21 @@ void app_sacle_pin_rst_delay(void)
 void vesync_user_entry(void *args)
 {
 	uint8_t unit;
+	vesync_init_sntp_service("ntp.vesync.com");
+	switch (esp_sleep_get_wakeup_cause()){	
+		case ESP_SLEEP_WAKEUP_EXT1: 		//判断唤醒源是否按键或者称重唤醒
+		case ESP_SLEEP_WAKEUP_EXT0:
+			LOG_I(TAG, "wake up from EXT IO!!!");
+			//vesync_client_wifi_module_deinit();
+			break;
+		default:
+			LOG_I(TAG, "wake up from RST!!!");
+			vesync_set_time(1509449941,8);
+			if(DEV_CONFIG_NET_RECORDS == vesync_get_device_status()){
+				//vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+			}
+			break;
+	}
 	app_sacle_wakeup_pin_init();
 	vesync_regist_devstatus_cb(device_status);
 	vesync_developer_start();
@@ -58,7 +73,7 @@ void vesync_user_entry(void *args)
 	LOG_E(TAG, "Application layer start with versiom[%s]",FIRM_VERSION);
 
 	if(0 == vesync_flash_read_i8(UNIT_NAMESPACE,UNIT_KEY,&info_str.user_config_data.measu_unit)){	//上电读取默认单位;
-        ESP_LOGE(TAG, "read last unit is[%d]",info_str.user_config_data.measu_unit);
+        //ESP_LOGE(TAG, "read last unit is[%d]",info_str.user_config_data.measu_unit);
     }else{
 		info_str.user_config_data.measu_unit = UNIT_LB;
 		ESP_LOGE(TAG, "default unit is[%d]",info_str.user_config_data.measu_unit);

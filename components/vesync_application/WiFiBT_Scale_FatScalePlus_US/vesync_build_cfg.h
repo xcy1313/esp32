@@ -24,7 +24,7 @@
 //项目名称
 #define PRODUCT_WIFI_NAME               "WiFiBT_Scale_FatScalePlus_US"
 //==========实际应用项目的相关配置==========
-#define FIRM_VERSION			        "0.0.43"
+#define FIRM_VERSION			        "0.0.51"
 
 //产品PID
 #define DEV_PID							"v2zm0t0a4l6oylxs"

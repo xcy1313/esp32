@@ -237,4 +237,19 @@ void vesync_reply_response(char *url,int err_code,char *err_describe);
 
 void vesync_result_report(int err_code,char *err_describe);
 
+/**
+ * @brief 更新蓝牙连接间隔
+ * @param min_interval min_interval = x*1.25ms
+ * @param max_interval max_interval = x*1.25ms 
+ * @param time_out     timeout = x*10ms 
+ * @return uint32_t 
+ * interval Max*(slave latency+1)<=2s
+ * interval min>=20ms
+ * interval min+20ms<=interval max
+ * slve latency<=4
+ * connsupervisiontimeout <= 6s
+ * interval max*(slave latency+1)*3 < connsupervisiontimeout
+ */
+uint32_t vesync_update_connect_interval(uint16_t min_interval,uint16_t max_interval,uint16_t time_out);
+
 #endif

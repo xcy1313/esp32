@@ -46,7 +46,7 @@ static device_net_status_t device_net_status = NET_CONFNET_NOT_CON;		//设备配
 void app_handle_production_upgrade_response_ack(char *trace_id);
 void app_handle_production_cid_response(void);
 
-static uint8_t upgrade_souce = UPGRADE_APP;
+static uint8_t upgrade_souce = UPGRADE_NULL;
 
 /**
  * @brief 设置升级来源
@@ -55,9 +55,10 @@ static uint8_t upgrade_souce = UPGRADE_APP;
 void app_set_upgrade_source(uint8_t source)
 {
     upgrade_souce = source;
-    app_sale_wakeup(false); //禁止休眠
-    app_bt_wifi_suspend_stop(); //禁止称体休眠
-    app_enter_scale_suspend_stop();//禁止WIFI休眠
+
+    app_sale_wakeup(false);        //激活点亮屏幕显示
+    app_bt_wifi_suspend_stop();     //禁止称体休眠
+    app_enter_scale_suspend_stop(); //禁止WIFI休眠
 }
 /**
  * @brief 获取升级来源
@@ -451,13 +452,13 @@ static uint8_t app_json_https_service_parse(uint32_t mask,char *read_buf)
 
 	cJSON *traceId = cJSON_GetObjectItemCaseSensitive(root, "traceId");
 	if(true == cJSON_IsString(traceId)){
-		LOG_I(TAG,"trace_id : %s\r\n", traceId->valuestring);
+		LOG_I(TAG,"trace_id : %s", traceId->valuestring);
 		strcpy(trace_id,traceId->valuestring);
 	}
 
 	cJSON *code = cJSON_GetObjectItemCaseSensitive(root, "code");
 	if(true == cJSON_IsNumber(code)){
-		LOG_I(TAG,"code : %d\r\n", code->valueint);
+		LOG_I(TAG,"code : %d", code->valueint);
         if(code->valueint == 0){
             ret = 0;
             cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
@@ -465,11 +466,13 @@ static uint8_t app_json_https_service_parse(uint32_t mask,char *read_buf)
                 cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
                 if(true == cJSON_IsString(token)){
                     vesync_flash_write_token_config(token->valuestring);
-                    LOG_I(TAG,"token : %s\r\n", token->valuestring);
+                    LOG_I(TAG,"token : %s", token->valuestring);
                 }
             }
         }else if(code->valueint == -11001005){  // token 过期
             ret = 3;
+        }else{
+            ret = 4;
         }
 	}else{
         ret = 2;
@@ -480,9 +483,10 @@ static uint8_t app_json_https_service_parse(uint32_t mask,char *read_buf)
 	return ret;
 }
 
-#define HTTPS_SEND_MAX  30
+#define HTTPS_SEND_MAX  50
+
 /**
- * @brief 同步所有用户数据
+ * @brief 上电遍历所有用户模型信息及同步数据至云端;
  */
 static void vesync_send_all_data_https_req(void)
 {
@@ -496,42 +500,33 @@ static void vesync_send_all_data_https_req(void)
     static uint8_t send_len =0;
     static uint16_t total_size =0;
     static uint8_t  array_len = 0;
-    static uint8_t user_read_data_buff[500] ={0};
+    static uint8_t user_read_data_buff[4096] ={0};
     static uint8_t  calc_len = 0;
     static uint8_t  usermode_len =0;
     static uint16_t length =0;
     static uint8_t  send_usermode_key_cnt=0;
     static char current_send_user_key[12]={"\0"};
-    static uint32_t o_mask = 0 ;//;
-    int rssi = vesync_get_ap_rssi(8);
+    static uint8_t o_mask = 0 ;
 
-    if(NULL == root)    return;
+    if(o_mask == 0){    //上传数据
+        req_method = "/fatScale/uploadWeighData";
+        ESP_LOGI(TAG, "gUserUploadStep %d",gUserUploadStep);
 
-    time_t seconds;
-    seconds = time((time_t *)NULL);
-    char traceId_buf[64];
-    itoa(seconds, traceId_buf, 10);
-
-    esp_task_wdt_reset();
-
-    req_method = "/fatScale/uploadWeighData";
-    ESP_LOGI(TAG, "gUserUploadStep %d",gUserUploadStep);
-
-    if(o_mask == 0){
         switch(gUserUploadStep){
             case 0:{ //先读取flash数据和总长度
                     vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)info_str.user_config_list,&length);   //取出所有用户模型信息
+                    info_str.user_config_list_mode_len = length;                                                             //取出所有用户模型信息总长度
                     usermode_len = length/sizeof(user_config_data_t);
                     ESP_LOGI(TAG, "usermode_len[%d]",usermode_len);
+
                     if(usermode_len >= 0 && usermode_len <= MAX_CONUT){
                         gUserUploadStep = 1;    
-                        send_usermode_key_cnt =0;   //轮休用户模型key的计数;
+                        send_usermode_key_cnt =0;   //轮巡用户模型key的计数;
                         app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);    //根据用户键值对轮寻沉淀数据
-                        return;
                     }else{
                         gUserUploadStep =0;
-                        return;
                     }
+                    return;
                 }
                 break;
             case 1:{//遍历所有用户模型键值并取出键值对应的单个用户沉淀数据
@@ -542,10 +537,10 @@ static void vesync_send_all_data_https_req(void)
                         }
                         strcpy(current_send_user_key,info_str.user_config_list[send_usermode_key_cnt].user_store_key);
                         ESP_LOGI(TAG, "======================================");
-                        ESP_LOGI(TAG, "current send user mode key[%s]",current_send_user_key);
+                        ESP_LOGI(TAG, "current send user mode cnt:%d,key[%s]",send_usermode_key_cnt,current_send_user_key);
                         ESP_LOGI(TAG, "======================================");
 
-                        if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,current_send_user_key,user_read_data_buff,&total_size) == 0){
+                        if(vesync_flash_read(USER_HISTORY_DATA_NAMESPACE,current_send_user_key,user_read_data_buff,&total_size) == 0){//遍历每个用户的沉淀数据
                             array_len = total_size/sizeof(user_history_t);  //获取单个用户的所有沉淀数据总条数;
                             rst_len = array_len;
                             calc_len =0;                            
@@ -554,22 +549,22 @@ static void vesync_send_all_data_https_req(void)
                             }else{
                                 send_len = HTTPS_SEND_MAX;
                             }
-                        }else{  //当前只有只有用户模型，没有用户沉淀数据;
-                            gUserUploadStep =1;
+                        }else{  //当前只有用户模型，没有用户沉淀数据,继续轮寻下一个用户;
                             send_usermode_key_cnt++;
-                            if(send_usermode_key_cnt >= usermode_len){
+                            if(send_usermode_key_cnt >= usermode_len){  //所有用户检索完毕，退出
                                 gUserUploadStep =0;
                                 send_usermode_key_cnt = 0;
-                                return;
+                                ESP_LOGI(TAG, "all use mode check success!!!!!");
+                                //vesync_client_wifi_module_deinit();
                             }else{
                                 app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
-                                return;
                             }
+                            return;
                         }
                     }else{
                         gUserUploadStep =0;
                         send_usermode_key_cnt = 0;
-                        ESP_LOGI(TAG, "all data send over");
+                        ESP_LOGE(TAG, "user history data NULL and close ");
                         return;
                     }
                     ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d",total_size , array_len,send_len);
@@ -585,6 +580,8 @@ static void vesync_send_all_data_https_req(void)
             default:
                 break;
         }
+        /*******************************************************************************/
+        /**************************单个用户沉淀数据封包开始*********************************/
         cJSON* history_weight[send_len];
         cJSON* data = NULL;
         char account[10]={"\0"};
@@ -613,79 +610,90 @@ static void vesync_send_all_data_https_req(void)
             }
             free(user_history);
         }
-    }else if(o_mask == 1){
+        /**************************单个用户沉淀数据封包结束*********************************/
+        /*******************************************************************************/
+    }else if(o_mask == 1){  //刷新token
         req_method = "refreshDeviceToken";
         info = NULL;
-        LOG_I("https", "\nREFRESH_TOKEN_REQ");
+        LOG_E("https", "REFRESH_TOKEN_REQ");
     }
 
-    cJSON *report = vesync_json_add_method_head(traceId_buf,req_method,info);
-    if(o_mask == 0){
-        vesync_get_https_token(token);
-        cJSON_AddStringToObject(report, "token", token);
-    }
-    char* out = cJSON_PrintUnformatted(report);
-    LOG_I("JSON", "\n%s", out);
-    LOG_I("JSON", "======================");
-
-    LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
-    LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
-
-    char recv_buff[500];
-    int buff_len = sizeof(recv_buff);
-
-    ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 0);
-    if(buff_len > 0 && ret == 0){
-        uint8_t if_resend;
-        LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
-        if_resend = app_json_https_service_parse(UPLOAD_ALL_USER_DATA_REQ,recv_buff);
-        if(if_resend == 0){
-            uint32_t ret;
-            rst_len -= send_len;
-            calc_len += send_len;
-            if(rst_len == 0){
-                calc_len = 0;
-                if(send_usermode_key_cnt >= usermode_len){
-                    gUserUploadStep = 0;
-                    LOG_I(TAG, "all user data has send over");
-                    ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);
-                    if(ret != 0){
-                        LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
-                    }
-                }else{  //继续轮训下一个用户的数据
-                    gUserUploadStep = 1;
-                    send_usermode_key_cnt++;
-                    vesync_flash_erase_key(USER_HISTORY_DATA_NAMESPACE,current_send_user_key);
-                    app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
-                    LOG_I(TAG, "current user data has send and next user mode   %d ,delete user key[%s]" ,send_usermode_key_cnt,current_send_user_key);
-                }
-            }else{
-                gUserUploadStep = 2;    //继续轮训同一用户的剩余数据;
-                app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
-                LOG_I(TAG, "resend weight data to server");
-            }
-            o_mask =0;
-            ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d rst_len %d",total_size , array_len,send_len,rst_len);
-        }else if(if_resend == 3){       //token过期
-            LOG_E(TAG, "server report token error!!!!");
-            gUserUploadStep = 1;
-            send_usermode_key_cnt =0;
-            o_mask = 1;
-            //vesync_refresh_https_token();
-            app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
+    /*******************************************************************************/
+    /**************************单包用户沉淀数据准备发送*********************************/
+    if(vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS){   //有配网记录才开启沉淀数据上传
+        if((vesync_get_router_link() == false)){                //如果未连接路由器 开启连接
+            vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
         }
+        time_t seconds;
+        seconds = time((time_t *)NULL);
+        char traceId_buf[64];
+        itoa(seconds, traceId_buf, 10);
+
+        cJSON *report = vesync_json_add_method_head(traceId_buf,req_method,info);
+        if(o_mask == 0){
+            vesync_get_https_token(token);
+            cJSON_AddStringToObject(report, "token", token);
+        }
+        char* out = cJSON_PrintUnformatted(report);
+        LOG_I("JSON", "https send packet len[%d],   %s", strlen(out),out);
+
+        char recv_buff[300];    //服务器应答最大数据包
+        int buff_len = sizeof(recv_buff);
+
+        ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 10000);
+        if(buff_len > 0 && ret == 0){
+            uint8_t if_resend;
+            LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+            if_resend = app_json_https_service_parse(UPLOAD_ALL_USER_DATA_REQ,recv_buff);   //解析https沉淀数据上传结果;
+
+            if(if_resend == 0){ //数据上报成功
+                uint32_t ret = 0;
+                o_mask =0;
+
+                rst_len -= send_len;
+                calc_len += send_len;
+
+                if(rst_len == 0){//同一用户沉淀数据上传完毕
+                    calc_len = 0;
+                    LOG_I(TAG, "current user data has send and next user mode %d ,delete user key[%s]" ,send_usermode_key_cnt,current_send_user_key);
+                    if(send_usermode_key_cnt >= usermode_len){//所有用户沉淀数据上传完毕
+                        gUserUploadStep = 0;
+                        ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);//擦除所有用户沉淀数据区key
+                        if(ret != 0){
+                            LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
+                        }
+                        //vesync_client_wifi_module_deinit();
+                        LOG_I(TAG, "all user data has send over!!!!!!!!!!!");
+                    }else{  //继续轮训下一个用户的数据
+                        gUserUploadStep = 1;
+                        send_usermode_key_cnt++;
+                        vesync_flash_erase_key(USER_HISTORY_DATA_NAMESPACE,current_send_user_key);//擦除单一用户沉淀数据key
+                        app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);  //返回继续检索下一个用户
+                        LOG_I(TAG, "net user %d",send_usermode_key_cnt);
+                    }
+                }else{
+                    gUserUploadStep = 2;    //继续轮训同一用户的剩余数据;
+                    app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
+                    LOG_I(TAG, "resend weight data to server");
+                }
+                ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d rst_len %d",total_size , array_len,send_len,rst_len);
+            }else if(if_resend == 3){ //token过期
+                LOG_E(TAG, "server report token error!!!!");
+                gUserUploadStep = 1;
+                send_usermode_key_cnt =0;
+                o_mask = 1;
+                //vesync_refresh_https_token();
+                app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
+            }
+        }
+        ESP_LOGI(TAG, "gUserUploadStep end %d",gUserUploadStep);
+        free(out);
+        cJSON_Delete(report);
+        cJSON_Delete(root);
+    }else{
+        o_mask = 0;
+        gUserUploadStep = 0;
     }
-    // else{
-    //     if(usermode_len !=0){
-    //         LOG_E(TAG, "wifi not connted!");
-    //         o_mask =0;
-    //         app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);    //根据用户键值对轮寻沉淀数据
-    //     }
-    // }
-    ESP_LOGI(TAG, "gUserUploadStep end %d",gUserUploadStep);
-    free(out);
-    cJSON_Delete(report);
-    cJSON_Delete(root);
 }
 
 /**
@@ -694,145 +702,171 @@ static void vesync_send_all_data_https_req(void)
  * @param len 
  * @param mask 
  */
-static void vesync_json_add_https_req(void *databuf ,uint16_t len,uint32_t mask)
+static void vesync_send_match_user_data_https_req(void)
 {
-    cJSON *root = cJSON_CreateObject();
-    char *req_method = NULL;
-    cJSON* info = NULL;
-    static char token[128];
     static uint8_t gUserUploadStep =0;
     int ret =0;
-    char recv_buff[500];
-    int buff_len = sizeof(recv_buff);
     static uint8_t rst_len =0;
     static uint8_t send_len =0;
     static uint32_t total_size =0;
     static uint8_t  array_len = 0;
-    static uint8_t user_read_data[1200] ={0};
+    static uint8_t user_read_data[4096] ={0};
     static uint8_t  calc_len = 0;
-    char rssi_str[10] ={"\0"};
-    int rssi = vesync_get_ap_rssi(8);
-    sprintf(rssi_str, "%d", rssi);
-    char account_id_str[10] ={"\0"};
+    static uint8_t mask = 0;
+    char *req_method = NULL;
+
+    if(mask == 0){
+        req_method = "/fatScale/uploadWeighData";
+        ESP_LOGI(TAG, "read user key_value[%s]",mask_user_store_key);
+        ESP_LOGI(TAG, "gUserUploadStep %d",gUserUploadStep);
+
+        switch(gUserUploadStep){
+            case 0: //先查询当前用户是否存在沉淀数据未上传;
+                    if((app_handle_get_flash_data(USER_HISTORY_DATA_NAMESPACE,mask_user_store_key,user_read_data,&total_size) == 0)){
+                        array_len = total_size/sizeof(user_history_t);
+                        rst_len = array_len;
+                        calc_len =0;   
+
+                        if(rst_len <= HTTPS_SEND_MAX){  //最大发送30条数据，30*12 =360byte
+                            send_len = rst_len;
+                        }else{
+                            send_len = HTTPS_SEND_MAX;
+                        }
+                        gUserUploadStep = 2;
+                    }else{
+                        gUserUploadStep = 1;
+                        app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+                        return;
+                    }
+                    ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d",total_size , array_len,send_len);
+                break;
+            case 1:{//发送实时数据
+                    memcpy((user_history_t *)&user_read_data,(user_history_t *)&info_str.user_history_data,sizeof(user_history_t));
+                    total_size = sizeof(user_history_t);
+                    array_len = total_size/sizeof(user_history_t);
+                    rst_len = array_len;
+                    calc_len =0;
+                    send_len = rst_len;
+
+                    ESP_LOGI(TAG, "real data %d , array_len %d ,send_len %d",total_size , array_len,send_len);
+                }
+                break;
+            case 2://数据发送区
+                if(rst_len <= HTTPS_SEND_MAX){
+                    send_len = rst_len;
+                }else{
+                    send_len = HTTPS_SEND_MAX;
+                }
+                break;
+            default:
+                break;
+        }
+    }else if(mask == 1){
+        req_method = "refreshDeviceToken";
+        LOG_E("https", "REFRESH_TOKEN_REQ");
+    }
+
+    /****************************数据封包开始**********************************/
+    cJSON *root = cJSON_CreateObject();
+    cJSON *info = NULL;
+    static char token[128];
+
+    if(mask == 0){
+        char account_id_str[10] ={"\0"};
+        cJSON* history_weight[send_len];
+        cJSON* data = NULL;
+        sprintf(account_id_str,"%d",match_account_id);
+
+        cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+        cJSON_AddStringToObject(info, "accountID", account_id_str);
+        cJSON_AddItemToObject(info,"data",data = cJSON_CreateArray());  //创建数组
+
+        if(NULL != info){
+            user_history_t *user_history = (user_history_t *)malloc(total_size);
+            memcpy((uint8_t *)&user_history->imped_value,(uint8_t *)&user_read_data[sizeof(user_history_t)*calc_len],sizeof(user_history_t)*send_len);
+            
+            if(NULL != data){
+                for(uint16_t i=0;i<send_len;i++){
+                    cJSON_AddItemToArray(data, history_weight[i] = cJSON_CreateObject());/* 给创建的数组增加对象*/
+                    if(NULL != history_weight[i]){
+                        cJSON_AddNumberToObject(history_weight[i],"weigh_kg",user_history[i].weight_kg);
+                        cJSON_AddNumberToObject(history_weight[i],"weigh_lb",user_history[i].weight_lb);
+                        cJSON_AddNumberToObject(history_weight[i],"impedence",user_history[i].imped_value);
+                        cJSON_AddNumberToObject(history_weight[i],"weighTime",user_history[i].utc_time);
+                        cJSON_AddNumberToObject(history_weight[i],"unit",user_history[i].measu_unit);
+                        cJSON_AddNumberToObject(history_weight[i],"timezone15m",user_history[i].time_zone);
+                    }
+                }
+            }
+            free(user_history);
+        }
+    }
+
+    /****************************数据封包结束**********************************/
 
     time_t seconds;
     seconds = time((time_t *)NULL);
     char traceId_buf[64];
     itoa(seconds, traceId_buf, 10);
+    char recv_buff[300];
+    int buff_len = sizeof(recv_buff);
 
-    if(NULL == root)    return;
-    esp_task_wdt_reset();
-    
-    switch(mask){
-        case UPLOAD_WEIGHT_DATA_REQ:{
-                // user_history_t history = {0};
-                // memcpy((uint8_t *)&history ,databuf,sizeof(user_history_t));
-
-                req_method = "/fatScale/uploadWeighData";
-                ESP_LOGI(TAG, "read user key_value[%s]",mask_user_store_key);
-                ESP_LOGI(TAG, "gUserUploadStep %d",gUserUploadStep);
-
-                switch(gUserUploadStep){
-                    case 0: //先读取flash数据和总长度
-                        if(app_handle_get_flash_data(USER_HISTORY_DATA_NAMESPACE,mask_user_store_key,user_read_data,&total_size) == 0){
-                            array_len = total_size/sizeof(user_history_t);
-                            rst_len = array_len;
-                            if(rst_len <= HTTPS_SEND_MAX){
-                                send_len = rst_len;
-                            }else{
-                                send_len = HTTPS_SEND_MAX;
-                            }
-                        }
-                        ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d",total_size , array_len,send_len);
-                        break;
-                    case 1:
-                        if(rst_len <= HTTPS_SEND_MAX){
-                            send_len = rst_len;
-                        }else{
-                            send_len = HTTPS_SEND_MAX;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-                cJSON* history_weight[send_len];
-                cJSON* data = NULL;
-                sprintf(account_id_str,"%d",match_account_id);
-
-                cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
-                cJSON_AddStringToObject(info, "accountID", account_id_str);
-                cJSON_AddItemToObject(info,"data",data = cJSON_CreateArray());  //创建数组
-
-                if(NULL != info){
-                    user_history_t *user_history = (user_history_t *)malloc(total_size);
-                    memcpy((uint8_t *)&user_history->imped_value,(uint8_t *)&user_read_data[sizeof(user_history_t)*calc_len],sizeof(user_history_t)*send_len);
-                    
-                    if(NULL != data){
-                        for(uint16_t i=0;i<send_len;i++){
-                            cJSON_AddItemToArray(data, history_weight[i] = cJSON_CreateObject());/* 给创建的数组增加对象*/
-                            if(NULL != history_weight[i]){
-                                cJSON_AddNumberToObject(history_weight[i],"weigh_kg",user_history[i].weight_kg);
-                                cJSON_AddNumberToObject(history_weight[i],"weigh_lb",user_history[i].weight_lb);
-                                cJSON_AddNumberToObject(history_weight[i],"impedence",user_history[i].imped_value);
-                                cJSON_AddNumberToObject(history_weight[i],"weighTime",user_history[i].utc_time);
-                                cJSON_AddNumberToObject(history_weight[i],"unit",user_history[i].measu_unit);
-                                cJSON_AddNumberToObject(history_weight[i],"timezone15m",user_history[i].time_zone);
-                            }
-                        }
-                    }
-                    free(user_history);
-                }
-            }
-            break;
-        case UPGRADE_ADDR_REQ:
-                req_method = "getFirmAddr";
-                cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
-                if(NULL != info){
-                    cJSON_AddStringToObject(info, "firmVersion", FIRM_VERSION);
-                    cJSON_AddStringToObject(info, "currentVersion", FIRM_VERSION);
-                }
-            break;
-        default:
-            break;
-    }
     cJSON *report = vesync_json_add_method_head(traceId_buf,req_method,info);
-    if(mask != REFRESH_TOKEN_REQ && mask != NETWORK_CONFIG_REQ){
+    if(mask == 0){ //上传数据需要携带token信息
         vesync_get_https_token(token);
         cJSON_AddStringToObject(report, "token", token);
     }
     char* out = cJSON_PrintUnformatted(report);
-    LOG_I("JSON", "\n%s", out);
-    LOG_I(TAG, "=================================================");
-    LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
-    LOG_I(TAG, "servel account_id %s",account_id_str);
+    LOG_I("JSON", "%s", out);
 
-    ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 2 * 1000);
+    ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 10000);
     if(buff_len > 0 && ret == 0){
         uint8_t if_resend;
-        LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
+        LOG_I(TAG, "Https recv %d byte data : %s", buff_len, recv_buff);
         if_resend = app_json_https_service_parse(mask,recv_buff);
         if(if_resend == 0){
-            if(mask == UPLOAD_WEIGHT_DATA_REQ){
-                uint32_t ret;
-                rst_len -= send_len;
-                calc_len += send_len;
-                if(rst_len == 0){
-                    gUserUploadStep = 0;
-                    calc_len = 0;
-                    ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);
-                    if(ret != 0){
-                        LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
-                    }
-                }else{
-                    gUserUploadStep = 1;
-                    app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,NULL,0);
-                    LOG_I(TAG, "resend weight data to server");
+            if(mask == 0){  //上传数据
+                switch(gUserUploadStep){
+                    case 1: //实时数据
+                            LOG_I(TAG, "real time data has all send");
+                            gUserUploadStep = 0;
+                        break;
+                    default:
+                            rst_len -= send_len;
+                            calc_len += send_len;
+
+                            if(rst_len == 0){
+                                gUserUploadStep = 1;    //继续上传用户实时数据
+                                calc_len = 0;
+                                vesync_flash_erase_key(USER_HISTORY_DATA_NAMESPACE,mask_user_store_key);//擦除匹配用户沉淀数据key
+                            }else{
+                                gUserUploadStep = 2;   //继续上传当前用户沉淀剩余数据
+                                LOG_I(TAG, "resend weight data to server");
+                            }
+                            ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d rst_len %d",total_size , array_len,send_len,rst_len);
+                            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+                        break;
                 }
-                ESP_LOGI(TAG, "history data %d , array_len %d ,send_len %d rst_len %d",total_size , array_len,send_len,rst_len);
+            }else if(mask == 1){    //刷新token回复;
+                gUserUploadStep = 2;
+                mask = 0;
+                app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
             }
-        }else if(if_resend == 3){
+        }else if(if_resend == 3){  //token失效
             LOG_E(TAG, "server report token error!!!!");
-            vesync_refresh_https_token();
+            mask = 1;
+            gUserUploadStep = 2;
+            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+        }else if(if_resend == 4){//数据上传失败
+            mask = 0;
+            gUserUploadStep = 0;
+            if(array_len < USER_STORE_LEN){    //判断沉淀数据是否超出范围
+                if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,mask_user_store_key,(user_history_t *)&info_str.user_history_data ,sizeof(user_history_t))){
+                    ESP_LOGE(TAG, "real time data store history data error!!"); 
+                }
+            }else{
+                ESP_LOGE(TAG, "history data max 100!!!!!");
+            }
         }
     }
     ESP_LOGI(TAG, "gUserUploadStep end %d",gUserUploadStep);
@@ -852,21 +886,10 @@ static void app_handle_server_task_handler(void *pvParameters){
 
     while(1){
         notified_ret = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &notified_value, 10000 / portTICK_RATE_MS);
-        vesync_wait_network_connected(5000);
-        // ESP_LOGI(TAG, "app_handle_server_task_handler %d ,0x%08x",notified_ret,notified_value);
         if(1 == notified_ret){
-            // if(https_message_send_queue !=0){
-            //     if(xQueueReceive(https_message_send_queue, &send_frame, portMAX_DELAY)) {
-            //         esp_log_buffer_hex(TAG,send_frame.buff,send_frame.len);
-            //     }
-            // }
             if(notified_value & UPLOAD_WEIGHT_DATA_REQ){
                 LOG_I(TAG, "UPLOAD_WEIGHT_DATA_REQ");
-                vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPLOAD_WEIGHT_DATA_REQ);
-            }
-            if(notified_value & UPGRADE_ADDR_REQ){
-                LOG_I(TAG, "UPGRADE_ADDR_REQ");
-                vesync_json_add_https_req(send_frame.buff ,send_frame.len,UPGRADE_ADDR_REQ);
+                vesync_send_match_user_data_https_req();
             }
             if(notified_value & UPLOAD_ALL_USER_DATA_REQ){
                 LOG_I(TAG, "UPLOAD_ALL_USER_DATA_REQ");
@@ -911,8 +934,8 @@ void device_status(device_status_e status)
 			break;
         case DEV_CONFIG_NET_READY:                  //配网中 
             wifi_conn = 1;
-            app_enter_scale_suspend_stop();
-            app_bt_wifi_suspend_stop();
+            app_scale_suspend_start();
+            
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
@@ -926,11 +949,7 @@ void device_status(device_status_e status)
 void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
-    vesync_init_https_module(vesync_https_ca_cert_pem);
-    //app_handle_https_message_queue_create();
-    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 16*1024, NULL, 4, &s_network_service_taskhd);
+    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 16*1024, NULL, 2, &s_network_service_taskhd);
 
-    if(vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS){   //有配网记录才开启沉淀数据上传
-        app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
-    }
+    app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
 }

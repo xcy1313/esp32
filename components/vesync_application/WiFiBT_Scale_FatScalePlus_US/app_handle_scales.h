@@ -11,6 +11,7 @@
 #include "etekcity_comm.h"
 #include <stdint.h>
 
+#define SCALE_WAKE_GPIO_TIME		100
 #define SCALE_ENTER_SUSPEND_TIME	30000
 #define BT_WIFI_ENTER_SUSPEND_TIME	120000
 
@@ -189,6 +190,8 @@ typedef struct {
 	user_config_data_t        user_config_data;
 	user_fat_data_t           user_fat_data;
 	user_config_data_t		  user_config_list[MAX_CONUT];
+	uint8_t 		  		  user_config_list_mode_len;
+	user_history_t			  user_history_data;
 }hw_info;
 extern hw_info info_str;
 

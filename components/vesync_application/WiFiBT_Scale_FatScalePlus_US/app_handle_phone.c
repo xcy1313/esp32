@@ -12,6 +12,7 @@
 #include "vesync_bt_hal.h"
 #include "vesync_uart.h"
 #include "vesync_net_service.h"
+#include "vesync_sntp_service.h"
 #include "vesync_device.h"
 #include "app_public_events.h"
 #include "vesync_crc8.h"
@@ -135,6 +136,7 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 }else if(ota_souce == UPGRADE_APP){
                     app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_TIMEOUT,0);
                 }
+                app_set_upgrade_source(UPGRADE_NULL);   //退出升级模式;
             break;
         case OTA_BUSY:
                 bt_conn = 3;
@@ -156,16 +158,21 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 }else if(ota_souce == UPGRADE_APP){
                     app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL,0);
                 }
+                ESP_LOGE(TAG, "upgrade process fail");
+                app_set_upgrade_source(UPGRADE_NULL);   //退出升级模式;
             break;
         case OTA_PROCESS:
-                ESP_LOGI(TAG, "upgrade process %d\r\n" ,len);
-                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_PROCESS,len);
+                ESP_LOGI(TAG, "upgrade process %d" ,len);
+                //if((len%5) == 0)
+                {
+                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_PROCESS,len);  //实时上报app升级进度
+                }
             break;
         case OTA_SUCCESS:
             bt_conn = 4;
             resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
             app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
-
+            
             if(ota_souce == UPGRADE_PRODUCTION){
                 resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);      //发送称体产测结束指令
@@ -260,11 +267,12 @@ void vesync_prase_upgrade_url(char *url)
                 url_len = strlen(url->valuestring);
                 sprintf(&upgrade_url[url_len],"/%s.V%s%s",PRODUCT_WIFI_NAME,new_version,".bin");
                 LOG_I(TAG, "upgrade url %s",upgrade_url);
+
                 app_set_upgrade_source(UPGRADE_APP);
-                
                 if((vesync_get_router_link() == false)){
                     vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
                 }
+                vesync_update_connect_interval(100,200,400);
                 vesync_ota_init(upgrade_url,ota_event_handler);
                 //vesync_ota_init("http://192.168.16.25:8888/firmware-debug/esp32/vesync_sdk_esp32.bin",ota_event_handler);
             }
@@ -284,13 +292,8 @@ bool vesync_upgrade_config(hw_info *info,uint8_t *opt,uint8_t len)
 {
     bool ret = false;
     LOG_I(TAG, "vesync_upgrade_config");
-    if(vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)
-    {       //设备已配网
-        static bool status = false;
-        if(!status){
-            status = true;
-            vesync_prase_upgrade_url((char *)opt);
-        }
+    if(vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS){       //设备已配网
+        vesync_prase_upgrade_url((char *)opt);
         ret = true;
     }else{
         LOG_E(TAG, "device not config net!!!!!");
@@ -319,7 +322,6 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
             vesync_bt_disconnect();
             app_ble_start();
         }
-        ESP_LOGI(TAG, "bt rssi %d,0x%02x\n",rssi,rssi);
         ret = true;
     }
     return ret;
@@ -330,11 +332,13 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
  * @return true 
  * @return false 
  */
-bool vesync_set_unix_time(uint8_t *opt ,uint8_t len)
+bool vesync_set_unix_time(hw_info *info,uint8_t *opt ,uint8_t len)
 {
     uint32_t unix_time = *(uint32_t *)&opt[1];
-        //memcpy((uint8_t *)&info->user_config_data.measu_unit,(uint8_t *)opt,len);
-    //Rtc_SyncSet_Time((unsigned int *)&unix_time,(char)opt[0]);
+
+    ESP_LOGI(TAG, "unix_time = 0x%04x \n" ,unix_time);
+    vesync_set_time(unix_time,(int8_t)opt[0]);
+
     return true;
 }
 
@@ -512,6 +516,7 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
     return ret;
 }
 
+
 /**
  * @brief 查询角色沉淀数据 app需要带账户名下发来查询本地用户模型数据库
  * @param len 
@@ -641,7 +646,7 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
         case BT_DISCONNTED:
                 bt_conn = 0;
                 vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
-
+            
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
             break;
@@ -657,6 +662,7 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
  */
 static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 {
+    if(app_get_upgrade_source() == UPGRADE_APP)	return;	//升级过程中不解析蓝牙;
     esp_log_buffer_hex(TAG, data_buf, length);
 #if 0    
     switch(data_buf[0]){
@@ -737,7 +743,7 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                             resp_strl.len = 1;
                         break;
                     case CMD_SYNC_TIME:
-                        if(vesync_set_unix_time(opt,len)){
+                        if(vesync_set_unix_time(info,opt,len)){
                             ESP_LOGI(TAG, "CMD_SYNC_TIME");
                         }else{
                             res_ctl.bitN.error_flag = 1;
@@ -1021,12 +1027,17 @@ static void app_handle_ble_send_task_handler(void *pvParameters)
  */
 void app_ble_init(void)
 {
+    uint8_t bt_conn = 0;
     char bt_version[8] = {0};
     char version[8];
     strcpy(version,FIRM_VERSION);
     sprintf(bt_version,"%c%c%c%c",version[0],version[2],version[4],version[5]);
 	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,bt_version,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
+
+    bt_conn = 0;
+    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+    app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
 
     ble_event_group= xEventGroupCreate();
     xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 8192, NULL, 8, NULL);
