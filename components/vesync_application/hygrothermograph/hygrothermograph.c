@@ -119,7 +119,7 @@ static void ble_command_handle(unsigned char *data, unsigned char len)
                 switch(bt_prase.frame_cmd)
                 {
                     case QUERY_HISTORY:
-                        reply_temp_humi_history_to_app();
+                        // reply_temp_humi_history_to_app();
                         break;
                     case CLEAR_HISTORY:
                         break;
@@ -128,7 +128,6 @@ static void ble_command_handle(unsigned char *data, unsigned char len)
                     case SET_PREWARNING:
                         break;
                     case QUERY_TEMP_HUMI:
-                        reply_temp_humi_history_to_app();
                         break;
                     case QUERY_CALIBRATION:
                         break;

@@ -39,8 +39,8 @@ static int client_fd;
  */
 static void printf_os_task_manager_to_buf(char *buffer, int buf_len)
 {
-	uint8_t pcWriteBuffer[1024];
-	char printf_buffer[2048];
+	char* pcWriteBuffer = malloc(1024);
+	char* printf_buffer = malloc(2048);
 	int pos = 0;
 	int free_mem = 0;
 
@@ -48,14 +48,14 @@ static void printf_os_task_manager_to_buf(char *buffer, int buf_len)
 	pos = strlen(printf_buffer);
 	sprintf(printf_buffer + pos, "name \t\tstatus \tprio \tfree \tpid\n");
 	pos = strlen(printf_buffer);
-	vTaskList((char *)&pcWriteBuffer);
+	vTaskList((char *)pcWriteBuffer);
 	sprintf(printf_buffer + pos, "%s", pcWriteBuffer);
 	pos = strlen(printf_buffer);
 	sprintf(printf_buffer + pos, "-----------------------------------------------------\n");
 	pos = strlen(printf_buffer);
 	sprintf(printf_buffer + pos, "name \t\trun_count \tusage\n");
 	pos = strlen(printf_buffer);
-	vTaskGetRunTimeStats((char *)&pcWriteBuffer);
+	vTaskGetRunTimeStats((char *)pcWriteBuffer);
 	sprintf(printf_buffer + pos, "%s", pcWriteBuffer);
 	pos = strlen(printf_buffer);
 	sprintf(printf_buffer + pos, "-----------------------------------------------------\n");
@@ -74,6 +74,9 @@ static void printf_os_task_manager_to_buf(char *buffer, int buf_len)
 	{
 		LOG_E(TAG, "Buffer length is too short.");
 	}
+
+	free(pcWriteBuffer);
+	free(printf_buffer);
 }
 
 /**
@@ -185,10 +188,11 @@ static int cjson_handle_task_manager(cJSON *json)
 			if (taskManager != NULL)
 			{
 				ret = 0;
-				LOG_I(TAG, "Send task manager.");
-				char send_buf[2048];
-				printf_os_task_manager_to_buf(send_buf, sizeof(send_buf));
+				// LOG_I(TAG, "Send task manager.");
+				char* send_buf = malloc(2048);
+				printf_os_task_manager_to_buf(send_buf, 2048);
 				developer_tcp_send((uint8_t*)send_buf, strlen(send_buf));
+				free(send_buf);
 			}
 		}
 	}
@@ -209,8 +213,8 @@ int developer_cjson_handle(uint8_t *data)
 		return -1;
 	}
 
-	LOG_I(TAG, "Recive json data...");
-	vesync_printf_cjson(root);					//json标准格式，带缩进
+	// LOG_I(TAG, "Recive json data...");
+	// vesync_printf_cjson(root);					//json标准格式，带缩进
 	if(0 != cjson_handle_upgrade(root))
 		if(0 != cjson_handle_task_manager(root))
 			LOG_E(TAG, "No developer command !");
@@ -238,7 +242,7 @@ static void developer_tcp_server_thread(void *args)
 
 		LOG_I(TAG, "Developer client connected.");
 
-		uint8_t recv_buf[2048];
+		uint8_t* recv_buf = malloc(2048);
 		int recv_len;
 		while(1)
 		{
@@ -255,6 +259,7 @@ static void developer_tcp_server_thread(void *args)
 					LOG_I(TAG, "Developer recv %d byte data : %s", recv_len, recv_buf);
 			}
 		}
+		free(recv_buf);
 
 		close(client_fd);
 	}
@@ -325,19 +330,21 @@ int vesync_developer_start(void)
  */
 void printf_os_task_manager(void)
 {
-	uint8_t pcWriteBuffer[1024];
+	char* pcWriteBuffer = malloc(1024);
 	int free_mem = 0;
 
 	printf("\n=====================================================\n");
 	printf("name \t\t\tstatus \tprio \tfree \tpid\n");
-	vTaskList((char *)&pcWriteBuffer);
+	vTaskList((char *)pcWriteBuffer);
 	printf("%s", pcWriteBuffer);
 	printf("-----------------------------------------------------\n");
 	printf("name \t\t\trun_count \tusage\n");
-	vTaskGetRunTimeStats((char *)&pcWriteBuffer);
+	vTaskGetRunTimeStats((char *)pcWriteBuffer);
 	printf("%s", pcWriteBuffer);
 	printf("-----------------------------------------------------\n");
 	 free_mem = esp_get_free_heap_size();
 	 printf("memory free : \t%d byte\n", free_mem);
 	printf("=====================================================\n\n");
+
+	free(pcWriteBuffer);
 }

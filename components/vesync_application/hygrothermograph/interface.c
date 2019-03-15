@@ -96,8 +96,9 @@ void update_temp_humi_to_app(void)
 
     // temp_humi_history_t history_data;
     // history_data.history_amount = 1;
-    // memcpy(&(history_data.history_list[0]), &send_data, sizeof(temp_humi_data_t)); 
+    // memcpy(&(history_data.history_list[0]), &send_data, sizeof(temp_humi_data_t));
     // upload_temp_humi_history_to_server(&history_data);
+    // send_early_warning_to_server(80, 85, 1, 1552630674);
 }
 
 /**
@@ -174,10 +175,69 @@ void upload_temp_humi_history_to_server(temp_humi_history_t* history_data)
     char* out = cJSON_PrintUnformatted(report);
     LOG_I("JSON", "%s", out);
 
-    char recv_buff[512];
-    int recv_len = 512;
-    vesync_https_client_request("humiture/add", out, recv_buff, &recv_len, 5 * 1000);
-    LOG_I(TAG, "Server reply : %s", recv_buff);
+    char* recv_buff = malloc(512);
+    if(NULL != recv_buff)
+    {
+        int recv_len = 512;
+        vesync_https_client_request("humiture/add", out, recv_buff, &recv_len, 5 * 1000);
+        LOG_I(TAG, "Server reply : %s", recv_buff);
+        free(recv_buff);
+    }
+    else
+        LOG_E(TAG, "Recv buff is null !");
+
+    free(out);
+    cJSON_Delete(report);
+    cJSON_Delete(root);
+}
+
+/**
+ * @brief 发送温湿度预警消息到服务器
+ * @param warn_val  [发生预警的上限或下限值]
+ * @param curr_val  [当前值]
+ * @param warn_type [预警类型，1 - 温度超上限；2 - 温度超下限； 3 - 湿度超上限；4 - 湿度超下限]
+ * @param timestamp [发生预警时的时间]
+ */
+void send_early_warning_to_server(float warn_val, float curr_val, int warn_type, uint32_t timestamp)
+{
+    cJSON *root = NULL;
+    cJSON *info = NULL;
+
+    root = cJSON_CreateObject();
+    if(NULL != root)
+    {
+        cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+        if(NULL != info)
+        {
+            cJSON_AddNumberToObject(info, "warningValue", warn_val);
+            cJSON_AddNumberToObject(info, "currentValue", curr_val);
+            cJSON_AddNumberToObject(info, "warningType", warn_type);
+            cJSON_AddNumberToObject(info, "warningTime", timestamp);
+        }
+    }
+
+    time_t seconds;
+    seconds = time((time_t *)NULL);
+    char traceId_buf[64];
+    itoa(seconds, traceId_buf, 10);
+    cJSON *report = vesync_json_add_method_head(traceId_buf, "pushHumitureWarningInfo", info);
+
+    char token[128];
+    vesync_get_https_token(token);
+    cJSON_AddStringToObject(report, "token", token);
+    char* out = cJSON_PrintUnformatted(report);
+    LOG_I("JSON", "%s", out);
+
+    char* recv_buff = malloc(512);
+    if(NULL != recv_buff)
+    {
+        int recv_len = 512;
+        vesync_https_client_request("humiture/earlyWarningInfo", out, recv_buff, &recv_len, 5 * 1000);
+        LOG_I(TAG, "Server reply : %s", recv_buff);
+        free(recv_buff);
+    }
+    else
+        LOG_E(TAG, "Recv buff is null !");
 
     free(out);
     cJSON_Delete(report);

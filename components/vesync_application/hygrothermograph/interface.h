@@ -42,4 +42,13 @@ void update_temp_humi_to_app(void);
  */
 void upload_temp_humi_history_to_server(temp_humi_history_t* history_data);
 
+/**
+ * @brief 发送温湿度预警消息到服务器
+ * @param warn_val  [发生预警的上限或下限值]
+ * @param curr_val  [当前值]
+ * @param warn_type [预警类型，1 - 温度超上限；2 - 温度超下限； 3 - 湿度超上限；4 - 湿度超下限]
+ * @param timestamp [发生预警时的时间]
+ */
+void send_early_warning_to_server(float warn_val, float curr_val, int warn_type, uint32_t timestamp);
+
 #endif
