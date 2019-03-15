@@ -115,7 +115,6 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "Create event center task fail !");
 	}
 	vesync_clinet_wifi_module_init(true);
-	vesync_init_https_module(vesync_https_ca_cert_pem);
 	if(NULL != vesync_application_cb){
 		vesync_application_cb();
 	}

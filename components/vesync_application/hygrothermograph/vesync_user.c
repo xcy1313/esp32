@@ -9,6 +9,7 @@
 #include "vesync_user.h"
 #include "hygrothermograph.h"
 #include "interface.h"
+#include "vesync_https.h"
 
 static const char* TAG = "vesync_user";
 
@@ -44,6 +45,13 @@ void application_task(void *args)
     {
         LOG_E(TAG, "Read flash error, ret=%d", ret);
     }
+
+    vesync_connect_wifi("R6100-2.4G", "12345678");
+    // char recv_buff[512];
+    // int recv_len = 512;
+    // char body[] = "{\"traceId\":\"1540170843000\",\"method\":\"refreshDeviceToken\",\"cid\":\"0LWEYn9q8S7l2CJwFfLECk7f5B1D2_61\",\"pid\":\"2b9lja6xd0yd40jc\"}";
+    // vesync_https_request("test-online.vesync.com", "443", "/cloud/v1/deviceWeb/refreshDeviceToken", body, recv_buff, &recv_len, 10 * 1000);
+    // LOG_E(TAG, "Server reply : %s", recv_buff);
 
     BaseType_t notified_ret;
     uint32_t notified_value;
@@ -84,6 +92,6 @@ void vesync_user_entry(void *args)
 
     printf("\n");
     LOG_I(TAG, "------------Application layer start !------------\n");
-    xTaskCreate(application_task, "app_task", 20 * 1024, NULL, TASK_PRIORITY_NORMAL, &app_event_center_taskhd);
+    xTaskCreate(application_task, "app_task", 10 * 1024, NULL, TASK_PRIORITY_NORMAL, &app_event_center_taskhd);
     vTaskDelete(NULL);
 }

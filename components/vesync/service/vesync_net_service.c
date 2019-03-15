@@ -201,7 +201,7 @@ void vesync_config_cloud_mqtt_client_with_tls(char *client_id, char *server_addr
 		vesync_delete_mqtt_client(&s_vesync_client);
 	vesync_init_mqtt_client_with_tls(&s_vesync_client, client_id, server_addr, server_port,
 	                                 username, password, mqtt_event_handler,
-	                                 vesync_ca_cert_pem, vesync_client_cert_pem, vesync_client_key_pem);
+	                                 vesync_mqtt_ca_cert_pem_start, vesync_mqtt_client_cert_pem_start, vesync_mqtt_client_key_pem_start);
 }
 
 /**

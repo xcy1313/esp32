@@ -93,6 +93,11 @@ void update_temp_humi_to_app(void)
     seq++;
     vesync_bt_notify(send_ctl, &seq, send_cmd, (unsigned char *)&send_data, send_len);
     LOG_I(TAG, "Update temp humi to app !");
+
+    // temp_humi_history_t history_data;
+    // history_data.history_amount = 1;
+    // memcpy(&(history_data.history_list[0]), &send_data, sizeof(temp_humi_data_t)); 
+    // upload_temp_humi_history_to_server(&history_data);
 }
 
 /**
@@ -168,6 +173,11 @@ void upload_temp_humi_history_to_server(temp_humi_history_t* history_data)
     cJSON_AddStringToObject(report, "token", token);
     char* out = cJSON_PrintUnformatted(report);
     LOG_I("JSON", "%s", out);
+
+    char recv_buff[512];
+    int recv_len = 512;
+    vesync_https_client_request("humiture/add", out, recv_buff, &recv_len, 5 * 1000);
+    LOG_I(TAG, "Server reply : %s", recv_buff);
 
     free(out);
     cJSON_Delete(report);
