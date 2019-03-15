@@ -12,7 +12,7 @@
 #define ACTIVE_REPORT_CTL                       0X00        //主动上报数据格式
 #define COMMAND_CTL                             0X20        //查询或设置命令格式
 #define ACK_WITH_NO_ERROR                       0X10        //查询或设置命令格式的应答格式，无错误标志位
-#define ACK_WITH_ERROR                          0X50        //查询或设置命令格式的应答格式，由错误标志位
+#define ACK_WITH_ERROR                          0X50        //查询或设置命令格式的应答格式，有错误标志位
 
 //蓝牙通信命令定义
 #define REPORT_TEMP_HUMI                        0x0301      //设备上报温湿度值
@@ -27,14 +27,39 @@
 #define SWITCH_UNIT                             0X030A      //切换单位
 
 /**
+ * @brief 更新温湿度值到APP，通过ble蓝牙
+ */
+void update_temp_humi_to_app(void);
+
+/**
  * @brief 回复APP温湿度计历史记录数据
  */
 void reply_temp_humi_history_to_app(void);
 
 /**
- * @brief 更新温湿度值到APP，通过ble蓝牙
+ * @brief 温湿度计清空历史数据
+ * @return uint32_t [处理结果]
  */
-void update_temp_humi_to_app(void);
+uint32_t device_clear_temp_humi_history(void);
+
+/**
+ * @brief 回复APP要查询的温湿度计预警值设置参数
+ * @param warn_setting  [温湿度预警值设置]
+ * @return uint32_t     [回复结果]
+ */
+uint32_t reply_early_warning_setting_to_app(hygrother_warning_t* warn_setting);
+
+/**
+ * @brief APP设置温湿度预警值
+ * @param warn_setting  [温湿度预警值结构体]
+ * @return uint32_t     [设置结果]
+ */
+uint32_t app_set_early_warning_setting(hygrother_warning_t* warn_setting);
+
+/**
+ * @brief 回复APP要查询的温湿度值
+ */
+void reply_temp_humi_to_app(void);
 
 /**
  * @brief 上传温湿度历史记录到服务器

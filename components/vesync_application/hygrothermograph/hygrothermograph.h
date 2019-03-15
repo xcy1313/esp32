@@ -17,6 +17,7 @@
 
 #define HUMITURE_FLASH_LABEL                    "userdata"  //温湿度计的的flash保存label
 #define HUMITURE_HISTORY_KEY                    "humiture_his"  //温湿度计的历史记录
+#define HUMITURE_WARN_SETTING_KEY               "warn_set"  //温湿度计预警设置
 
 typedef struct                                              //温湿度数据结构，含时间戳
 {

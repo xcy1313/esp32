@@ -97,37 +97,25 @@ static void ble_command_handle(unsigned char *data, unsigned char len)
         if(bt_data_frame_decode(data[i], BT_PARSE_CHAN, &bt_prase) == 1)
         {
             //解析到蓝牙协议帧
-            frame_ctrl_t res_ctl =      //应答包res状态
-            {
-                .data = 0,
-            };
-            struct                      //应答数据包
-            {
-                uint8_t  buf[20];
-                uint16_t len;
-            } resp_strl = {{0}, 0};
-
-            uint8_t *cnt = NULL;
-            uint8_t *opt = &bt_prase.frame_data[0];                     //指针指向data_buf数据域；
-            uint8_t len = bt_prase.frame_data_len - sizeof(uint16_t);   //长度减去包含2个字节的命令包
-            cnt = &bt_prase.frame_cnt;
-            LOG_I(TAG, "bt_prase.frame_ctrl.bitN.ack_flag = %d", bt_prase.frame_ctrl.bitN.ack_flag);
-
             if(bt_prase.frame_ctrl.bitN.ack_flag == PACKET_COMMAND)     //下发的是命令包
             {
                 LOG_I(TAG, "app set cmd [0x%04x]", bt_prase.frame_cmd);
                 switch(bt_prase.frame_cmd)
                 {
                     case QUERY_HISTORY:
-                        // reply_temp_humi_history_to_app();
+                        reply_temp_humi_history_to_app();
                         break;
                     case CLEAR_HISTORY:
+                        device_clear_temp_humi_history();
                         break;
                     case QUERY_PREWARNING:
+                        // reply_early_warning_setting_to_app(hygrother_warning_t* warn_setting);
                         break;
                     case SET_PREWARNING:
+                        app_set_early_warning_setting((hygrother_warning_t*)bt_prase.frame_data);
                         break;
                     case QUERY_TEMP_HUMI:
+                        reply_temp_humi_to_app();
                         break;
                     case QUERY_CALIBRATION:
                         break;
@@ -140,21 +128,6 @@ static void ble_command_handle(unsigned char *data, unsigned char len)
                     default:
                         LOG_E(TAG, "app set other cmd!");
                         break;
-                }
-
-                if(bt_prase.frame_ctrl.bitN.request_flag == NEED_ACK)   //判断该命令是否需要应答
-                {
-                    res_ctl.bitN.ack_flag = 1;       //标示当前数据包为应答包;
-                    if(res_ctl.bitN.error_flag == 1)
-                    {
-                        LOG_E(TAG, "ERROR CODE！");
-                        // vesync_bt_notify(res_ctl, cnt, bt_prase.frame_cmd, resp_strl.buf, resp_strl.len); //返回1个字节的具体错误码
-                    }
-                    else
-                    {
-                        // vesync_bt_notify(res_ctl, cnt, bt_prase.frame_cmd, resp_strl.buf, resp_strl.len); //返回应答设置或查询包
-                    }
-                    LOG_I(TAG, "ack is need with command[0x%04x] ctrl[0x%02x].............", bt_prase.frame_cmd, res_ctl.data);
                 }
             }
             else if(bt_prase.frame_ctrl.bitN.ack_flag == PACKET_RESP)   //app返回的应答
@@ -208,7 +181,7 @@ void ble_recv_data_callback(const unsigned char *data, unsigned char len)
     }
     printf("\n");
 
-    ble_command_handle(data, len);
+    ble_command_handle((unsigned char*)data, len);
 }
 
 /**

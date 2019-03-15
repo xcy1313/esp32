@@ -80,25 +80,21 @@ static uint32_t ble_send_custom_data(uint8_t* data, uint16_t data_len)
 void update_temp_humi_to_app(void)
 {
     static uint8_t seq = 0;
+    seq++;
+
     frame_ctrl_t send_ctl = {ACTIVE_REPORT_CTL};        //发送数据格式码
     temp_humi_data_t send_data = {0};
-
     uint16_t send_cmd = REPORT_TEMP_HUMI;
-    uint16_t send_len = 8;
+
+    time_t seconds;
+    seconds = time((time_t *)NULL);
 
     send_data.temp = (int16_t)(get_device_temperature() * 10);
     send_data.humi = (int16_t)(get_device_humidity() * 10);
-    send_data.timestamp = 1544410793;
+    send_data.timestamp = (uint32_t)seconds;
 
-    seq++;
-    vesync_bt_notify(send_ctl, &seq, send_cmd, (unsigned char *)&send_data, send_len);
+    vesync_bt_notify(send_ctl, &seq, send_cmd, (unsigned char *)&send_data, sizeof(temp_humi_data_t));
     LOG_I(TAG, "Update temp humi to app !");
-
-    // temp_humi_history_t history_data;
-    // history_data.history_amount = 1;
-    // memcpy(&(history_data.history_list[0]), &send_data, sizeof(temp_humi_data_t));
-    // upload_temp_humi_history_to_server(&history_data);
-    // send_early_warning_to_server(80, 85, 1, 1552630674);
 }
 
 /**
@@ -128,6 +124,96 @@ void reply_temp_humi_history_to_app(void)
         uint16_t send_len = 2;
         vesync_bt_notify(send_ctl, &seq, send_cmd, (unsigned char *)&send_data, send_len);
     }
+}
+
+/**
+ * @brief 温湿度计清空历史数据
+ * @return uint32_t [处理结果]
+ */
+uint32_t device_clear_temp_humi_history(void)
+{
+    static uint8_t seq = 0;
+    seq++;                      //每次发送包序列自增1
+
+    uint32_t ret = -1;
+    ret = vesync_flash_erase_key(HUMITURE_FLASH_LABEL, HUMITURE_HISTORY_KEY);
+    if(ret == 0)                    //擦除成功
+    {
+        frame_ctrl_t send_ctl = {ACK_WITH_NO_ERROR};
+        uint16_t send_cmd = CLEAR_HISTORY;
+        vesync_bt_notify(send_ctl, &seq, send_cmd, NULL, 0);
+    }
+    else
+    {
+        LOG_E(TAG, "Erase history failed !");
+        frame_ctrl_t send_ctl = {ACK_WITH_ERROR};
+        uint16_t send_cmd = CLEAR_HISTORY;
+        uint8_t ack = 0x05;
+        vesync_bt_notify(send_ctl, &seq, send_cmd, &ack, 1);
+    }
+
+    return ret;
+}
+
+/**
+ * @brief 回复APP要查询的温湿度计预警值设置参数
+ * @param warn_setting  [温湿度预警值设置]
+ * @return uint32_t     [回复结果]
+ */
+uint32_t reply_early_warning_setting_to_app(hygrother_warning_t* warn_setting)
+{
+    static uint8_t seq = 0;
+    seq++;                      //每次发送包序列自增1
+
+    uint32_t ret = -1;
+    //此处保存设置值到flash
+
+    //h回复APP
+    frame_ctrl_t send_ctl = {ACK_WITH_NO_ERROR};
+    uint16_t send_cmd = QUERY_PREWARNING;
+    vesync_bt_notify(send_ctl, &seq, send_cmd, NULL, 0);
+
+    return ret;
+}
+
+/**
+ * @brief APP设置温湿度预警值
+ * @param warn_setting  [温湿度预警值结构体]
+ * @return uint32_t     [设置结果]
+ */
+uint32_t app_set_early_warning_setting(hygrother_warning_t* warn_setting)
+{
+    static uint8_t seq = 0;
+    seq++;                      //每次发送包序列自增1
+
+    uint32_t ret = -1;
+    frame_ctrl_t send_ctl = {ACK_WITH_NO_ERROR};
+    uint16_t send_cmd = SET_PREWARNING;
+
+    ret =  vesync_bt_notify(send_ctl, &seq, send_cmd, (uint8_t*)warn_setting, sizeof(hygrother_warning_t));
+
+    return ret;
+}
+
+/**
+ * @brief 回复APP要查询的温湿度值
+ */
+void reply_temp_humi_to_app(void)
+{
+    static uint8_t seq = 0;
+    seq++;
+
+    frame_ctrl_t send_ctl = {ACK_WITH_NO_ERROR};
+    temp_humi_data_t send_data = {0};
+    uint16_t send_cmd = QUERY_TEMP_HUMI;
+
+    time_t seconds;
+    seconds = time((time_t *)NULL);
+
+    send_data.temp = (int16_t)(get_device_temperature() * 10);
+    send_data.humi = (int16_t)(get_device_humidity() * 10);
+    send_data.timestamp = (uint32_t)seconds;
+    vesync_bt_notify(send_ctl, &seq, send_cmd, (unsigned char *)&send_data, sizeof(temp_humi_data_t));
 }
 
 /**
