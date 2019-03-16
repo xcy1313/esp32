@@ -42,6 +42,7 @@ static void vesync_event_center_thread(void *args)
 			//LOG_I(TAG, "Event center get new notified : %x.", notified_value);
 
 			if(notified_value & NETWORK_CONNECTED){
+				vesync_set_device_status(DEV_CONFIG_NET_SUCCESS);
 				if(strlen((char *)product_config.cid) !=0){
 					if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
 						vesync_register_https_net();	//请求配网;
@@ -58,7 +59,7 @@ static void vesync_event_center_thread(void *args)
 				vesync_json_add_https_service_register(UPGRADE_REFRESH_ATTRIBUTE_REQ);
 			}
 			if(notified_value & NETWORK_DISCONNECTED){
-				
+				vesync_set_device_status(DEV_CONFIG_NET_FAIL);
 			}
 			if(notified_value & RECEIVE_UART_DATA)
 			{
@@ -125,8 +126,8 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "config info NULL");
 		vesync_set_device_status(DEV_CONFIG_NET_NULL);			//第一次使用，未配网
 	}
-	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
-	strcpy((char *)product_config.cid,(char *)test_cid);
+	// uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
+	// strcpy((char *)product_config.cid,(char *)test_cid);
 
 	// while(1){
 	// 	sleep(5);

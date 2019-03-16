@@ -355,7 +355,7 @@ bool vesync_set_unix_time(hw_info *info,uint8_t *opt ,uint8_t len)
 static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
 {
     uint8_t ret = 0;
-    user_config_data_t user_list[MAX_CONUT] ={0};
+    static user_config_data_t user_list[MAX_CONUT] ={0};
     uint16_t length =0;
 
     if(len > (sizeof(user_config_data_t)-2))    return false;
@@ -475,7 +475,7 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                 nlen = length/sizeof(user_config_data_t);
                 ESP_LOGI(TAG, "nlen[%d]",nlen);
 
-                if(nlen >= 0){
+                {
                     if(nlen < MAX_CONUT){
                         for(uint8_t i=0;i<nlen;i++){
                             if(user_list[i].account == if_add_account){
@@ -505,9 +505,45 @@ static uint8_t vesync_config_account(hw_info *info,uint8_t *opt ,uint8_t len)
                             ret = 3;             //下发的用户模型有重合
                             ESP_LOGE(TAG, "user mode is same ,account:[0x%04x]",if_add_account);
                         }
-                    }else{
-                        ret = 2;                //超过最大用户添加配置
-                        ESP_LOGE(TAG, "store flash overflow with len[%d]",nlen);
+                    }else{  //超过最大16个用户限制，采用先进先出，替换最早建立的用户模型信息,并删除此用户模型的沉淀数据;
+                        for(uint8_t i=0;i<nlen;i++){
+                            if(user_list[i].account == if_add_account){
+                                add_cnt++;
+                                ESP_LOGI(TAG, "match userID[0x%04x],add_cnt=%d,i=%d",user_list[i].account,add_cnt,i);
+                                break;
+                            }
+                        }
+                        if(add_cnt ==0){    //当前存储的用户模型与下发的模型没有重合
+                            static user_config_data_t if_add_user_list[MAX_CONUT] ={0};
+                            user_config_data_t    user_config_data = {0};
+                            memcpy((uint8_t *)&user_config_data.action,(uint8_t *)&opt[0],len);
+                            ESP_LOGI(TAG, "account ID[0x%04x]",user_config_data.account);
+                            snprintf((char *)user_config_data.user_store_key,sizeof(user_config_data.user_store_key),"his_%x",user_config_data.account); //根据不同的账号创建存储的用户键值对用来保存沉淀数据
+                            ESP_LOGI(TAG, "create user key_value[%s]",user_config_data.user_store_key);
+
+                            user_config_data.crc8 = vesync_crc8(0,&user_config_data.action,len);
+                            user_config_data.length = len;
+
+                            for(uint8_t i=0;i<MAX_CONUT-1;i++){
+                                memcpy((user_config_data_t *)&if_add_user_list[i],(user_config_data_t *)&user_list[i+1],sizeof(user_config_data_t));
+                            }
+                            memcpy((user_config_data_t *)&if_add_user_list[15],(user_config_data_t *)&user_config_data,sizeof(user_config_data_t));//数据替换成最新的用户信息
+
+
+                            vesync_flash_erase_key(USER_HISTORY_DATA_NAMESPACE,user_list[0].user_store_key); //删除对应用户模型的沉淀数据;
+                            vesync_flash_erase_all_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);//先删除在写;
+                            
+                            if(vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(uint8_t *)if_add_user_list,length)){   //按4字节整数倍保存用户信息    
+                                ESP_LOGI(TAG, "store user config ok! crc8 =%d len =%d\r\n",user_config_data.crc8 ,user_config_data.length);
+                                ret = 0;         //替换最早用户完成
+                            }else{
+                                ret = 1;         //写flash出错
+                                ESP_LOGE(TAG, "user mode ok!store flash error,account:[0x%04x]",if_add_account);
+                            }
+                        }else{
+                            ret = 3;             //下发的用户模型有重合
+                            ESP_LOGE(TAG, "user mode is same ,account:[0x%04x]",if_add_account);
+                        }
                     }
                 }
             } 

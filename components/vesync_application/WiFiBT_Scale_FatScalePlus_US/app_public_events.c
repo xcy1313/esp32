@@ -81,7 +81,7 @@ static void app_public_events_task_handler(void *pvParameters)
  */
 void app_public_events_task_create(void)
 {
-    xTaskCreate(app_public_events_task_handler, "app_public_events_task_handler", 2048, NULL, 4, &app_public_events_taskhd);
+    xTaskCreate(app_public_events_task_handler, "app_public_events_task_handler", 4096, NULL, 4, &app_public_events_taskhd);
 }
 
 

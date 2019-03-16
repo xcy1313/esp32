@@ -977,6 +977,11 @@ void device_status(device_status_e status)
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
+        case DEV_CONFIG_NET_FAIL:
+            wifi_conn = 1;            
+            app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+            resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+            break;
         case DEV_CONFIG_NET_READY:                  //配网中 
             wifi_conn = 1;
             app_scale_suspend_start();
