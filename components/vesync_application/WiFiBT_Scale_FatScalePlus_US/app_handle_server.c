@@ -434,7 +434,7 @@ void app_handle_net_service_task_notify_bit(uint32_t bit ,void *data,uint16_t le
     //     memcpy((char *)https_send_frame.buff,(char *)data,len);
     //     xQueueSend(https_message_send_queue,&https_send_frame,portTICK_PERIOD_MS);
     // }
-    LOG_I(TAG, "app_handle_server_task_handler send bit[0x%08x]", bit);
+    //LOG_I(TAG, "app_handle_server_task_handler send bit[0x%08x]", bit);
     xTaskNotify(s_network_service_taskhd, bit, eSetBits);			//通知事件处理中心任务
 }
 
@@ -483,7 +483,39 @@ static uint8_t app_json_https_service_parse(uint32_t mask,char *read_buf)
 	return ret;
 }
 
-#define HTTPS_SEND_MAX  50
+
+static void vesync_store_match_user_req(void)
+{
+    static uint8_t gUserUploadStep =0;
+    static uint8_t user_read_data_buff[4096] ={0};
+    static uint16_t total_size =0;
+    static uint8_t  array_len = 0;
+    
+    switch(gUserUploadStep){
+        case 0: //先查询当前用户是否存在沉淀数据未上传;
+                app_handle_get_flash_data(USER_HISTORY_DATA_NAMESPACE,mask_user_store_key,user_read_data_buff,&total_size);
+                array_len = total_size/sizeof(user_history_t);
+                
+                gUserUploadStep = 1;
+                app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,NULL,0);  //返回继续检索下一个用户
+            break;
+        case 1:
+            gUserUploadStep = 0;
+            if(array_len < USER_STORE_LEN){    //判断沉淀数据是否超出范围
+                if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,mask_user_store_key,(user_history_t *)&info_str.user_history_data ,sizeof(user_history_t))){
+                    ESP_LOGE(TAG, "write time data store history data error!!"); 
+                }
+            }else{
+                ESP_LOGE(TAG, "history data max 100!!!!!");
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+
+#define HTTPS_SEND_MAX  30
 
 /**
  * @brief 上电遍历所有用户模型信息及同步数据至云端;
@@ -848,14 +880,13 @@ static void vesync_send_match_user_data_https_req(void)
                         break;
                 }
             }else if(mask == 1){    //刷新token回复;
-                gUserUploadStep = 2;
+                gUserUploadStep = 0;
                 mask = 0;
                 app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
             }
         }else if(if_resend == 3){  //token失效
             LOG_E(TAG, "server report token error!!!!");
             mask = 1;
-            gUserUploadStep = 2;
             app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
         }else if(if_resend == 4){//数据上传失败
             mask = 0;
@@ -867,6 +898,16 @@ static void vesync_send_match_user_data_https_req(void)
             }else{
                 ESP_LOGE(TAG, "history data max 100!!!!!");
             }
+        }
+    }else{
+        mask = 0;
+        gUserUploadStep = 0;
+        if(array_len < USER_STORE_LEN){    //判断沉淀数据是否超出范围
+            if(!vesync_flash_write(USER_HISTORY_DATA_NAMESPACE,mask_user_store_key,(user_history_t *)&info_str.user_history_data ,sizeof(user_history_t))){
+                ESP_LOGE(TAG, "real time data store history data error!!"); 
+            }
+        }else{
+            ESP_LOGE(TAG, "history data max 100!!!!!");
         }
     }
     ESP_LOGI(TAG, "gUserUploadStep end %d",gUserUploadStep);
@@ -894,6 +935,10 @@ static void app_handle_server_task_handler(void *pvParameters){
             if(notified_value & UPLOAD_ALL_USER_DATA_REQ){
                 LOG_I(TAG, "UPLOAD_ALL_USER_DATA_REQ");
                 vesync_send_all_data_https_req();
+            }
+            if(notified_value & STORE_WEIGHT_DATA_REQ){
+                LOG_I(TAG, "STORE_WEIGHT_DATA_REQ");
+                vesync_store_match_user_req();
             }
         }
     }
@@ -949,7 +994,7 @@ void device_status(device_status_e status)
 void app_hadle_server_create(void)
 {
     vesync_flash_config(true, USER_HISTORY_DATA_NAMESPACE);//初始化用户沉淀数据flash区域
-    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 16*1024, NULL, 2, &s_network_service_taskhd);
+    xTaskCreate(app_handle_server_task_handler, "app_handle_server_task_handler", 8*1024, NULL, 2, &s_network_service_taskhd);
 
     app_handle_net_service_task_notify_bit(UPLOAD_ALL_USER_DATA_REQ,NULL,0);
 }

@@ -98,6 +98,7 @@ void vesync_register_application_cb(vesync_application_cb_t cb)
 		vesync_application_cb = cb;
 	}
 }
+
 /**
  * @brief vesync平台入口
  * @param args [无]
@@ -114,7 +115,6 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "Create event center task fail !");
 	}
 	vesync_clinet_wifi_module_init(true);
-	vesync_init_https_module(vesync_https_ca_cert_pem);
 	if(NULL != vesync_application_cb){
 		vesync_application_cb();
 	}
@@ -125,12 +125,13 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "config info NULL");
 		vesync_set_device_status(DEV_CONFIG_NET_NULL);			//第一次使用，未配网
 	}
-	// uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
-	// strcpy((char *)product_config.cid,(char *)test_cid);
+	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
+	strcpy((char *)product_config.cid,(char *)test_cid);
 
-	while(1){
-		sleep(5);
-		//vesync_printf_system_time();
-		//printf_os_task_manager();
-	}
+	// while(1){
+	// 	sleep(5);
+	// 	//vesync_printf_system_time();
+	// 	printf_os_task_manager();
+	// }
+	vTaskDelete(NULL);
 }

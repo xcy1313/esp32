@@ -15,14 +15,16 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#define RESTORE_FACTORY_NOTIFY_BIT	0x00000001
 
 extern TaskHandle_t app_public_events_task;
+extern bool enter_default_factory_function_mode;
 
-#define NET_CONFIG_NOTIFY_BIT	0x00000001
- 
 /**
  * @brief 体脂称公共业务通知处理任务
  */
 void app_public_events_task_create(void);
+
+void app_public_send_notify_bit(uint32_t bit );
 
 #endif

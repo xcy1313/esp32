@@ -261,11 +261,15 @@ static void vesync_ota_task_handler(void *pvParameters)
 
 vesync_ota_status_t vesync_ota_init(char *url,vesync_ota_event_cb_t cb)
 {
-    char server_url[MAX_URL_LEN] ={'\0'};
+    char *server_url;
 
+    server_url = malloc(MAX_URL_LEN);
     strcpy(server_url,url);
+    
     vesync_ota_status_handler_cb = cb;
     xTaskCreate(vesync_ota_task_handler, "vesync_ota_task_handler", 8192, server_url, 20, NULL);
+
+    free(server_url);
 
     if(method_timer_create(&vesync_ota_timeout_timer ,VESYNC_OTA_TIMEOUT_TIME / portTICK_PERIOD_MS,false,vesync_ota_timerout_callback) != true){
         ESP_LOGE(TAG, "create ota timeout timer fail!!!");

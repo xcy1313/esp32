@@ -324,6 +324,11 @@ static void app_scales_power_off(void)
 {
 	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
 
+	info_str.user_utc_time.unix_time = time((time_t *)NULL);
+	LOG_I(TAG, "set last power off time zone:%d ,time:%d",info_str.user_utc_time.zone,info_str.user_utc_time.unix_time);
+
+	vesync_nvs_write_data(UNIX_TIME_NAMESPACE,UNIX_TIME_KEY,(uint8_t *)&info_str.user_utc_time,sizeof(utc_time_t));
+
 	vesync_bt_advertise_stop();
 	resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
 	app_uart_resend_timer_stop();	//称体休眠 下发数据无效
@@ -513,13 +518,13 @@ void app_button_event_handler(void *p_event_data){
 	static uint16_t lchecktime = 0; 
 
 	if(app_get_upgrade_source() == UPGRADE_APP)	return;	//升级过程中禁止操作按键;
-
+	if(enter_default_factory_function_mode == true)	return;
+	
 	app_scale_suspend_start();
 
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:
-				//app_scales_power_off();
 				if(vesync_get_production_status() >= PRODUCTION_EXIT){
 					uint8_t backup_unix = info_str.user_config_data.measu_unit;
 					if(backup_unix == UNIT_LB){
@@ -585,30 +590,7 @@ void app_button_event_handler(void *p_event_data){
 			}
 			return;
 		case Very_Long_key:{
-				static bool factory_set = false;
-				if(factory_set == false){
-					uint8_t action = 3;
-					uint32_t ret;
-					factory_set = true;
-					if(vesync_erase_net_info() != 0){	//清除配网信息
-						LOG_E(TAG,"server report error and erase net config info\r\n");
-					}
-					app_uart_encode_send(MASTER_SET,CMD_CLEAR_USER,&action,sizeof(uint8_t),true);
-					ret = vesync_flash_erase_partiton(USER_MODEL_NAMESPACE);	//删除用户模型分区
-					if(ret != 0){
-						LOG_E(TAG, "erase USER_MODEL_NAMESPACE\r\n");
-					}
-					ret = vesync_flash_erase_partiton(USER_HISTORY_DATA_NAMESPACE);//删除用户历史数据分区
-					if(ret != 0){
-						LOG_E(TAG, "erase USER_HISTORY_DATA_NAMESPACE\r\n");
-					}
-					vTaskDelay(4000 / portTICK_PERIOD_MS);	//正常使用10ms；
-					app_sale_wakeup(true);
-					action = 4;
-					app_uart_encode_send(MASTER_SET,CMD_CLEAR_USER,&action,sizeof(uint8_t),true);
-					vTaskDelay(1000 / portTICK_PERIOD_MS);	//正常使用10ms；
-					esp_restart();
-				}
+				app_public_send_notify_bit(RESTORE_FACTORY_NOTIFY_BIT);
 			}
 			return;
 		default:

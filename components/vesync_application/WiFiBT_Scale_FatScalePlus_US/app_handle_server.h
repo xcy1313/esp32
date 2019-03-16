@@ -19,15 +19,17 @@
 
 #define PRODUCT_TEST_START  0x1
 
-#define USER_STORE_LEN		100
+#define USER_STORE_LEN		50
 
 #define UPGRADE_NULL			0
 #define UPGRADE_APP				1
 #define UPGRADE_PRODUCTION	    2
 
 //vesync事件处理中心任务的事件标志位定义，高8位用于存放自定义参数，即事件位共24位
+#define STORE_WEIGHT_DATA_REQ			0x00000002
 #define UPLOAD_WEIGHT_DATA_REQ			0x00000004
 #define UPLOAD_ALL_USER_DATA_REQ		0x00000008
+
 /**
  * @brief 设备配网状态
  */

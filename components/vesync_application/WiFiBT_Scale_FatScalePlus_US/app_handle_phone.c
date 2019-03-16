@@ -334,10 +334,13 @@ bool vesync_factory_get_bt_rssi(hw_info *info,uint8_t *opt,uint8_t len)
  */
 bool vesync_set_unix_time(hw_info *info,uint8_t *opt ,uint8_t len)
 {
-    uint32_t unix_time = *(uint32_t *)&opt[1];
+    info->user_utc_time.unix_time = *(uint32_t *)&opt[1];
+    info->user_utc_time.zone = opt[0];
 
-    ESP_LOGI(TAG, "unix_time = 0x%04x \n" ,unix_time);
-    vesync_set_time(unix_time,(int8_t)opt[0]);
+    ESP_LOGI(TAG, "unix_time = 0x%04x zone = %d" ,info->user_utc_time.zone,info->user_utc_time.unix_time);
+    vesync_set_time(info->user_utc_time.unix_time,info->user_utc_time.zone);
+
+    vesync_nvs_write_data(UNIX_TIME_NAMESPACE,UNIX_TIME_KEY,(uint8_t *)&info->user_utc_time,sizeof(utc_time_t));
 
     return true;
 }
@@ -949,7 +952,7 @@ static void ble_send_inquiry_history_null_data(uint32_t account,uint8_t cnt){
  */
 static void app_handle_ble_send_task_handler(void *pvParameters)
 {
-    uint8_t user_read_data[6000] ={0};
+    static uint8_t user_read_data[5000] ={0};
     uint16_t read_len =0;
     static uint8_t gUserConfig =0;
     static uint16_t send_len =0;
@@ -1040,7 +1043,7 @@ void app_ble_init(void)
     app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
 
     ble_event_group= xEventGroupCreate();
-    xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 8192, NULL, 8, NULL);
+    xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 8*1024, NULL, 8, NULL);
 }
 /**
  * @brief 初始化产测广播服务模式

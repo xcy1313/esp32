@@ -14,6 +14,7 @@
 #include "esp_task_wdt.h"
 
 #include "esp_event_loop.h"
+#include "esp_tls.h"
 
 #include <netdb.h>
 #include <sys/socket.h>
@@ -29,11 +30,9 @@
 
 #include "vesync_log.h"
 #include "vesync_wifi.h"
+#include "vesync_ca_cert.h"
 
-/* Constants that aren't configurable in menuconfig */
-#define WEB_SERVER "www.howsmyssl.com"
-#define WEB_PORT "443"
-#define WEB_URL "https://www.howsmyssl.com/a/check"
+#define HTTPS_BUFFER_SIZE                   (6 * 1024)          //https通信的数据交互缓存区大小
 
 static const char *TAG = "vesync_https";
 
@@ -44,81 +43,6 @@ static const char *REQUEST = "POST " "%s" " HTTP/1.0\r\n"
                              "Content-Length:%d\r\n"
                              "\r\n"
                              "%s";
-    
-static mbedtls_entropy_context 	s_entropy;
-static mbedtls_ctr_drbg_context s_ctr_drbg;
-static mbedtls_ssl_context 		s_ssl_context;
-static mbedtls_x509_crt 		s_cacert;
-static mbedtls_ssl_config 		s_ssl_conf;
-static mbedtls_net_context 		s_server_fd;
-
-/**
- * @brief 初始化https模块
- * @return int [初始化结果，0为成功]
- */
-int vesync_init_https_module(const char * ca_cert)
-{
-    int ret;
-
-    mbedtls_ssl_init(&s_ssl_context);
-    mbedtls_x509_crt_init(&s_cacert);
-    mbedtls_ctr_drbg_init(&s_ctr_drbg);
-    mbedtls_ssl_config_init(&s_ssl_conf);
-    mbedtls_entropy_init(&s_entropy);
-
-    //LOG_I(TAG, "Seeding the random number generator");
-    if((ret = mbedtls_ctr_drbg_seed(&s_ctr_drbg, mbedtls_entropy_func, &s_entropy, NULL, 0)) != 0)
-    {
-        LOG_E(TAG, "mbedtls_ctr_drbg_seed returned %d", ret);
-        return ret;
-    }
-
-    //LOG_I(TAG, "Loading the CA root certificate...");
-    ret = mbedtls_x509_crt_parse(&s_cacert, (unsigned char*)ca_cert, strlen(ca_cert) + 1);
-    if(ret < 0)
-    {
-        LOG_E(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -ret);
-        return ret;
-    }
-
-    // LOG_I(TAG, "Setting hostname for TLS session...");
-    // /* Hostname set here should match CN in server certificate */
-    // if((ret = mbedtls_ssl_set_hostname(&s_ssl_context, WEB_SERVER)) != 0)
-    // {
-    // 	LOG_E(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -ret);
-    // 	return ret;
-    // }
-
-    //LOG_I(TAG, "Setting up the SSL/TLS structure...");
-    if((ret = mbedtls_ssl_config_defaults(&s_ssl_conf,
-                                          MBEDTLS_SSL_IS_CLIENT,
-                                          MBEDTLS_SSL_TRANSPORT_STREAM,
-                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
-    {
-        LOG_E(TAG, "mbedtls_ssl_config_defaults returned %d", ret);
-        return ret;
-    }
-
-    /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
-       a warning if CA verification fails but it will continue to connect.
-       You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
-    */
-    mbedtls_ssl_conf_authmode(&s_ssl_conf, MBEDTLS_SSL_VERIFY_REQUIRED );    //MBEDTLS_SSL_VERIFY_OPTIONAL
-    mbedtls_ssl_conf_ca_chain(&s_ssl_conf, &s_cacert, NULL);
-    mbedtls_ssl_conf_rng(&s_ssl_conf, mbedtls_ctr_drbg_random, &s_ctr_drbg);
-#ifdef CONFIG_MBEDTLS_DEBUG
-    mbedtls_esp_enable_debug_log(&s_ssl_conf, 4);
-#endif
-
-    if((ret = mbedtls_ssl_setup(&s_ssl_context, &s_ssl_conf)) != 0)
-    {
-        LOG_E(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -ret);
-        mbedtls_ssl_session_reset(&s_ssl_context);
-        return ret;
-    }
-
-    return 0;
-}
 
 /**
  * @brief 发起https请求
@@ -133,10 +57,6 @@ int vesync_init_https_module(const char * ca_cert)
  */
 int vesync_https_request(char *server_addr, char *port, char *url, char *send_body, char *recv_buff, int *recv_len, int wait_time_ms)
 {
-    char https_buffer[6000];
-    int ret, flags, len;
-
-    esp_task_wdt_reset();
     LOG_D(TAG, "Waiting for network connected...");
     if(vesync_wait_network_connected(wait_time_ms) != 0)
     {
@@ -145,126 +65,101 @@ int vesync_https_request(char *server_addr, char *port, char *url, char *send_bo
     }
     LOG_D(TAG, "Network connected.");
 
-    mbedtls_net_init(&s_server_fd);
+	esp_tls_cfg_t cfg =
+	{
+		.cacert_pem_buf = (unsigned char*)vesync_https_ca_cert_pem_start,
+		.cacert_pem_bytes = vesync_https_ca_cert_pem_end - vesync_https_ca_cert_pem_start,
+	};
+    int ret = -1, len = 0;
 
-    LOG_D(TAG, "Connecting to %s:%s...", server_addr, port);
-    if((ret = mbedtls_net_connect(&s_server_fd, server_addr, port, MBEDTLS_NET_PROTO_TCP)) != 0)
+    int server_port = atoi(port);
+    esp_tls_t *tls = esp_tls_conn_new(server_addr, strlen(server_addr), server_port, &cfg);
+
+    if(tls != NULL)
     {
-        LOG_E(TAG, "mbedtls_net_connect returned -0x%x", -ret);
-        goto exit;
-    }
-    LOG_I(TAG, "Connected.");
-
-    mbedtls_ssl_set_bio(&s_ssl_context, &s_server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
-
-    LOG_D(TAG, "Performing the SSL/TLS handshake...");
-    while((ret = mbedtls_ssl_handshake(&s_ssl_context)) != 0)
-    {
-        if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
-        {
-            LOG_E(TAG, "mbedtls_ssl_handshake returned -0x%x", -ret);
-            goto exit;
-        }
-        LOG_E(TAG, "mbedtls_ssl_handshake returned 0x%x", ret);
-    }
-
-    LOG_D(TAG, "Verifying peer X.509 certificate...");
-    if((flags = mbedtls_ssl_get_verify_result(&s_ssl_context)) != 0)
-    {
-        /* In real life, we probably want to close connection if ret != 0 */
-        LOG_W(TAG, "Failed to verify peer certificate!");
-        bzero(https_buffer, sizeof(https_buffer));
-        mbedtls_x509_crt_verify_info(https_buffer, sizeof(https_buffer), "  ! ", flags);
-        LOG_W(TAG, "verification info: %s", https_buffer);
+        LOG_I(TAG, "Connection established...");
     }
     else
     {
-        LOG_I(TAG, "Certificate verified.");
+        LOG_E(TAG, "Connection failed...");
+        goto exit;
     }
 
-    LOG_D(TAG, "Cipher suite is %s", mbedtls_ssl_get_ciphersuite(&s_ssl_context));
-
-
-    sprintf(https_buffer, REQUEST, url, server_addr,strlen(send_body),send_body);
-    size_t written_bytes = 0;
-    do
+    char *https_buffer = NULL;
+    https_buffer = malloc(HTTPS_BUFFER_SIZE);
+    if(NULL != https_buffer)
     {
-        ret = mbedtls_ssl_write(&s_ssl_context,
-                                (const unsigned char *)https_buffer + written_bytes,
-                                strlen(https_buffer) - written_bytes);
-        if(ret >= 0)
-        {
-            LOG_D(TAG, "%d bytes written", ret);
-            written_bytes += ret;
-        }
-        else if(ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret != MBEDTLS_ERR_SSL_WANT_READ)
-        {
-            LOG_E(TAG, "mbedtls_ssl_write returned -0x%x", -ret);
-            goto exit;
-        }
-        esp_task_wdt_reset();
-        //LOG_I(TAG, "Writing HTTP request len [%d],content is [%s]",strlen(https_buffer),https_buffer);
-    } while(written_bytes < strlen(https_buffer));
+        sprintf(https_buffer, REQUEST, url, server_addr,strlen(send_body),send_body);
 
-    LOG_I(TAG, "Reading HTTP response...");
-    do
+        size_t written_bytes = 0;
+        do
+        {
+            ret = esp_tls_conn_write(tls,
+                                    https_buffer + written_bytes,
+                                    strlen(https_buffer) - written_bytes);
+            if(ret >= 0)
+            {
+                LOG_I(TAG, "%d bytes written", ret);
+                written_bytes += ret;
+            }
+            else if(ret != MBEDTLS_ERR_SSL_WANT_READ  && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
+            {
+                LOG_E(TAG, "esp_tls_conn_write  returned 0x%x", ret);
+                goto exit;
+            }
+        } while(written_bytes < strlen(https_buffer));
+
+        LOG_I(TAG, "Reading HTTP response...");
+
+        do
+        {
+            len = HTTPS_BUFFER_SIZE - 1;
+            bzero(https_buffer, HTTPS_BUFFER_SIZE);
+            ret = esp_tls_conn_read(tls, (char *)https_buffer, len);
+
+            if(ret == MBEDTLS_ERR_SSL_WANT_WRITE  || ret == MBEDTLS_ERR_SSL_WANT_READ)
+                continue;
+
+            if(ret < 0)
+            {
+                LOG_E(TAG, "esp_tls_conn_read  returned -0x%x", -ret);
+                break;
+            }
+
+            if(ret == 0)
+            {
+                LOG_I(TAG, "connection closed");
+                break;
+            }
+
+            len = ret;
+            LOG_I(TAG, "%d bytes read", len);
+            // for(int i = 0; i < len; i++) {
+            //         putchar(https_buffer[i]);
+            // }
+            if(len < *recv_len)
+            {
+                memcpy(recv_buff, https_buffer, len);
+                recv_buff[len] = '\0';
+                *recv_len = len;
+            }
+            else
+            {
+                LOG_E(TAG, "Recv buffer length is too short !");
+                *recv_len = -1;
+            }
+        } while(1);
+    }
+    else
     {
-        len = sizeof(https_buffer) - 1;
-        bzero(https_buffer, sizeof(https_buffer));
-        ret = mbedtls_ssl_read(&s_ssl_context, (unsigned char *)https_buffer, len);
-        LOG_I(TAG, "mbedtls_ssl_read result :%d" ,ret);
-        esp_task_wdt_reset();
-        if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)
-            continue;
+        LOG_E(TAG, "Https buffer is null !");
+    }
 
-        if(ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY)
-        {
-            ret = 0;
-            break;
-        }
-
-        if(ret < 0)
-        {
-            LOG_E(TAG, "mbedtls_ssl_read returned -0x%x", -ret);
-            break;
-        }
-
-        if(ret == 0)
-        {
-            LOG_I(TAG, "connection closed");
-            break;
-        }
-
-        len = ret;
-        LOG_I(TAG, "%d bytes read", len);
-        // for(int i = 0; i < len; i++) {
-        //         putchar(https_buffer[i]);
-        // }
-        if(len < *recv_len)
-        {
-            memcpy(recv_buff, https_buffer, len);
-            recv_buff[len] = '\0';
-            *recv_len = len;
-        }
-        else
-        {
-            LOG_E(TAG, "Recv buffer length is too short !");
-            *recv_len = -1;
-        }
-    } while(1);
-
-    mbedtls_ssl_close_notify(&s_ssl_context);
+    if(NULL != https_buffer)
+        free(https_buffer);
 
 exit:
-    mbedtls_ssl_session_reset(&s_ssl_context);
-    mbedtls_net_free(&s_server_fd);
-
-    if(ret != 0)
-    {
-        mbedtls_strerror(ret, https_buffer, 100);
-        LOG_E(TAG, "Last error was: -0x%x - %s", -ret, https_buffer);
-        return ret;
-    }
-
-    return 0;
+    esp_tls_conn_delete(tls);
+    putchar('\n'); // JSON output doesn't have a newline at end
+    return ret;
 }

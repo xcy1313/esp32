@@ -326,7 +326,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
 
                     history.imped_value = new_imped;
                     history.utc_time = time((time_t *)NULL);
-                    history.time_zone = 8;
+                    history.time_zone = res->user_utc_time.zone;
                     history.measu_unit = p_weitht->measu_unit;
                     history.weight_kg = p_weitht->weight;
                     history.weight_lb = p_weitht->lb;
@@ -351,18 +351,14 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     match_account_id = backup_user_list[list_number].account;
                     strcpy(mask_user_store_key,backup_user_list[list_number].user_store_key);
 
-                    // static uint8_t user_read_data_buff[4096] ={0};
-                    // static uint16_t total_size =0;
-                    // static uint8_t  array_len = 0;
-
-                    
-
-                    if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ //称重数据上报服务器 
+                    memcpy((user_history_t *)&res->user_history_data ,(user_history_t *)&history,sizeof(user_history_t));
+                    if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ //设备已配网
                         if(vesync_get_router_link() == false){
                             vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-                        }
-                        memcpy((user_history_t *)&res->user_history_data ,(user_history_t *)&history,sizeof(user_history_t));
+                        } 
                         app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+                    }else{                                                      //设备未配网
+                        app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,0,0);
                     }
                 }else{
                     ESP_LOGE(TAG, "user mode para not match not same user!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理

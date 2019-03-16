@@ -24,6 +24,8 @@
 #define WAKE_UP_PIN     25
 #define SCALE_RST_PIN 	26
 
+#define UNIX_TIME_NAMESPACE	"unix_space"
+#define UNIX_TIME_KEY		"unix_key"
 
 #define UNIT_NAMESPACE "unit_space"	//体脂称测量单位保存记录键值
 #define UNIT_KEY      "unit_key"
@@ -180,7 +182,14 @@ typedef struct{
 	uint16_t 				weight_kg; 		//体重kg值；
 	uint16_t 				weight_lb; 		//体重lb值；	  
 }user_history_t;
-#pragma pack()			//
+#pragma pack()				//
+
+#pragma pack(1)
+typedef struct{
+	int8_t 					zone;
+	uint32_t				unix_time;
+}utc_time_t;
+#pragma pack()				//
 
 typedef struct {
 	response_version_data_t   response_version_data;
@@ -192,6 +201,7 @@ typedef struct {
 	user_config_data_t		  user_config_list[MAX_CONUT];
 	uint8_t 		  		  user_config_list_mode_len;
 	user_history_t			  user_history_data;
+	utc_time_t				  user_utc_time;
 }hw_info;
 extern hw_info info_str;
 

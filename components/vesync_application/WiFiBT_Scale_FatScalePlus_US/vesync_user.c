@@ -25,6 +25,7 @@
 #include "app_handle_phone.h"
 #include "app_handle_scales.h"
 #include "app_handle_server.h"
+#include "app_public_events.h"
 
 static const char* TAG = "vesync_user";
 
@@ -49,19 +50,27 @@ void app_sacle_pin_rst_delay(void)
  */
 void vesync_user_entry(void *args)
 {
-	uint8_t unit;
+	uint16_t len;
+
+	utc_time_t	last_time;
+	vesync_nvs_read_data(UNIX_TIME_NAMESPACE,UNIX_TIME_KEY,(uint8_t *)&last_time,&len);
+	LOG_I(TAG, "read last power off time len:%d,zone:%d ,time:%d",len,last_time.zone,last_time.unix_time);
+	info_str.user_utc_time.zone = last_time.zone;
+	
 	vesync_init_sntp_service("ntp.vesync.com");
 	switch (esp_sleep_get_wakeup_cause()){	
 		case ESP_SLEEP_WAKEUP_EXT1: 		//判断唤醒源是否按键或者称重唤醒
 		case ESP_SLEEP_WAKEUP_EXT0:
 			LOG_I(TAG, "wake up from EXT IO!!!");
-			//vesync_client_wifi_module_deinit();
 			break;
-		default:
-			LOG_I(TAG, "wake up from RST!!!");
-			vesync_set_time(1509449941,8);
-			if(DEV_CONFIG_NET_RECORDS == vesync_get_device_status()){
-				//vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+		default:{
+				LOG_I(TAG, "wake up from RST!!!");
+				if(len == sizeof(utc_time_t)){
+					vesync_set_time(last_time.unix_time,last_time.zone);
+				}
+				if(DEV_CONFIG_NET_RECORDS == vesync_get_device_status()){
+					//vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+				}
 			}
 			break;
 	}
@@ -82,6 +91,7 @@ void vesync_user_entry(void *args)
 	app_ble_init();
 	app_scales_start();
 	app_hadle_server_create();
-	
+	app_public_events_task_create();
+
 	vTaskDelete(NULL);
 }
