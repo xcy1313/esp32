@@ -298,8 +298,8 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                 ESP_LOGE(TAG, "user module NULL");
             }else{
 #if 1
-                // p_weitht->imped_value = 0;
-                // p_weitht->weight = 1550;  //6500  55
+                p_weitht->imped_value = 0;
+                p_weitht->weight = 1550;  //6500  55
                 uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
                 uint16_t new_kg = p_weitht->weight;//调试屏蔽注释 85
                 uint8_t user_cnt =0;
