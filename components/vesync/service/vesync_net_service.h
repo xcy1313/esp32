@@ -81,6 +81,11 @@ void vesync_mqtt_client_disconnet_from_cloud(void);
 void vesync_clinet_wifi_module_init(bool power_save);
 
 /**
+ * @brief 用户调用关闭wifi模块
+ */
+void vesync_client_wifi_module_deinit(void);
+
+/**
  * @brief 设置https服务器地址
  * @param address 	[服务器域名或者IP地址]
  * @return int 		[设置结果，0为成功]

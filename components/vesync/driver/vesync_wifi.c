@@ -87,7 +87,6 @@ bool vesync_get_router_link(void)
 static void vesync_set_wifi_status(vesync_wifi_status_e new_status)
 {
     if(new_status != wifi_status){
-        ESP_LOGI(TAG, "wifi set mode is %d",new_status);
         wifi_status = new_status;
     }
 }
@@ -249,6 +248,17 @@ void vesync_init_wifi_module(vesync_wifi_cb callback,bool power_save)
 	LOG_I(TAG, "Init wifi module done.");
 }
 
+/**
+ * @brief 关闭wifi模块
+ */
+void vesync_deinit_wifi_module(void)
+{
+	vEventGroupDelete(s_network_event_group);
+	s_vesync_wifi_callback = NULL;
+	vesync_hal_deinit_wifi_module();
+
+	LOG_I(TAG, "de-Init wifi module done.");
+}
 /**
  * @brief 设置设备为开放热点
  * @param ap_ssid [热点的名称]

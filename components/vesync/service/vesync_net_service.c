@@ -7,6 +7,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "esp_task_wdt.h"
 
 #include "vesync_main.h"
 #include "vesync_wifi.h"
@@ -200,7 +201,7 @@ void vesync_config_cloud_mqtt_client_with_tls(char *client_id, char *server_addr
 		vesync_delete_mqtt_client(&s_vesync_client);
 	vesync_init_mqtt_client_with_tls(&s_vesync_client, client_id, server_addr, server_port,
 	                                 username, password, mqtt_event_handler,
-	                                 vesync_ca_cert_pem, vesync_client_cert_pem, vesync_client_key_pem);
+	                                 vesync_mqtt_ca_cert_pem_start, vesync_mqtt_client_cert_pem_start, vesync_mqtt_client_key_pem_start);
 }
 
 /**
@@ -227,6 +228,13 @@ void vesync_clinet_wifi_module_init(bool power_save)
 	vesync_init_wifi_module(vesync_connect_wifi_callback,power_save);
 }
 
+/**
+ * @brief 用户调用关闭wifi模块
+ */
+void vesync_client_wifi_module_deinit(void)
+{
+	vesync_deinit_wifi_module();
+}
 /**
  * @brief 为cjson格式的协议方法添加固定的接口头部
  * @param method 	[接口方法名]
@@ -339,6 +347,8 @@ void vesync_json_add_https_service_register(uint8_t mask)
 
 	int rssi = vesync_get_ap_rssi(8);
 	
+	esp_task_wdt_feed();
+
     switch(mask){
         case NETWORK_CONFIG_REQ:
             cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
@@ -388,7 +398,7 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	LOG_I(TAG, "servel url %s",net_info.station_config.server_url);
 	LOG_I(TAG, "servel account_id %s",net_info.station_config.account_id);
 
-	ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 1 * 1000);
+	ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 10000);
 	if(buff_len > 0 && ret == 0){
 		LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
 		vesync_json_https_service_parse(mask,recv_buff);

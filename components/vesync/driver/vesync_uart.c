@@ -66,11 +66,7 @@ void vesync_uart_encode_send(uint8_t ctl,uint8_t cmd,const unsigned char *data,u
 
     sendlen = Comm_frame_pack(ctl,cmd,data,len+1,(unsigned char *)&sendbuf); //数据内容包含1个字节cmd 所以加一
 
-	printf("\n--------------------->\n");
-    for(uint8_t i=0;i<sendlen;i++){
-        printf("%02x ",sendbuf[i]);
-    }
-    printf("\n");
+    esp_log_buffer_hex(TAG, sendbuf, sendlen);
 
     if(sendlen != 0){
         WriteCoreQueue(sendbuf,sendlen);

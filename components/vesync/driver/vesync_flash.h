@@ -64,27 +64,6 @@ uint32_t vesync_flash_erase_key(const char *label_name,const char *key_name);
 uint32_t vesync_flash_erase_all_key(const char *label_name,const char *key_name);
 
 /**
- * @brief 写入当前所在key_name的存储内容
- * @param label_name partition区名
- * @param key_name 键值名
- * @param data 数据写入指针
- * @param len 数据长度
- * @return true 写入结果成功
- * @return false 写入结果失败
- */
-bool vesync_flash_write(const char *label_name,const char *key_name,const void *data,uint32_t len);
-
-/**
- * @brief 读取当前所在key_name的存储内容
- * @param label_name 
- * @param key_name 
- * @param data 
- * @param len 
- * @return uint32_t 返回操作错误码
- */
-uint32_t vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len);
-
-/**
  * @brief 配置自定义partition区，操作前必须对此enable
  */
 void vesync_flash_config(bool enable ,const char *part_name);
@@ -142,5 +121,54 @@ bool vesync_flash_read_product_config(product_config_t *x_info);
 uint32_t vesync_flash_write_token_config(char *token);
 
 uint32_t vesync_flash_read_token_config(char *token);
+
+/**
+ * @brief 写入当前所在key_name的存储内容
+ * @param label_name partition区名
+ * @param key_name 键值名
+ * @param data 数据写入指针
+ * @param len 数据长度
+ * @return true 写入结果成功
+ * @return false 写入结果失败
+ */
+bool vesync_flash_write(const char *label_name,const char *key_name,const void *data,uint32_t len);
+
+/**
+ * @brief 读取当前所在key_name的存储内容
+ * @param label_name 
+ * @param key_name 
+ * @param data 
+ * @param len 
+ * @return uint32_t 返回操作错误码
+ */
+uint32_t vesync_flash_read(const char *label_name,const char *key_name,const void *data,uint16_t *len);
+
+/**
+ * @brief nvs默认分区读取数据块
+ * @param part_name 
+ * @param key 键值
+ * @param data 读取数据缓存Buff
+ * @param len 当前读取的数据长度
+ * @return int32_t 
+ */
+int32_t vesync_nvs_read_data(char *part_name ,char *key ,uint8_t *data,uint16_t *len);
+
+/**
+ * @brief nvs默认分区写入数据块
+ * @param part_name 
+ * @param key 键值
+ * @param data 写入数据
+ * @param len 写入数据长度
+ * @return int32_t 
+ */
+int32_t vesync_nvs_write_data(char *part_name ,char *key ,uint8_t *data,uint16_t len);
+
+/**
+ * @brief nvs默认分区擦除key
+ * @param part_name 
+ * @param key 
+ * @return int32_t 
+ */
+int32_t vesync_nvs_erase_data(char *part_name ,char *key);
 
 #endif

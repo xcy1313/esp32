@@ -605,6 +605,8 @@ uint32_t vesync_flash_read_token_config(char *token)
  * @brief 写产测参数flash
  * @param info 
  * @return uint32_t 
+<<<<<<< HEAD
+=======
  */
 uint32_t vesync_flash_write_product_config(product_config_t *info)
 {
@@ -646,6 +648,107 @@ uint32_t vesync_flash_write_product_config(product_config_t *info)
     }
 
     ESP_LOGI(TAG, "NVS store cid ok!!!!!");
+    nvs_close(handle);
+    return err;
+}
+
+/**
+ * @brief 擦除key对应分区的数据内容;
+ * @param part_name 
+ * @param key 
+ * @return int32_t 
+ */
+int32_t vesync_nvs_erase_data(char *part_name ,char *key)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(part_name, NVS_READWRITE, &handle);
+
+    if(err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: failed to open NVS write (0x%x)", __func__, err);
+        return err;
+    }
+    nvs_erase_all(handle);
+
+    nvs_close(handle);
+
+    return err;
+}
+
+/**
+ * @brief nvs默认分区读取数据块
+ * @param part_name 
+ * @param key 键值
+ * @param data 读取数据缓存Buff
+ * @param len 当前读取的数据长度
+ * @return int32_t 
+ */
+int32_t vesync_nvs_read_data(char *part_name ,char *key ,uint8_t *data,uint16_t *len)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(part_name, NVS_READONLY, &handle);
+
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "%s: failed to open NVS read (0x%x)", __func__, err);
+        return err;
+    }
+
+    err = nvs_get_blob(handle, key, NULL, len);
+    if(err == ESP_OK){
+        err |= nvs_get_blob(handle, key, data, len);
+        if (err != ESP_OK){
+            ESP_LOGE(TAG, "%s: failed to read NVS read (0x%x)", __func__, err);
+            return err;
+        }
+    }
+
+    nvs_close(handle);
+    return err;
+}
+
+/**
+ * @brief nvs默认分区写入数据块
+ * @param part_name 
+ * @param key 键值
+ * @param data 写入数据
+ * @param len 写入数据长度
+ * @return int32_t 
+>>>>>>> FatScale00-dev
+ */
+int32_t vesync_nvs_write_data(char *part_name ,char *key ,uint8_t *data,uint16_t len)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(part_name, NVS_READWRITE, &handle);
+
+    if(err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: failed to open NVS write (0x%x)", __func__, err);
+        return err;
+    }
+    nvs_erase_all(handle);
+
+    err = nvs_set_blob(handle, key, data, len);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: failed to read NVS read (0x%x)\n", __func__, err);
+        return err;
+    }
+
+    err = nvs_commit(handle);       //写完后需要更新flash
+    if (err != ESP_OK) {
+        nvs_close(handle);
+        return err;
+    }
+/******************************************************/    
+    char *r_buf = (char *)malloc(len);
+    err = nvs_get_blob(handle, key, r_buf, &len);
+    printf("read nvc------------------------>\n");
+    if (err == ESP_OK) {
+        for(int i=0;i<len;i++){
+            printf("%02x " ,r_buf[i]);
+        }
+    }
+    printf("end----------------------------->\n");
+    free(r_buf);
+/******************************************************/ 
+
     nvs_close(handle);
     return err;
 }

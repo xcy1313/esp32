@@ -28,7 +28,8 @@ typedef enum
 	DEV_CONFIG_NET_NULL 	= 1,			//没有配网记录
 	DEV_CONFIG_NET_READY 	= 2,			//配网中
 	DEV_CONFIG_NET_RECORDS 	= 3,			//有配网记录
-	DEV_CONFIG_NET_SUCCESS 	= 4				//配网完成
+	DEV_CONFIG_NET_SUCCESS 	= 4,				//配网完成
+	DEV_CONFIG_NET_FAIL     = 5				//配网失败
 } device_status_e;
 
 /**
