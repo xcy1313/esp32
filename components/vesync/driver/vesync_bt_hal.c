@@ -439,8 +439,6 @@ static uint8_t find_char_and_desr_index(uint16_t handle)
  */
 void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describe,int server_err_code)
 {
-    uint8_t mode;
-    wifi_config_t cfg;
     uint8_t upload_buf[400] ={0};
     char ap_mac_addr[6 * 3]={'\0'};
     uint16_t buflen = 0;
