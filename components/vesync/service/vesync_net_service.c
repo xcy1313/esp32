@@ -346,7 +346,6 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	itoa(seconds, traceId_buf, 10);
 
 	int rssi = vesync_get_ap_rssi(8);
-
     switch(mask){
         case NETWORK_CONFIG_REQ:
             cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());

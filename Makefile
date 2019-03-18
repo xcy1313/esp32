@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := WiFiBT_Scale_FatScalePlus_US.V
+PROJECT_NAME := hygrothermograph
 
 include $(IDF_PATH)/make/project.mk
 

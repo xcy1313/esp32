@@ -39,7 +39,7 @@ static int client_fd;
  */
 static void printf_os_task_manager_to_buf(char *buffer, int buf_len)
 {
-	uint8_t* pcWriteBuffer = malloc(1024);
+	char* pcWriteBuffer = malloc(1024);
 	char* printf_buffer = malloc(2048);
 	int pos = 0;
 	int free_mem = 0;
@@ -188,7 +188,7 @@ static int cjson_handle_task_manager(cJSON *json)
 			if (taskManager != NULL)
 			{
 				ret = 0;
-				LOG_I(TAG, "Send task manager.");
+				// LOG_I(TAG, "Send task manager.");
 				char* send_buf = malloc(2048);
 				printf_os_task_manager_to_buf(send_buf, 2048);
 				developer_tcp_send((uint8_t*)send_buf, strlen(send_buf));
@@ -330,7 +330,7 @@ int vesync_developer_start(void)
  */
 void printf_os_task_manager(void)
 {
-	uint8_t* pcWriteBuffer = malloc(1024);
+	char* pcWriteBuffer = malloc(1024);
 	int free_mem = 0;
 
 	printf("\n=====================================================\n");

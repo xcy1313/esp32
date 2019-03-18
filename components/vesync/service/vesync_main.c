@@ -32,8 +32,8 @@ vesync_application_cb_t vesync_application_cb = NULL;
  */
 static void vesync_event_center_thread(void *args)
 {
-	BaseType_t notified_ret;
-	uint32_t notified_value;
+    BaseType_t notified_ret;
+    uint32_t notified_value;
 
 	while(1)
 	{
@@ -66,9 +66,9 @@ static void vesync_event_center_thread(void *args)
 			{
 			}
 
-			if(notified_value & CONFIG_NET_MQTT_READY)
-			{
-			}
+            if(notified_value & CONFIG_NET_MQTT_READY)
+            {
+            }
 
 			if(notified_value & MQTT_CONNECTED)
 			{
@@ -92,13 +92,14 @@ static void vesync_event_center_thread(void *args)
 
 /**
  * @brief 注册回调应用程接口
- * @param cb 
+ * @param cb
  */
 void vesync_register_application_cb(vesync_application_cb_t cb)
 {
-	if(NULL != cb){
-		vesync_application_cb = cb;
-	}
+    if(NULL != cb)
+    {
+        vesync_application_cb = cb;
+    }
 }
 
 /**
