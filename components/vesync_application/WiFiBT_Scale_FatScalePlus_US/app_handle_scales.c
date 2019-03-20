@@ -168,6 +168,9 @@ static void app_notify_scale_suspend_timerout_callback(TimerHandle_t timer)
 {
 	uint8_t send_bit = 0x1;
 	app_sale_wakeup(true);
+	method_timer_stop(&scale_suspend_timer);
+
+	vesync_hal_wifi_stop();
 	app_uart_encode_send(MASTER_SET,CMD_SCALE_SUSPEND,(unsigned char *)&send_bit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_ENTER_SUSPEND;	//通知称体30s后熄屏;
 
@@ -186,6 +189,7 @@ void app_enter_scale_suspend_start(uint32_t timeout)
 			/* 创建广播监测超时定时器 */
 			method_timer_change_period(&scale_suspend_timer,timeout);
 			method_timer_start(&scale_suspend_timer);
+			ESP_LOGE(TAG, "scale_suspend_timer_start................");
 		}
 	}
 }
@@ -197,6 +201,7 @@ void app_enter_scale_suspend_stop(void)
 {
 	if(NULL != scale_suspend_timer){
     	method_timer_stop(&scale_suspend_timer);
+		ESP_LOGE(TAG, "scale_suspend_timer_stop................");
 	}
 }
 
@@ -205,9 +210,11 @@ void app_enter_scale_suspend_stop(void)
  */
 static void app_bt_wifi_suspend_timerout_callback(TimerHandle_t timer)
 {
-	method_timer_delete(&scale_suspend_timer);
-	method_timer_delete(&bt_wifi_suspend_timer);
-	app_scales_power_off();
+	method_timer_stop(&bt_wifi_suspend_timer);
+	
+	if(vesync_bt_connected() == false){
+		app_scales_power_off();
+	}
 	ESP_LOGI(TAG, "app_bt_wifi_suspend_timerout_callback");
 }
 
@@ -223,7 +230,8 @@ void app_bt_wifi_suspend_start(uint32_t timeout)
 			/* 创建广播监测超时定时器 */
 			method_timer_change_period(&bt_wifi_suspend_timer,timeout);
 			method_timer_start(&bt_wifi_suspend_timer);
-		} 
+		}
+		ESP_LOGE(TAG, "wifi_suspend_timer_start................"); 
 	}
 }
 
@@ -234,20 +242,22 @@ void app_bt_wifi_suspend_stop(void)
 {
 	if(NULL != bt_wifi_suspend_timer){
     	method_timer_stop(&bt_wifi_suspend_timer);
+		ESP_LOGE(TAG, "wifi_suspend_timer_stop................");
 	}
 }
 
 void app_scale_suspend_start(void)
 {
-	xSemaphoreTake(scale_suspend_mux, portMAX_DELAY);
+	//xSemaphoreTake(scale_suspend_mux, portMAX_DELAY);
 
 	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//开启称体30s休眠计时	
 	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//开启WIFI 2min休眠计时
 
-	if(info_str.response_hardstate.power == 0 ){
+	//if(info_str.response_hardstate.power == 0 )
+	{
 		app_sale_wakeup(false);										//激活屏幕点亮
 	}
-	xSemaphoreGive(scale_suspend_mux);
+	//xSemaphoreGive(scale_suspend_mux);
 }
 
 /**
@@ -314,7 +324,6 @@ void app_scales_power_on(void)
 		default:
 			break;				
 	}
-	app_scale_suspend_start();
 }
 
 /**
@@ -573,9 +582,11 @@ void app_button_event_handler(void *p_event_data){
 						uint8_t mac_addr[6];
 						enter_factory_mode_cnt =0;
 
+						if(info_str.response_hardstate.power == 0 ){
+							app_sale_wakeup(false); //禁止休眠
+						}
 						app_bt_wifi_suspend_stop();	//进入产测模式禁止WIFI休眠
 						app_enter_scale_suspend_stop();//进入产测模式禁止称体休眠
-						app_sale_wakeup(false); //禁止休眠
 
 						ESP_LOGE(TAG, "enter factory mode");
 						resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
@@ -669,19 +680,28 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 	if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
 		uint8_t wifi_conn =0 ;
 		switch(vesync_get_device_status()){
-			case DEV_CONFIG_NET_NULL:				//未配网
+			case DEV_CONFIG_NET_FAIL:
 				wifi_conn = 0;
+				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+				break;
+			case DEV_CONFIG_NET_NULL:				    //没有配网记录
+				wifi_conn = 0;
+
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;
-			case DEV_CONFIG_NET_RECORDS:
-			case DEV_CONFIG_NET_SUCCESS:			//已连接上服务器
+			case DEV_CONFIG_NET_SUCCESS:
+			case DEV_CONFIG_NET_RECORDS:				//已有配网记录
 				wifi_conn = 2;
+
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;
-			case DEV_CONFIG_NET_READY:				//配网中
-				wifi_conn = 1; 
+			case DEV_CONFIG_NET_READY:                  //配网中 
+				wifi_conn = 1;
+				app_scale_suspend_start();
+				app_bt_wifi_suspend_stop();	            //连接蓝牙禁止WIFI休眠();	
+				
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;

@@ -24,7 +24,7 @@ uint32_t match_account_id;
 #define NORMAL_MODE     1   //普通人模式；
 
 #define MAX_WEIGHT      300     //+-三公斤
-#define MAX_IMPED       30      //+-30ohm
+#define MAX_IMPED       50      //+-30ohm
 
 #define MIN_FAT         40
 #define MAX_FAT         600
@@ -81,6 +81,46 @@ bool body_fat_para_if_null(response_weight_data_t *p_weitht)
     }
     return true;
 }
+
+#define AVG_LEN     5
+
+typedef struct{
+    uint16_t lowarray[AVG_LEN];
+    uint8_t  lcnt;
+}average_value[];
+
+/**
+ * @brief 根据当前测试阻抗次数移动求平均;
+ * @param valuetemp 
+ * @return uint16_t 
+ */
+static uint16_t find_imped_avg_point(uint16_t valuetemp)
+{
+    static uint16_t lowarray[AVG_LEN] = { 0 };
+    static uint8_t  lcnt = 0;
+    static uint8_t  frs = 0;
+    int32_t ret = 0;
+    uint8_t  cnt = 0;
+    uint8_t  j = 0;
+
+    lowarray[lcnt++] = valuetemp;
+    if(lcnt > (AVG_LEN - 1)){
+        frs  = 0x10;
+        lcnt = 0;
+    }
+
+    j = ((frs == 0) ? lcnt : AVG_LEN);
+
+    while(cnt < j){
+        ret += lowarray[cnt];
+        cnt++;
+    }
+
+    ret = ret / cnt;
+
+    return ret;
+}
+
 /**
  * @brief 
  * @param bt_status 蓝牙连接状态
@@ -273,6 +313,7 @@ uint8_t find_near_data(user_config_data_t *a,uint8_t n,uint16_t x)
     }
     return r;
 }
+
 /**
  * @brief 将采样的体重值保存 并计算体脂参数 单位不一需要统一内部换算成kg作比较
  * @param res 
@@ -298,14 +339,13 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                 ESP_LOGE(TAG, "user module NULL");
             }else{
 #if 1
-                p_weitht->imped_value = 0;
-                p_weitht->weight = 1550;  //6500  55
-                uint16_t new_imped = p_weitht->imped_value; //调试屏蔽注释 88
+                // p_weitht->weight = 55;  //6500  55
                 uint16_t new_kg = p_weitht->weight;//调试屏蔽注释 85
                 uint8_t user_cnt =0;
                 uint8_t i=0;
                 user_config_data_t backup_user_list[MAX_CONUT] ={0};    
 
+                ESP_LOGI(TAG, "weight imped_value [%d]]" ,p_weitht->imped_value);
                 for(;i<(len/sizeof(user_config_data_t));i++){   //找出符合+-3kg符合的所有用户
                     if((abs(user_list[i].weight_kg - new_kg) <= MAX_WEIGHT)){              //前后两次体重小于3kg
                         memcpy((user_config_data_t *)&backup_user_list[user_cnt],(user_config_data_t *)&user_list[i],sizeof(user_config_data_t));   //将满足条件范围的数据重新拷贝;
@@ -324,15 +364,22 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     list_number = find_near_data(&backup_user_list[0],user_cnt,new_kg);//找出符合用户最接近的用户
                     ESP_LOGI(TAG, "match user cnt is =%d,nearst user number =%d account[0x%08x]" ,user_cnt,list_number,backup_user_list[list_number].account);   //当前满足匹配条件的用户总个数
 
-                    history.imped_value = new_imped;
+                    user_fat_data_t  resp_fat_data ={0};
+                    backup_user_list[list_number].user_mode =1;  //默认配置为普通用户模式;
+                    if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) <= MAX_IMPED){
+                        p_weitht->imped_value = backup_user_list[list_number].imped_value;
+                    }else{
+                        p_weitht->imped_value = ((p_weitht->imped_value + backup_user_list[list_number].imped_value)/2);
+                    }
+                    ESP_LOGI(TAG, "p_weitht->imped_value [%d]]" ,p_weitht->imped_value);
+
+                    history.imped_value = p_weitht->imped_value;
                     history.utc_time = time((time_t *)NULL);
                     history.time_zone = res->user_utc_time.zone;
                     history.measu_unit = p_weitht->measu_unit;
                     history.weight_kg = p_weitht->weight;
                     history.weight_lb = p_weitht->lb;
 
-                    user_fat_data_t  resp_fat_data ={0};
-                    backup_user_list[list_number].user_mode =1;  //默认配置为普通用户模式;
                     if(body_fat_calc(&resp_fat_data,ALL_CALC,&backup_user_list[list_number],p_weitht)){
                         memcpy((user_fat_data_t *)&res->user_fat_data,(user_fat_data_t *)&resp_fat_data,sizeof(user_fat_data_t));
                         resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
@@ -353,9 +400,6 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
 
                     memcpy((user_history_t *)&res->user_history_data ,(user_history_t *)&history,sizeof(user_history_t));
                     if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ //设备已配网
-                        if(vesync_get_router_link() == false){
-                            vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
-                        } 
                         app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
                     }else{                                                      //设备未配网
                         app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,0,0);

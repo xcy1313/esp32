@@ -127,4 +127,16 @@ bool vesync_get_router_link(void);
  */
 int vesync_get_ap_rssi(int points);
 
+/**
+ * @brief WIFI Drive层启动wifi
+ */
+void vesync_driver_wifi_start(void);
+
+/**
+ * @brief WIFI Drive层停止wifi
+ */
+void vesync_driver_wifi_stop(void);
+
+bool vesync_driver_get_wifi_start_status(void);
+
 #endif

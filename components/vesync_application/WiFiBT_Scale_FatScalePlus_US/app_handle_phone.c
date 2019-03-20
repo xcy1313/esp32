@@ -679,13 +679,14 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
                 vesync_bt_advertise_stop();
                 bt_conn = 2;
                 app_scale_suspend_start();
+                app_bt_wifi_suspend_stop();	    //连接蓝牙禁止WIFI休眠();
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
             break;
         case BT_DISCONNTED:
                 bt_conn = 0;
                 vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
-            
+                app_scale_suspend_start();
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
             break;

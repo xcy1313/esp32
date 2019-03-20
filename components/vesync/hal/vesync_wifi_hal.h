@@ -66,6 +66,16 @@ typedef enum
 typedef void (*vesync_wifi_cb)(vesync_wifi_status_e wifi_status);
 
 /**
+ * @brief 硬件抽象层启动wifi
+ */
+void vesync_hal_wifi_start(void);
+
+/**
+ * @brief 硬件抽象层停止wifi
+ */
+void vesync_hal_wifi_stop(void);
+
+/**
  * @brief 硬件抽象层初始化wifi模块
  */
 void vesync_hal_init_wifi_module(vesync_wifi_cb callback,bool power_save);

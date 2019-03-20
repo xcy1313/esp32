@@ -55,7 +55,7 @@ static uint8_t upgrade_souce = UPGRADE_NULL;
 void app_set_upgrade_source(uint8_t source)
 {
     upgrade_souce = source;
-
+    
     app_sale_wakeup(false);        //激活点亮屏幕显示
     app_bt_wifi_suspend_stop();     //禁止称体休眠
     app_enter_scale_suspend_stop(); //禁止WIFI休眠
@@ -834,6 +834,9 @@ static void vesync_send_match_user_data_https_req(void)
         }
     }
 
+    if((vesync_get_router_link() == false)){
+        vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
+    }
     /****************************数据封包结束**********************************/
 
     time_t seconds;
@@ -851,7 +854,7 @@ static void vesync_send_match_user_data_https_req(void)
     char* out = cJSON_PrintUnformatted(report);
     LOG_I("JSON", "%s", out);
 
-    ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 10000);
+    ret = vesync_https_client_request(req_method, out, recv_buff, &buff_len, 20000);
     if(buff_len > 0 && ret == 0){
         uint8_t if_resend;
         LOG_I(TAG, "Https recv %d byte data : %s", buff_len, recv_buff);
@@ -930,10 +933,12 @@ static void app_handle_server_task_handler(void *pvParameters){
         if(1 == notified_ret){
             if(notified_value & UPLOAD_WEIGHT_DATA_REQ){
                 LOG_I(TAG, "UPLOAD_WEIGHT_DATA_REQ");
+                app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//开启WIFI 2min休眠计时
                 vesync_send_match_user_data_https_req();
             }
             if(notified_value & UPLOAD_ALL_USER_DATA_REQ){
                 LOG_I(TAG, "UPLOAD_ALL_USER_DATA_REQ");
+                app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//开启WIFI 2min休眠计时
                 vesync_send_all_data_https_req();
             }
             if(notified_value & STORE_WEIGHT_DATA_REQ){
@@ -964,27 +969,27 @@ void device_status(device_status_e status)
     LOG_I(TAG, "device status %d\n",status);
     uint8_t wifi_conn =0;
 	switch(status){
+        case DEV_CONFIG_NET_FAIL:
+            wifi_conn = 0;
+            resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+            break;
 		case DEV_CONFIG_NET_NULL:				    //没有配网记录
             wifi_conn = 0;
+
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
         case DEV_CONFIG_NET_SUCCESS:
 		case DEV_CONFIG_NET_RECORDS:				//已有配网记录
             wifi_conn = 2;
-            app_scale_suspend_start();	
 
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
-        case DEV_CONFIG_NET_FAIL:
-            wifi_conn = 1;            
-            app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
-            resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
-            break;
         case DEV_CONFIG_NET_READY:                  //配网中 
             wifi_conn = 1;
             app_scale_suspend_start();
+            app_bt_wifi_suspend_stop();	            //连接蓝牙禁止WIFI休眠();	
             
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;

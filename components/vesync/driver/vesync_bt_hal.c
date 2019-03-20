@@ -31,8 +31,8 @@
 
 #define GATTS_TABLE_TAG "Vesync_BT"
 
-#define APP_ADV_INTERVAL_MIN            0x20                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
-#define APP_ADV_INTERVAL_MAX            0x40                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
+#define APP_ADV_INTERVAL_MIN            0x200                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
+#define APP_ADV_INTERVAL_MAX            0x200                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
 #define TX_POWER                        ESP_PWR_LVL_N0                /* +3dbm*/
 #define APP_ADV_TIMEOUT_IN_SECONDS      ADVER_TIME_OUT                /**< The advertising timeout (in units of seconds). */
 

@@ -11,6 +11,7 @@
 #include "vesync_log.h"
 #include "vesync_wifi.h"
 #include "vesync_bt_hal.h"
+#include "vesync_device.h"
 
 #include "cJSON.h"
 
@@ -29,6 +30,8 @@ static vesync_wifi_cb s_vesync_wifi_callback = NULL;		//wifi连接状态回调�
 static vesync_wifi_status_e wifi_status = VESYNC_WIFI_INIT;
 
 static bool vesync_wifi_router_link_connect  = false;
+
+static bool vesync_wifi_driver_start = true;
 /**
  * @brief 扫描AP热点的回调函数
  * @param arg 		[扫描获取到的AP信息指针]
@@ -122,17 +125,23 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_NO_AP_FOUND:
-			vesync_notify_app_net_result("NULL",ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND",0);
+			if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
+				vesync_notify_app_net_result("NULL",ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND",0);
+			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_NO_AP_FOUND");
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_CONNECT_FAIL:
-			vesync_notify_app_net_result("NULL",ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL",0);
+			if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
+				vesync_notify_app_net_result("NULL",ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL",0);
+			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_CONNECT_FAIL");
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_WRONG_PASSWORD:
-			vesync_notify_app_net_result("NULL",ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD",0);
+			if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
+				vesync_notify_app_net_result("NULL",ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD",0);
+			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_WRONG_PASSWORD");
 			vesync_wifi_router_link_connect = false;
 			break;
@@ -231,6 +240,37 @@ static void vesync_driver_register_cb(vesync_wifi_cb callback)
 }
 
 /**
+ * @brief WIFI Drive层返回启动wifi状态
+ * @return true 
+ * @return false 
+ */
+bool vesync_driver_get_wifi_start_status(void)
+{
+	return vesync_wifi_driver_start;
+}
+/**
+ * @brief WIFI Drive层启动wifi
+ */
+void vesync_driver_wifi_start(void)
+{
+	if(vesync_wifi_driver_start) return;
+
+	vesync_wifi_driver_start = true;
+	vesync_hal_wifi_start();	
+}
+
+/**
+ * @brief WIFI Drive层停止wifi
+ */
+void vesync_driver_wifi_stop(void)
+{
+	if(!vesync_wifi_driver_start) return;
+	
+	vesync_wifi_driver_start = false;
+	vesync_hal_wifi_stop();
+}
+
+/**
  * @brief 初始化wifi模块
  * @param callback 
  * @param power_save 
@@ -239,7 +279,7 @@ void vesync_init_wifi_module(vesync_wifi_cb callback,bool power_save)
 {
 	vesync_driver_register_cb(callback);
 	vesync_hal_init_wifi_module(hal_connect_wifi_callback,power_save);
-
+	
 	s_network_event_group = xEventGroupCreate();
 	
 	if(NULL != callback){
