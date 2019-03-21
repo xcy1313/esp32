@@ -485,24 +485,28 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							}
 							cnt++;
 							resend_cmd_bit &= ~RESEND_CMD_MEASURE_UNIT_BIT;
+							LOG_I(TAG, "ack for CMD_MEASURE_UNIT");
 						}
 						break;
 					case CMD_BT_STATUS:
 							resend_cmd_bit &= ~RESEND_CMD_BT_STATUS_BIT;
+							LOG_I(TAG, "ack for CMD_BT_STATUS");
 						break;
 					case CMD_SCALE_SUSPEND:
 							resend_cmd_bit &= ~RESEND_CMD_ENTER_SUSPEND;
+							LOG_I(TAG, "ack for CMD_SCALE_SUSPEND");
 						break;
 					case CMD_WIFI_STATUS:
 							resend_cmd_bit &= ~RESEND_CMD_WIFI_STATUS_BIT;
+							LOG_I(TAG, "ack for CMD_WIFI_STATUS");
 						break;
 					case CMD_BODY_FAT:
 							resend_cmd_bit &= ~RESEND_CMD_BODY_FAT_BIT;
+							LOG_I(TAG, "ack for CMD_BODY_FAT");
 						break;
 					default:
 						break;
 				}
-				//LOG_I(TAG, "ack for cmd bits [0x%04x]\r\n" ,resend_cmd_bit);
 			}
 		}
 	}
@@ -639,7 +643,7 @@ static bool app_uart_resend_timer_start(void)
 static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 {
 	if(app_get_upgrade_source() == UPGRADE_APP)		return;	//升级模式不处理;
-	//ESP_LOGI(TAG, "uart resend timer stop [0x%04x] power = %d,status =%d" ,resend_cmd_bit,info_str.response_hardstate.power,vesync_get_production_status());
+	ESP_LOGI(TAG, "uart resend timer stop [0x%04x] power = %d,status =%d" ,resend_cmd_bit,info_str.response_hardstate.power,vesync_get_production_status());
 
 	if((info_str.response_hardstate.power == 0 ) && (vesync_get_production_status() == PRODUCTION_EXIT)){
 		resend_cmd_bit &=~RESEND_CMD_ALL_BIT;
@@ -681,9 +685,10 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 		uint8_t wifi_conn =0 ;
 		switch(vesync_get_device_status()){
 			case DEV_CONFIG_NET_FAIL:
-				wifi_conn = 0;
+				wifi_conn = 1;
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
-				break;
+				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
+            break;
 			case DEV_CONFIG_NET_NULL:				    //没有配网记录
 				wifi_conn = 0;
 
@@ -766,6 +771,12 @@ void app_uart_start(void)
         ESP_LOGE(TAG, "vesync_uart_resend_timer_init fail");
     }
 	app_uart_init();
+	
+	app_sale_wakeup(true);
+	vTaskDelay(300 / portTICK_PERIOD_MS);	//正常使用10ms；
+	app_sale_wakeup(false);
+
+	info_str.response_hardstate.power = 1;	
 }
 /**
  * @brief 

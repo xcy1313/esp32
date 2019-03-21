@@ -453,7 +453,7 @@ void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describ
     buflen = sprintf((char *)upload_buf, "{\"uri\":\"/beginConfigReply\",\"err\":%d,\"description\":\"%s\",\"server_code\":%d,\"traceId\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
             err_code,err_describe,server_err_code,trace_id,ap_mac_addr,rssi,FIRM_VERSION);
 
-    BLUFI_INFO("blufi send app %s len %d \r\n", upload_buf,buflen);
+    //BLUFI_INFO("blufi send app %s len %d \r\n", upload_buf,buflen);
 
     vesync_blufi_notify(upload_buf, buflen);
 }

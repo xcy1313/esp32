@@ -126,15 +126,21 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 {
     uint8_t bt_conn;
     uint8_t ota_souce = app_get_upgrade_source();
+
+    time_t seconds;
+    seconds = time((time_t *)NULL);
+    char traceId_buf[64];
+    itoa(seconds, traceId_buf, 10);
+
     switch(status){
         case OTA_TIME_OUT:
                 bt_conn = 5;
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
                 if(ota_souce == UPGRADE_PRODUCTION){
-                    app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
+                    app_handle_production_upgrade_response_result(traceId_buf,1);     //升级失败
                 }else if(ota_souce == UPGRADE_APP){
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_TIMEOUT,0);
+                    app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_TIMEOUT,0);
                 }
                 app_set_upgrade_source(UPGRADE_NULL);   //退出升级模式;
             break;
@@ -144,9 +150,9 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
 
                 if(ota_souce == UPGRADE_PRODUCTION){
-                    app_handle_production_upgrade_response_result("1547029501512",5); //升级中
+                    app_handle_production_upgrade_response_result(traceId_buf,5); //升级中
                 }else if(ota_souce == UPGRADE_APP){
-                    //app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_BUSY);
+                    //app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_BUSY);
                 }
             break;
         case OTA_FAILED:
@@ -154,9 +160,9 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
                 if(ota_souce == UPGRADE_PRODUCTION){
-                    app_handle_production_upgrade_response_result("1547029501599",1);     //升级失败
+                    app_handle_production_upgrade_response_result(traceId_buf,1);     //升级失败
                 }else if(ota_souce == UPGRADE_APP){
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_FAIL,0);
+                    app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_FAIL,0);
                 }
                 ESP_LOGE(TAG, "upgrade process fail");
                 app_set_upgrade_source(UPGRADE_NULL);   //退出升级模式;
@@ -165,7 +171,7 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 ESP_LOGI(TAG, "upgrade process %d" ,len);
                 //if((len%5) == 0)
                 {
-                    app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_PROCESS,len);  //实时上报app升级进度
+                    app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_PROCESS,len);  //实时上报app升级进度
                 }
             break;
         case OTA_SUCCESS:
@@ -176,10 +182,9 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
             if(ota_souce == UPGRADE_PRODUCTION){
                 resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);      //发送称体产测结束指令
-                app_handle_production_upgrade_response_result("1547029501529",0);     //升级成功
+                app_handle_production_upgrade_response_result(traceId_buf,0);     //升级成功
             }else if(ota_souce == UPGRADE_APP){
-                app_handle_upgrade_response_ack("1547029501512",RESPONSE_UPGRADE_SUCCESS,0);
-                //app_handle_net_service_task_notify_bit(REFRESH_DEVICE_ATTRIBUTE,0,0);
+                app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_SUCCESS,0);
             }
             break;
         default:

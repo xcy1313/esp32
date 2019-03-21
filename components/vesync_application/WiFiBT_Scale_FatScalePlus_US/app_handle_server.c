@@ -970,8 +970,9 @@ void device_status(device_status_e status)
     uint8_t wifi_conn =0;
 	switch(status){
         case DEV_CONFIG_NET_FAIL:
-            wifi_conn = 0;
+            wifi_conn = 1;
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+            app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             break;
 		case DEV_CONFIG_NET_NULL:				    //没有配网记录
             wifi_conn = 0;

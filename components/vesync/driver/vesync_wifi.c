@@ -125,21 +125,24 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_NO_AP_FOUND:
-			if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
+			//if(vesync_get_device_status() == DEV_CONFIG_NET_READY)
+			{
 				vesync_notify_app_net_result("NULL",ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND",0);
 			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_NO_AP_FOUND");
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_CONNECT_FAIL:
-			if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
+			//if(vesync_get_device_status() == DEV_CONFIG_NET_READY)
+			{
 				vesync_notify_app_net_result("NULL",ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL",0);
 			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_CONNECT_FAIL");
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_WRONG_PASSWORD:
-			if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
+			//if(vesync_get_device_status() == DEV_CONFIG_NET_READY)
+			{
 				vesync_notify_app_net_result("NULL",ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD",0);
 			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_WRONG_PASSWORD");
@@ -158,22 +161,22 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 					ESP_LOGI(TAG,"malloc error, ap_list is NULL");
 					break;
 				}
+				ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
 				wifi_ap_record_t *blufi_ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
 				if (!blufi_ap_list) {
 					ESP_LOGI(TAG,"malloc error, blufi_ap_list is NULL");
 					break;
 				}
-				ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
 
 				for (int i = 0; i < apCount; ++i){
 					blufi_ap_list[i].authmode = ap_list[i].authmode; 
 					blufi_ap_list[i].rssi = ap_list[i].rssi;
 					memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
 				}
-				free(ap_list);
-				free(blufi_ap_list);
 				vesync_hal_scan_stop();
 				blufi_wifi_list_packet(apCount,blufi_ap_list);
+				free(ap_list);
+				free(blufi_ap_list);
 			}
 			break;
 		default:

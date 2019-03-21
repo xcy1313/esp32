@@ -24,7 +24,7 @@ uint32_t match_account_id;
 #define NORMAL_MODE     1   //普通人模式；
 
 #define MAX_WEIGHT      300     //+-三公斤
-#define MAX_IMPED       50      //+-30ohm
+#define MAX_IMPED       150      //+-30ohm
 
 #define MIN_FAT         40
 #define MAX_FAT         600
@@ -366,10 +366,13 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
 
                     user_fat_data_t  resp_fat_data ={0};
                     backup_user_list[list_number].user_mode =1;  //默认配置为普通用户模式;
-                    if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) <= MAX_IMPED){
-                        p_weitht->imped_value = backup_user_list[list_number].imped_value;
-                    }else{
-                        p_weitht->imped_value = ((p_weitht->imped_value + backup_user_list[list_number].imped_value)/2);
+
+                    if(p_weitht->imped_value != 0){
+                        if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) <= MAX_IMPED){
+                            p_weitht->imped_value = backup_user_list[list_number].imped_value;
+                        }else{
+                            p_weitht->imped_value = ((p_weitht->imped_value + backup_user_list[list_number].imped_value)/2);
+                        }
                     }
                     ESP_LOGI(TAG, "p_weitht->imped_value [%d]]" ,p_weitht->imped_value);
 
@@ -380,13 +383,10 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     history.weight_kg = p_weitht->weight;
                     history.weight_lb = p_weitht->lb;
 
-                    if(body_fat_calc(&resp_fat_data,ALL_CALC,&backup_user_list[list_number],p_weitht)){
-                        memcpy((user_fat_data_t *)&res->user_fat_data,(user_fat_data_t *)&resp_fat_data,sizeof(user_fat_data_t));
-                        resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
-                        app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&resp_fat_data,sizeof(user_fat_data_t),true); 
-                        ret = true;
-                        ESP_LOGI(TAG, "flash store user success");         //体脂参数计算正确
-                    }
+                    body_fat_calc(&resp_fat_data,ALL_CALC,&backup_user_list[list_number],p_weitht);
+                    memcpy((user_fat_data_t *)&res->user_fat_data,(user_fat_data_t *)&resp_fat_data,sizeof(user_fat_data_t));
+                    resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
+                    app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&res->user_fat_data,sizeof(user_fat_data_t),true); 
 
                     ESP_LOGI(TAG, "[history:imped[0x%04x]]" ,history.imped_value); 
                     ESP_LOGI(TAG, "[history:utc_time[0x%04x]]" ,history.utc_time);
@@ -404,8 +404,10 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     }else{                                                      //设备未配网
                         app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,0,0);
                     }
+                    ret = true;
                 }else{
                     ESP_LOGE(TAG, "user mode para not match not same user!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理
+                    ret = false;
                 }
 
 #else
