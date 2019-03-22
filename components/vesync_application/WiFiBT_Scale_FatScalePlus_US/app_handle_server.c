@@ -190,7 +190,7 @@ void vesync_recv_json_data(char *data)
 
                 resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);
-
+                vesync_mqtt_client_disconnet_from_cloud();
             }
         }else
             LOG_E(TAG, "Get cid error !");
@@ -961,6 +961,30 @@ static void app_handle_https_message_queue_create(void)
 }
 
 /**
+ * @brief 路由器状态
+ * @param status 
+ */
+void router_status(vesync_router_link_status_t status)
+{
+    uint8_t router_conn =0;
+    LOG_I(TAG, "router status %d\n",status);
+    switch(status){
+        case DEV_ROUTER_LINK_DISCONNTED:
+                router_conn = 1;
+                resend_cmd_bit |= RESEND_CMD_ROUTER_LINK;
+                app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&router_conn,sizeof(uint8_t),true);
+            break;
+        case DEV_ROUTER_LINK_CONNTECD:
+                router_conn = 2;
+                app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&router_conn,sizeof(uint8_t),true);
+                resend_cmd_bit |= RESEND_CMD_ROUTER_LINK;
+            break;
+        default:
+            break;
+    }
+}
+
+/**
  * @brief 配网状态
  * @param status 
  */
@@ -976,14 +1000,12 @@ void device_status(device_status_e status)
             break;
 		case DEV_CONFIG_NET_NULL:				    //没有配网记录
             wifi_conn = 0;
-
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
         case DEV_CONFIG_NET_SUCCESS:
 		case DEV_CONFIG_NET_RECORDS:				//已有配网记录
             wifi_conn = 2;
-
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;

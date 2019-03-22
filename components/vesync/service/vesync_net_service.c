@@ -61,6 +61,7 @@ static void vesync_connect_wifi_callback(vesync_wifi_status_e status)
 		case VESYNC_WIFI_WRONG_PASSWORD:
 		case VESYNC_WIFI_NO_AP_FOUND:
 		case VESYNC_WIFI_CONNECT_FAIL:
+			LOG_I(TAG, "vesync_connect_wifi_callback status:%d " ,status);
 			xTaskNotify(event_center_taskhd, NETWORK_DISCONNECTED, eSetBits);		//通知事件处理中心任务
 			break;
 		default:

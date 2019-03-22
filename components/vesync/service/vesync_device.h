@@ -28,9 +28,25 @@ typedef enum
 	DEV_CONFIG_NET_NULL 	= 1,			//没有配网记录
 	DEV_CONFIG_NET_READY 	= 2,			//配网中
 	DEV_CONFIG_NET_RECORDS 	= 3,			//有配网记录
-	DEV_CONFIG_NET_SUCCESS 	= 4,				//配网完成
+	DEV_CONFIG_NET_SUCCESS 	= 4,			//配网完成
 	DEV_CONFIG_NET_FAIL     = 5				//配网失败
 } device_status_e;
+
+/**
+ * @brief 设备路由器状态
+ */
+typedef enum
+{
+	DEV_ROUTER_LINK_INIT	   = 0,
+	DEV_ROUTER_LINK_DISCONNTED = 1,			//路由器断开
+	DEV_ROUTER_LINK_CONNTECD   = 2			//路由器连接成功			
+} vesync_router_link_status_t;
+
+typedef void (*vesync_router_link_status_cb_t)(vesync_router_link_status_t);
+
+void vesync_set_router_link_status(vesync_router_link_status_t status);
+void vesync_regist_router_link_status_cb(vesync_router_link_status_cb_t cb);
+vesync_router_link_status_t vesync_get_router_link_status(void);
 
 /**
  * @brief TCP调试端口开关状态

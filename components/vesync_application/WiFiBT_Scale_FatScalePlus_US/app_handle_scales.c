@@ -170,7 +170,9 @@ static void app_notify_scale_suspend_timerout_callback(TimerHandle_t timer)
 	app_sale_wakeup(true);
 	method_timer_stop(&scale_suspend_timer);
 
-	vesync_hal_wifi_stop();
+	if((vesync_get_device_status() != DEV_CONFIG_NET_READY) ||(app_get_upgrade_source() == UPGRADE_NULL)){//设备未处于配网中或者未在升级则进入
+		vesync_hal_wifi_stop();
+	}
 	app_uart_encode_send(MASTER_SET,CMD_SCALE_SUSPEND,(unsigned char *)&send_bit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_ENTER_SUSPEND;	//通知称体30s后熄屏;
 
@@ -249,7 +251,7 @@ void app_bt_wifi_suspend_stop(void)
 void app_scale_suspend_start(void)
 {
 	//xSemaphoreTake(scale_suspend_mux, portMAX_DELAY);
-
+	if(vesync_get_production_status() < PRODUCTION_EXIT)		return;	//位于产测模式
 	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//开启称体30s休眠计时	
 	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//开启WIFI 2min休眠计时
 
@@ -294,14 +296,17 @@ void app_scales_power_on(void)
 
 	app_uart_encode_send(MASTER_INQUIRY,CMD_HW_VN,NULL,0,true);
 	resend_cmd_bit |= RESEND_CMD_HW_VN_BIT;
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
 
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
 
 	uint8_t bt_conn;
 	bt_conn = vesync_bt_connected()?CMD_BT_STATUS_CONNTED:CMD_BT_STATUS_DISCONNECT;
 	app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
 	resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
 
 	uint8_t wifi_conn =0 ;
 	switch(vesync_get_device_status()){
@@ -310,6 +315,7 @@ void app_scales_power_on(void)
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 			break;
+		case DEV_CONFIG_NET_FAIL:
 		case DEV_CONFIG_NET_RECORDS:
 		case DEV_CONFIG_NET_SUCCESS:			//已连接上服务器
 			wifi_conn = 2;
@@ -324,6 +330,7 @@ void app_scales_power_on(void)
 		default:
 			break;				
 	}
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
 }
 
 /**
@@ -429,6 +436,9 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 					}
 					break;
 					case CMD_POWER_BATTERY:{
+						static uint8_t opwer_status =0;
+						static uint8_t npwer_status =0;
+
 						static uint8_t cnt =0;
 						resp_cnt =&cnt;
 
@@ -443,12 +453,26 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						uint8_t ack =0;				//ack 应答处理成功
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
 						app_uart_encode_send(SLAVE_SEND,CMD_POWER_BATTERY,(unsigned char *)&ack,sizeof(uint8_t),false);//应答
-						if(res->response_hardstate.power == 0){
-							LOG_E(TAG, "Scale power off!!!\r\n");
-						}else if(res->response_hardstate.power == 1){
-							LOG_E(TAG, "Scale power on!!!\r\n");
+
+						opwer_status = npwer_status;
+						npwer_status = res->response_hardstate.power;
+
+						if((npwer_status == 0) && (opwer_status == 1)){         //关机
+							LOG_I(TAG,"[-----------------------");
+							LOG_I(TAG, "scales power off!!!");
+							LOG_I(TAG,"------------------------]");
+						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
+							LOG_I(TAG,"[-----------------------");
+							LOG_I(TAG, "scales power on!!!");
+							LOG_I(TAG,"------------------------]");
 							app_scales_power_on();
 						}
+						// if(res->response_hardstate.power == 0){
+						// 	LOG_E(TAG, "Scale power off!!!\r\n");
+						// }else if(res->response_hardstate.power == 1){
+						// 	LOG_E(TAG, "Scale power on!!!\r\n");
+						// 	app_scales_power_on();
+						// }
 					}
 					break;
 					case CMD_HADRWARE_ERROR:{
@@ -534,7 +558,6 @@ void app_button_event_handler(void *p_event_data){
 	if(enter_default_factory_function_mode == true)	return;
 	
 	app_scale_suspend_start();
-
     ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:

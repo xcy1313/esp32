@@ -42,11 +42,10 @@ static void vesync_event_center_thread(void *args)
 			//LOG_I(TAG, "Event center get new notified : %x.", notified_value);
 
 			if(notified_value & NETWORK_CONNECTED){
+				vesync_set_router_link_status(DEV_ROUTER_LINK_CONNTECD);
 				if(strlen((char *)product_config.cid) !=0){
 					if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
 						vesync_register_https_net();	//请求配网;
-					}else{
-						vesync_set_device_status(DEV_CONFIG_NET_SUCCESS);
 					}
 				}
 			}
@@ -60,7 +59,7 @@ static void vesync_event_center_thread(void *args)
 				vesync_json_add_https_service_register(UPGRADE_REFRESH_ATTRIBUTE_REQ);
 			}
 			if(notified_value & NETWORK_DISCONNECTED){
-				vesync_set_device_status(DEV_CONFIG_NET_FAIL);
+				vesync_set_router_link_status(DEV_ROUTER_LINK_DISCONNTED);
 			}
 			if(notified_value & RECEIVE_UART_DATA)
 			{

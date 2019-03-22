@@ -132,4 +132,6 @@ uint8_t app_get_upgrade_source(void);
 
 void device_status(device_status_e status);
 
+void router_status(vesync_router_link_status_t status);
+
 #endif

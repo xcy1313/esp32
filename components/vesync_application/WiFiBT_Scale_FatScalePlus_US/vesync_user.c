@@ -77,6 +77,7 @@ void vesync_user_entry(void *args)
 	}
 	app_sacle_wakeup_pin_init();
 	vesync_regist_devstatus_cb(device_status);
+	vesync_regist_router_link_status_cb(router_status);
 	vesync_developer_start();
 	vesync_set_production_status(PRODUCTION_EXIT);		//状态调整为未进入产测模式;
 	LOG_I(TAG, "find product test cid ok[%s]",product_config.cid);

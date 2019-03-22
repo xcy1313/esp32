@@ -91,6 +91,11 @@ static void vesync_set_wifi_status(vesync_wifi_status_e new_status)
 {
     if(new_status != wifi_status){
         wifi_status = new_status;
+		ESP_LOGI(TAG, "vesync_set_wifi_status %d", new_status);
+		if(NULL != s_vesync_wifi_callback)	//驱动层调用上一层注册的回调函数，WiFi状态传递给上一层继续处理
+		{
+			s_vesync_wifi_callback(new_status);
+		}
     }
 }
 
@@ -130,6 +135,7 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 				vesync_notify_app_net_result("NULL",ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND",0);
 			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_NO_AP_FOUND");
+			ostatus = VESYNC_WIFI_NO_AP_FOUND;
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_CONNECT_FAIL:
@@ -138,6 +144,7 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 				vesync_notify_app_net_result("NULL",ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL",0);
 			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_CONNECT_FAIL");
+			ostatus = VESYNC_WIFI_CONNECT_FAIL;
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_WRONG_PASSWORD:
@@ -146,6 +153,7 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 				vesync_notify_app_net_result("NULL",ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD",0);
 			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_WRONG_PASSWORD");
+			ostatus = VESYNC_WIFI_WRONG_PASSWORD;
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_SCAN_DONE:{
@@ -183,10 +191,6 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 			break;
 	}
 	vesync_set_wifi_status(ostatus);	//用于本文件处理
-	if(NULL != s_vesync_wifi_callback)	//驱动层调用上一层注册的回调函数，WiFi状态传递给上一层继续处理
-	{
-		s_vesync_wifi_callback(status);
-	}
 }
 
 /**

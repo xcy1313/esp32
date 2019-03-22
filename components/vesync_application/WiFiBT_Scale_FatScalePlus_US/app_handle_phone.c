@@ -134,25 +134,23 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
 
     switch(status){
         case OTA_TIME_OUT:
-                bt_conn = 5;
-                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result(traceId_buf,1);     //升级失败
                 }else if(ota_souce == UPGRADE_APP){
+                    bt_conn = 5;
+                    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                    app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
                     app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_TIMEOUT,0);
                 }
                 app_set_upgrade_source(UPGRADE_NULL);   //退出升级模式;
             break;
         case OTA_BUSY:
-                bt_conn = 3;
-                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
-
                 if(ota_souce == UPGRADE_PRODUCTION){
                     app_handle_production_upgrade_response_result(traceId_buf,5); //升级中
                 }else if(ota_souce == UPGRADE_APP){
-                    //app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_BUSY);
+                    bt_conn = 3;
+                    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                    app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
                 }
             break;
         case OTA_FAILED:
@@ -175,15 +173,16 @@ void ota_event_handler(uint32_t len,vesync_ota_status_t status)
                 }
             break;
         case OTA_SUCCESS:
-            bt_conn = 4;
-            resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-            app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
-            
             if(ota_souce == UPGRADE_PRODUCTION){
                 resend_cmd_bit |= RESEND_CMD_FACTORY_STOP_BIT;
                 app_uart_encode_send(MASTER_SET,CMD_FACTORY_SYNC_STOP,0,0,true);      //发送称体产测结束指令
                 app_handle_production_upgrade_response_result(traceId_buf,0);     //升级成功
+                vTaskDelay(1000 / portTICK_PERIOD_MS);	//正常使用10ms；
+                esp_restart();
             }else if(ota_souce == UPGRADE_APP){
+                bt_conn = 4;
+                resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+                app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);  //发送称体升级成功指令
                 app_handle_upgrade_response_ack(traceId_buf,RESPONSE_UPGRADE_SUCCESS,0);
             }
             break;
