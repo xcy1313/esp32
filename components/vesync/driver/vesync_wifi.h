@@ -137,6 +137,4 @@ void vesync_driver_wifi_start(void);
  */
 void vesync_driver_wifi_stop(void);
 
-bool vesync_driver_get_wifi_start_status(void);
-
 #endif

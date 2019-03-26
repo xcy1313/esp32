@@ -69,9 +69,8 @@ vesync_router_link_status_t vesync_get_router_link_status(void)
  */
 void vesync_set_router_link_status(vesync_router_link_status_t status)
 {
-	//if(router_status != status)
-	{
-		LOG_I(TAG, "vesync_set_router_link_status %d", status);
+	LOG_I(TAG, "vesync_set_router_link_status status:%d ,router_status:%d", status,router_status);
+	if(router_status != status){
 		router_status = status;
 		if(router_link_status_callback != NULL)
 			router_link_status_callback(status);

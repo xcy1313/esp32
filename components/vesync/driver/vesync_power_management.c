@@ -28,10 +28,10 @@ void vesync_power_save_enter(uint32_t pin)
         case ESP_SLEEP_WAKEUP_EXT1: {
             uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
             if (wakeup_pin_mask == 0) {
-                int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
-                printf("Wake up from GPIO %d\n", pin);
+                //int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
+                //printf("Wake up from GPIO %d\n", pin);
             }else{
-                printf("Wake up from other GPIO\n");
+                //printf("Wake up from other GPIO\n");
             }
             break;
         }

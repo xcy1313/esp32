@@ -31,7 +31,6 @@ static vesync_wifi_status_e wifi_status = VESYNC_WIFI_INIT;
 
 static bool vesync_wifi_router_link_connect  = false;
 
-static bool vesync_wifi_driver_start = true;
 /**
  * @brief 扫描AP热点的回调函数
  * @param arg 		[扫描获取到的AP信息指针]
@@ -247,23 +246,12 @@ static void vesync_driver_register_cb(vesync_wifi_cb callback)
 }
 
 /**
- * @brief WIFI Drive层返回启动wifi状态
- * @return true 
- * @return false 
- */
-bool vesync_driver_get_wifi_start_status(void)
-{
-	return vesync_wifi_driver_start;
-}
-/**
  * @brief WIFI Drive层启动wifi
  */
 void vesync_driver_wifi_start(void)
 {
-	if(vesync_wifi_driver_start) return;
-
-	vesync_wifi_driver_start = true;
-	vesync_hal_wifi_start();	
+	vesync_hal_wifi_start();
+	LOG_I(TAG, "vesync_driver_wifi_start!!!\n");	
 }
 
 /**
@@ -271,10 +259,8 @@ void vesync_driver_wifi_start(void)
  */
 void vesync_driver_wifi_stop(void)
 {
-	if(!vesync_wifi_driver_start) return;
-	
-	vesync_wifi_driver_start = false;
 	vesync_hal_wifi_stop();
+	LOG_I(TAG, "vesync_driver_wifi_stop!!!\n");
 }
 
 /**

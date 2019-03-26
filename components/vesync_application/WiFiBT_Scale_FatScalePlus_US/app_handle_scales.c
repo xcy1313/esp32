@@ -64,9 +64,9 @@ static void app_power_save_enter(void)
             uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
             if (wakeup_pin_mask == 0) {
                 int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
-                printf("Wake up from GPIO %d\n", pin);
+                //printf("Wake up from GPIO %d\n", pin);
             }else{
-                printf("Wake up from other GPIO\n");
+                //printf("Wake up from other GPIO\n");
             }
             break;
         }
@@ -129,12 +129,22 @@ void app_sale_wakeup(bool status)
 	}
 }
 
+/**
+ * @brief 100ms上升沿脉冲激活称体唤醒定时器回调
+ * @param timer 
+ */
 static void app_notify_wake_gpio_timerout_callback(TimerHandle_t timer)
 {
 	gpio_num_t num = WAKE_UP_SCALE_KEY;
 	gpio_set_level(num, 1);
 }
 
+/**
+ * @brief 100ms上升沿脉冲激活称体唤醒定时器开启
+ * @param timeout 
+ * @return true 
+ * @return false 
+ */
 static bool app_notify_wake_gpio_timer_start(uint32_t timeout)
 {
 	gpio_num_t num = WAKE_UP_SCALE_KEY;
@@ -152,6 +162,11 @@ static bool app_notify_wake_gpio_timer_start(uint32_t timeout)
 	return true;
 }
 
+/**
+ * @brief 100ms上升沿脉冲激活称体唤醒定时器停止
+ * @return true 
+ * @return false 
+ */
 static bool app_notify_wake_gpio_timer_stop(void)
 {
 	gpio_num_t num = WAKE_UP_SCALE_KEY;
@@ -168,10 +183,9 @@ static void app_notify_scale_suspend_timerout_callback(TimerHandle_t timer)
 {
 	uint8_t send_bit = 0x1;
 	app_sale_wakeup(true);
-	method_timer_stop(&scale_suspend_timer);
 
 	if((vesync_get_device_status() != DEV_CONFIG_NET_READY) ||(app_get_upgrade_source() == UPGRADE_NULL)){//设备未处于配网中或者未在升级则进入
-		vesync_hal_wifi_stop();
+		vesync_driver_wifi_stop();
 	}
 	app_uart_encode_send(MASTER_SET,CMD_SCALE_SUSPEND,(unsigned char *)&send_bit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_ENTER_SUSPEND;	//通知称体30s后熄屏;
@@ -180,7 +194,7 @@ static void app_notify_scale_suspend_timerout_callback(TimerHandle_t timer)
 }
 
 /**
- * @brief 开启称体休眠计时
+ * @brief 开启休眠计划 称体无操作30s休眠STOP WIFI,2分钟进入深度休眠
  * @param timeout 
  */
 void app_enter_scale_suspend_start(uint32_t timeout)
@@ -211,9 +225,7 @@ void app_enter_scale_suspend_stop(void)
  * @brief 2分钟计时时间到通知称体进入休眠模式
  */
 static void app_bt_wifi_suspend_timerout_callback(TimerHandle_t timer)
-{
-	method_timer_stop(&bt_wifi_suspend_timer);
-	
+{	
 	if(vesync_bt_connected() == false){
 		app_scales_power_off();
 	}
@@ -248,18 +260,20 @@ void app_bt_wifi_suspend_stop(void)
 	}
 }
 
+/**
+ * @brief 激活称体并开启相应的定时超时
+ */
 void app_scale_suspend_start(void)
 {
-	//xSemaphoreTake(scale_suspend_mux, portMAX_DELAY);
-	if(vesync_get_production_status() < PRODUCTION_EXIT)		return;	//位于产测模式
+	if((vesync_get_production_status() < PRODUCTION_EXIT) || (app_get_upgrade_source() != UPGRADE_NULL))		return;	//位于产测模式和升级模式 停止称体休眠
+
+	xSemaphoreTake(scale_suspend_mux, portMAX_DELAY);
+
+	app_sale_wakeup(false);										//激活屏幕点亮
 	app_enter_scale_suspend_start(SCALE_ENTER_SUSPEND_TIME);	//开启称体30s休眠计时	
 	app_bt_wifi_suspend_start(BT_WIFI_ENTER_SUSPEND_TIME);		//开启WIFI 2min休眠计时
 
-	//if(info_str.response_hardstate.power == 0 )
-	{
-		app_sale_wakeup(false);										//激活屏幕点亮
-	}
-	//xSemaphoreGive(scale_suspend_mux);
+	xSemaphoreGive(scale_suspend_mux);
 }
 
 /**
@@ -288,7 +302,7 @@ static void app_scale_hw_version(void *data,uint8_t len)
 }
 
 /**
- * @brief 检测到称体开机下发实时状态给称体显示
+ * @brief 检测到称体开机，下发当前显示配置
  */
 void app_scales_power_on(void)
 {
@@ -296,21 +310,23 @@ void app_scales_power_on(void)
 
 	app_uart_encode_send(MASTER_INQUIRY,CMD_HW_VN,NULL,0,true);
 	resend_cmd_bit |= RESEND_CMD_HW_VN_BIT;
-	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//称体反应慢，需要延时发送；
 
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
-	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//称体反应慢，需要延时发送；
 
 	uint8_t bt_conn;
 	bt_conn = vesync_bt_connected()?CMD_BT_STATUS_CONNTED:CMD_BT_STATUS_DISCONNECT;
 	app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(bt_conn),true);
 	resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//称体反应慢，需要延时发送；
+
+	vesync_set_router_link_status(DEV_ROUTER_LINK_INIT);	//休眠后30s已关闭WIFI,无执行显示，所以检测到开机需要重新初始化刷新;
 
 	uint8_t wifi_conn =0 ;
 	switch(vesync_get_device_status()){
-		case DEV_CONFIG_NET_NULL:				//未配网
+		case DEV_CONFIG_NET_NULL:			//称体反应慢，需要延时发送；
 			wifi_conn = 0;
 			app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 			resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
@@ -330,11 +346,13 @@ void app_scales_power_on(void)
 		default:
 			break;				
 	}
-	vTaskDelay(20 / portTICK_PERIOD_MS);	//正常使用10ms；
+	vTaskDelay(20 / portTICK_PERIOD_MS);	//称体反应慢，需要延时发送；
+
+	app_scale_suspend_start();				//防止称体唤醒只发power on事件没有称重值上传 就会不休眠的问题
 }
 
 /**
- * @brief 
+ * @brief 整机进入休眠模式
  */
 static void app_scales_power_off(void)
 {
@@ -343,21 +361,23 @@ static void app_scales_power_off(void)
 	info_str.user_utc_time.unix_time = time((time_t *)NULL);
 	LOG_I(TAG, "set last power off time zone:%d ,time:%d",info_str.user_utc_time.zone,info_str.user_utc_time.unix_time);
 
-	vesync_nvs_write_data(UNIX_TIME_NAMESPACE,UNIX_TIME_KEY,(uint8_t *)&info_str.user_utc_time,sizeof(utc_time_t));
+	vesync_nvs_write_data(UNIX_TIME_NAMESPACE,UNIX_TIME_KEY,(uint8_t *)&info_str.user_utc_time,sizeof(utc_time_t));	//关机前写入当前同步的时间戳
+	vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info_str.user_config_data.measu_unit);//关机前写入当前同步称体单位
 
 	vesync_bt_advertise_stop();
-	resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;
-	app_uart_resend_timer_stop();	//称体休眠 下发数据无效
+	resend_cmd_bit &= ~RESEND_CMD_ALL_BIT;	//清除所有重传标识
+	app_uart_resend_timer_stop();			//关闭称体重传定时器
 	LOG_E(TAG, "wifi power down!!!");
 
 	vesync_hal_bt_client_deinit();
     vesync_uart_deint();
-	vesync_flash_config(false,"nvs");
+	vesync_flash_config(false, USER_HISTORY_DATA_NAMESPACE);//关闭用户沉淀数据flash区域
+	vesync_flash_config(false ,USER_MODEL_NAMESPACE);		//关闭用户模型flash区域
 	app_power_save_enter();
 }
 
 /**
- * @brief 
+ * @brief 串口接收数据回调
  * @param reg  用户配置结构体
  * @param data 串口接收数据缓冲
  * @param len  串口接收数据长度
@@ -365,8 +385,10 @@ static void app_scales_power_off(void)
 static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 {
 	if(app_get_upgrade_source() == UPGRADE_APP)	return;	//升级过程中不解析串口;
-	//esp_log_buffer_hex(TAG, data, len);
-
+	LOG_I(TAG, "<----------------------");
+	LOG_I(TAG, "uart receive.....");
+	esp_log_buffer_hex(TAG, data, len);
+	LOG_I(TAG, "<----------------------");
 	for(unsigned short i=0;i<len;i++){
 		uni_frame_t *frame = &uart_frame;
         if(1 == Comm_frame_parse(data[i],0,frame)){        
@@ -421,18 +443,27 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						resend_cmd_bit &= ~RESEND_CMD_HW_VN_BIT;
 						break;
 					case CMD_BODY_WEIGHT:{
-						static uint8_t cnt =0;
-
-						resp_cnt =&cnt;
-						res_ctl.data = 0x0;       //表示设备主动上传
+						bool bt_status = false;
 						*(uint16_t *)&bt_command = CMD_REPORT_WEIGHT;
 						memcpy((uint8_t *)&res->response_weight_data.weight,opt,frame->frame_data_len-1);
-						// 添加根据当前返回阻抗值来判断是否为绑定用户的体重数据来决定是否对当前数据记录并存储的功能;
-						app_scale_suspend_start();
+						bt_status = vesync_bt_connected();
+						if(bt_status){				  //连接蓝牙，禁止称体休眠
+							static uint8_t cnt =0;
+							resp_cnt =&cnt;
+							res_ctl.data = 0x0;       //表示设备主动上传
+							cnt++;
+							vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传称重数据
+						}else{
+							static uint16_t o_weight_kg = 0;
+							static uint16_t n_weight_kg = 0xffff;
 
-						cnt++;
-						body_fat_person(vesync_bt_connected(),res,&res->response_weight_data);
-						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传控制码
+							o_weight_kg = n_weight_kg;
+							n_weight_kg = res->response_weight_data.weight;
+							if(n_weight_kg == o_weight_kg){	//判断体重刷新稳定才刷新休眠定时器
+								app_scale_suspend_start();//断开蓝牙，开启称体休眠
+							}
+						}
+						body_fat_person(bt_status,res,&res->response_weight_data);
 					}
 					break;
 					case CMD_POWER_BATTERY:{
@@ -451,6 +482,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						send_buff[0] = opt[1];		//mcu上报的数据中，是电量在前开关机状态在后
 						send_buff[1] = opt[0];		//蓝牙发送的数据中，是开关机状态在前电量在后
 						uint8_t ack =0;				//ack 应答处理成功
+
 						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
 						app_uart_encode_send(SLAVE_SEND,CMD_POWER_BATTERY,(unsigned char *)&ack,sizeof(uint8_t),false);//应答
 
@@ -467,12 +499,6 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							LOG_I(TAG,"------------------------]");
 							app_scales_power_on();
 						}
-						// if(res->response_hardstate.power == 0){
-						// 	LOG_E(TAG, "Scale power off!!!\r\n");
-						// }else if(res->response_hardstate.power == 1){
-						// 	LOG_E(TAG, "Scale power on!!!\r\n");
-						// 	app_scales_power_on();
-						// }
 					}
 					break;
 					case CMD_HADRWARE_ERROR:{
@@ -558,7 +584,7 @@ void app_button_event_handler(void *p_event_data){
 	if(enter_default_factory_function_mode == true)	return;
 	
 	app_scale_suspend_start();
-    ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
+    //ESP_LOGI(TAG, "key [%d]\r\n" ,*(uint8_t *)p_event_data);
     switch(*(uint8_t *)p_event_data){
         case Short_key:
 				if(vesync_get_production_status() >= PRODUCTION_EXIT){
@@ -571,7 +597,6 @@ void app_button_event_handler(void *p_event_data){
 						backup_unix = UNIT_LB;
 					}
 					info_str.user_config_data.measu_unit = backup_unix;
-					vesync_flash_write_i8(UNIT_NAMESPACE,UNIT_KEY,info_str.user_config_data.measu_unit);
 					resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
 					app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,(unsigned char *)&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 					bmask_scale = true;

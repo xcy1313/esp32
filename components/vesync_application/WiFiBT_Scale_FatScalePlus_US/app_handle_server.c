@@ -967,7 +967,9 @@ static void app_handle_https_message_queue_create(void)
 void router_status(vesync_router_link_status_t status)
 {
     uint8_t router_conn =0;
-    LOG_I(TAG, "router status %d\n",status);
+    uint8_t last_link_status = vesync_get_router_link_status();
+    LOG_E(TAG, "router status %d ,last link status:%d \n",status,last_link_status);
+    
     switch(status){
         case DEV_ROUTER_LINK_DISCONNTED:
                 router_conn = 1;

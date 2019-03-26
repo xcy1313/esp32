@@ -331,15 +331,14 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
     n_if_stabil = p_weitht->if_stabil;
 
     if((o_if_stabil == 0) && (n_if_stabil == 1)){    //判断是否稳定体重;
-        if(bt_status == false){
+        {
             user_config_data_t user_list[MAX_CONUT] ={0};        
             uint16_t len =0;
 
             if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
                 ESP_LOGE(TAG, "user module NULL");
             }else{
-#if 1
-                // p_weitht->weight = 55;  //6500  55
+                p_weitht->weight = 55;  //6500  55
                 uint16_t new_kg = p_weitht->weight;//调试屏蔽注释 85
                 uint8_t user_cnt =0;
                 uint8_t i=0;
@@ -359,7 +358,6 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                 }
                 if(user_cnt !=0){
                     uint8_t list_number =0;
-                    user_history_t history = {0};
 
                     list_number = find_near_data(&backup_user_list[0],user_cnt,new_kg);//找出符合用户最接近的用户
                     ESP_LOGI(TAG, "match user cnt is =%d,nearst user number =%d account[0x%08x]" ,user_cnt,list_number,backup_user_list[list_number].account);   //当前满足匹配条件的用户总个数
@@ -375,60 +373,43 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         }
                     }
                     ESP_LOGI(TAG, "p_weitht->imped_value [%d]]" ,p_weitht->imped_value);
+                    if(bt_status == false){
+                        user_history_t history = {0};
 
-                    history.imped_value = p_weitht->imped_value;
-                    history.utc_time = time((time_t *)NULL);
-                    history.time_zone = res->user_utc_time.zone;
-                    history.measu_unit = p_weitht->measu_unit;
-                    history.weight_kg = p_weitht->weight;
-                    history.weight_lb = p_weitht->lb;
+                        history.imped_value = p_weitht->imped_value;
+                        history.utc_time = time((time_t *)NULL);
+                        history.time_zone = res->user_utc_time.zone;
+                        history.measu_unit = p_weitht->measu_unit;
+                        history.weight_kg = p_weitht->weight;
+                        history.weight_lb = p_weitht->lb;
 
-                    body_fat_calc(&resp_fat_data,ALL_CALC,&backup_user_list[list_number],p_weitht);
+                        ESP_LOGI(TAG, "[history:imped[0x%04x]]" ,history.imped_value); 
+                        ESP_LOGI(TAG, "[history:utc_time[0x%04x]]" ,history.utc_time);
+                        ESP_LOGI(TAG, "[history:utc_area[0x%02x]]" ,history.time_zone);
+                        ESP_LOGI(TAG, "[history:measu_unit:[0x%02x]]" ,history.measu_unit);
+                        ESP_LOGI(TAG, "[history:weight_kg:[0x%04x]]" ,history.weight_kg);
+                        ESP_LOGI(TAG, "[history:weight_lb:[0x%04x]]" ,history.weight_lb);
+
+                        match_account_id = backup_user_list[list_number].account;
+                        strcpy(mask_user_store_key,backup_user_list[list_number].user_store_key);
+
+                        memcpy((user_history_t *)&res->user_history_data ,(user_history_t *)&history,sizeof(user_history_t));
+                        if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ //设备已配网
+                            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+                        }else{                                                      //设备未配网
+                            app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,0,0);
+                        }
+                    }
+                    body_fat_calc(&resp_fat_data,ALL_CALC,&backup_user_list[list_number],p_weitht); //计算体脂参数5项指标
                     memcpy((user_fat_data_t *)&res->user_fat_data,(user_fat_data_t *)&resp_fat_data,sizeof(user_fat_data_t));
+                
                     resend_cmd_bit |= RESEND_CMD_BODY_FAT_BIT;
                     app_uart_encode_send(MASTER_SET,CMD_BODY_FAT,(unsigned char *)&res->user_fat_data,sizeof(user_fat_data_t),true); 
-
-                    ESP_LOGI(TAG, "[history:imped[0x%04x]]" ,history.imped_value); 
-                    ESP_LOGI(TAG, "[history:utc_time[0x%04x]]" ,history.utc_time);
-                    ESP_LOGI(TAG, "[history:utc_area[0x%02x]]" ,history.time_zone);
-                    ESP_LOGI(TAG, "[history:measu_unit:[0x%02x]]" ,history.measu_unit);
-                    ESP_LOGI(TAG, "[history:weight_kg:[0x%04x]]" ,history.weight_kg);
-                    ESP_LOGI(TAG, "[history:weight_lb:[0x%04x]]" ,history.weight_lb);
-
-                    match_account_id = backup_user_list[list_number].account;
-                    strcpy(mask_user_store_key,backup_user_list[list_number].user_store_key);
-
-                    memcpy((user_history_t *)&res->user_history_data ,(user_history_t *)&history,sizeof(user_history_t));
-                    if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ //设备已配网
-                        app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
-                    }else{                                                      //设备未配网
-                        app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,0,0);
-                    }
                     ret = true;
                 }else{
                     ESP_LOGE(TAG, "user mode para not match not same user!");        //蓝牙已经连接，参数已传给蓝牙，本地不做处理
                     ret = false;
                 }
-
-#else
-                p_weitht->weight = 6845;
-                p_weitht->imped_value = 585;
-                user_fat_data_t  resp_fat_data ={0};
-                user_history_t history = {0};
-                user_config_data_t config;
-                
-                config.imped_value = 585;
-                config.gender = 1;
-                config.height_unit = 1;
-                config.height = 178;
-                config.age = 14;
-                config.measu_unit = 0;
-                config.user_mode = 1;
-                if(body_fat_calc(&resp_fat_data,ALL_CALC,&config,p_weitht)){
-                    ESP_LOGI(TAG, "fat:%d,muscle:%d,water:%d,bone=%d,bmr=%d,bmi=%d\n" ,resp_fat_data.fat,resp_fat_data.muscle,resp_fat_data.water,
-                                resp_fat_data.bone,resp_fat_data.bmr,resp_fat_data.bmi);
-                }
-#endif                    
             }
         }
     }   
