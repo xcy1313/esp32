@@ -24,7 +24,7 @@ uint32_t match_account_id;
 #define NORMAL_MODE     1   //普通人模式；
 
 #define MAX_WEIGHT      300     //+-三公斤
-#define MAX_IMPED       150      //+-30ohm
+#define MAX_IMPED       20      //+-30ohm
 
 #define MIN_FAT         40
 #define MAX_FAT         600
@@ -338,7 +338,7 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
             if(vesync_flash_read(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,&len) != 0){
                 ESP_LOGE(TAG, "user module NULL");
             }else{
-                p_weitht->weight = 55;  //6500  55
+                // p_weitht->weight = 55;  //6500  55
                 uint16_t new_kg = p_weitht->weight;//调试屏蔽注释 85
                 uint8_t user_cnt =0;
                 uint8_t i=0;
@@ -365,11 +365,19 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     user_fat_data_t  resp_fat_data ={0};
                     backup_user_list[list_number].user_mode =1;  //默认配置为普通用户模式;
 
+                    if(backup_user_list[list_number].imped_value > MAX_IMPED_VALUE){
+                        backup_user_list[list_number].imped_value = MAX_IMPED_VALUE;
+                    }else if(backup_user_list[list_number].imped_value < MIN_IMPED_VALUE){
+                        backup_user_list[list_number].imped_value = MIN_IMPED_VALUE;
+                    }
+
                     if(p_weitht->imped_value != 0){
-                        if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) <= MAX_IMPED){
-                            p_weitht->imped_value = backup_user_list[list_number].imped_value;
-                        }else{
-                            p_weitht->imped_value = ((p_weitht->imped_value + backup_user_list[list_number].imped_value)/2);
+                        if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) > MAX_IMPED){
+                            if(p_weitht->imped_value < backup_user_list[list_number].imped_value){
+                                backup_user_list[list_number].imped_value = backup_user_list[list_number].imped_value - MAX_IMPED;
+                            }else if(p_weitht->imped_value > backup_user_list[list_number].imped_value){
+                                backup_user_list[list_number].imped_value = backup_user_list[list_number].imped_value + MAX_IMPED;
+                            }
                         }
                     }
                     ESP_LOGI(TAG, "p_weitht->imped_value [%d]]" ,p_weitht->imped_value);

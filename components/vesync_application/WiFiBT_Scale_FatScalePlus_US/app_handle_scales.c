@@ -453,7 +453,8 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							res_ctl.data = 0x0;       //表示设备主动上传
 							cnt++;
 							vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传称重数据
-						}else{
+						}
+						{
 							static uint16_t o_weight_kg = 0;
 							static uint16_t n_weight_kg = 0xffff;
 
@@ -470,34 +471,36 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						static uint8_t opwer_status =0;
 						static uint8_t npwer_status =0;
 
-						static uint8_t cnt =0;
-						resp_cnt =&cnt;
+						{
+							static uint8_t cnt =0;
+							resp_cnt =&cnt;
 
-						res_ctl.data = 0x0;       //表示设备主动上传
-						*(uint16_t *)&bt_command = CMD_REPORT_POWER;
-						memcpy((uint8_t *)&res->response_hardstate.power,opt,frame->frame_data_len-1);
+							res_ctl.data = 0x0;       //表示设备主动上传
+							*(uint16_t *)&bt_command = CMD_REPORT_POWER;
+							memcpy((uint8_t *)&res->response_hardstate.power,opt,frame->frame_data_len-1);
 
-						cnt++;
-						uint8_t send_buff[2];
-						send_buff[0] = opt[1];		//mcu上报的数据中，是电量在前开关机状态在后
-						send_buff[1] = opt[0];		//蓝牙发送的数据中，是开关机状态在前电量在后
-						uint8_t ack =0;				//ack 应答处理成功
+							cnt++;
+							uint8_t send_buff[2];
+							send_buff[0] = opt[1];		//mcu上报的数据中，是电量在前开关机状态在后
+							send_buff[1] = opt[0];		//蓝牙发送的数据中，是开关机状态在前电量在后
+							uint8_t ack =0;				//ack 应答处理成功
 
-						vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
-						app_uart_encode_send(SLAVE_SEND,CMD_POWER_BATTERY,(unsigned char *)&ack,sizeof(uint8_t),false);//应答
+							vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)send_buff ,frame->frame_data_len-1);  //透传控制码
+							app_uart_encode_send(SLAVE_SEND,CMD_POWER_BATTERY,(unsigned char *)&ack,sizeof(uint8_t),false);//应答
 
-						opwer_status = npwer_status;
-						npwer_status = res->response_hardstate.power;
+							opwer_status = npwer_status;
+							npwer_status = res->response_hardstate.power;
 
-						if((npwer_status == 0) && (opwer_status == 1)){         //关机
-							LOG_I(TAG,"[-----------------------");
-							LOG_I(TAG, "scales power off!!!");
-							LOG_I(TAG,"------------------------]");
-						}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
-							LOG_I(TAG,"[-----------------------");
-							LOG_I(TAG, "scales power on!!!");
-							LOG_I(TAG,"------------------------]");
-							app_scales_power_on();
+							if((npwer_status == 0) && (opwer_status == 1)){         //关机
+								LOG_I(TAG,"[-----------------------");
+								LOG_I(TAG, "scales power off!!!");
+								LOG_I(TAG,"------------------------]");
+							}else if((npwer_status == 1) && (opwer_status == 0)){   //开机
+								LOG_I(TAG,"[-----------------------");
+								LOG_I(TAG, "scales power on!!!");
+								LOG_I(TAG,"------------------------]");
+								app_scales_power_on();
+							}
 						}
 					}
 					break;
@@ -814,16 +817,9 @@ void app_uart_start(void)
 {
 	app_create_scale_wake_gpio_timer();	//需要在初始化串口之前;
 	app_create_scale_suspend_timer();
+    app_uart_resend_timer_init();
 
-    if(app_uart_resend_timer_init() == false){
-        ESP_LOGE(TAG, "vesync_uart_resend_timer_init fail");
-    }
 	app_uart_init();
-	
-	app_sale_wakeup(true);
-	vTaskDelay(300 / portTICK_PERIOD_MS);	//正常使用10ms；
-	app_sale_wakeup(false);
-
 	info_str.response_hardstate.power = 1;	
 }
 /**
@@ -839,6 +835,7 @@ void app_button_start(void)
  */
 void app_scales_start(void)
 {
+	app_sale_wakeup(false);
 	app_button_start();
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
 }

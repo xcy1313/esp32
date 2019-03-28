@@ -16,6 +16,9 @@
 
 #define ALL_CALC    0x1F
 
+#define MAX_IMPED_VALUE   630
+#define MIN_IMPED_VALUE   430
+
 extern char    mask_user_store_key[12];
 extern uint32_t match_account_id;
 

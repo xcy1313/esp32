@@ -1071,20 +1071,17 @@ static void app_handle_ble_send_task_handler(void *pvParameters)
  */
 void app_ble_init(void)
 {
-    uint8_t bt_conn = 0;
     char bt_version[8] = {0};
     char version[8];
+
+    ble_event_group= xEventGroupCreate();
+    xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 8*1024, NULL, 8, NULL);
+
     strcpy(version,FIRM_VERSION);
     sprintf(bt_version,"%c%c%c%c",version[0],version[2],version[4],version[5]);
 	vesync_bt_client_init(PRODUCT_NAME,PRODUCT_VER,bt_version,PRODUCT_TYPE,PRODUCT_NUM,NULL,true,app_bt_set_status,app_ble_recv_cb);
     vesync_bt_advertise_start(APP_ADVERTISE_TIMEOUT);
 
-    bt_conn = 0;
-    resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
-    app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
-
-    ble_event_group= xEventGroupCreate();
-    xTaskCreate(app_handle_ble_send_task_handler, "app_handle_ble_send_task_handler", 8*1024, NULL, 8, NULL);
 }
 /**
  * @brief 初始化产测广播服务模式

@@ -250,5 +250,7 @@ void app_sacle_wakeup_pin_init(void);
 
 void app_scale_suspend_start(void);
 
+void app_scales_power_on(void);
+
 #endif
 

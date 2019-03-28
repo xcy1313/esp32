@@ -51,7 +51,6 @@ void app_sacle_pin_rst_delay(void)
 void vesync_user_entry(void *args)
 {
 	uint16_t len;
-
 	utc_time_t	last_time;
 	vesync_nvs_read_data(UNIX_TIME_NAMESPACE,UNIX_TIME_KEY,(uint8_t *)&last_time,&len);
 	LOG_I(TAG, "read last power off time len:%d,zone:%d ,time:%d",len,last_time.zone,last_time.unix_time);
@@ -89,12 +88,11 @@ void vesync_user_entry(void *args)
 		info_str.user_config_data.measu_unit = UNIT_LB;
 		ESP_LOGE(TAG, "default unit is[%d]",info_str.user_config_data.measu_unit);
 	}
-	app_uart_start();
 	app_ble_init();
+	app_uart_start();
 	app_scales_start();
 	app_hadle_server_create();
 	app_public_events_task_create();
-	app_scale_suspend_start();
-	
+
 	vTaskDelete(NULL);
 }
