@@ -404,6 +404,13 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	if(buff_len > 0 && ret == 0){
 		LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
 		vesync_json_https_service_parse(mask,recv_buff);
+	}else{
+		time_t seconds;
+		seconds = time((time_t *)NULL);
+		char traceId_buf[64];
+		itoa(seconds, traceId_buf, 10);
+		vesync_set_device_status(DEV_CONFIG_NET_RECORDS);							//设备有配网记录，配网失败
+		vesync_notify_app_net_result(traceId_buf,ERR_CONNECT_HTTPS_SERVER_FAIL,"ERR_CONNECT_HTTPS_SERVER_FAIL",ret);	
 	}
 
     free(out);

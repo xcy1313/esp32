@@ -184,7 +184,8 @@ static void app_notify_scale_suspend_timerout_callback(TimerHandle_t timer)
 	uint8_t send_bit = 0x1;
 	app_sale_wakeup(true);
 
-	if((vesync_get_device_status() != DEV_CONFIG_NET_READY) ||(app_get_upgrade_source() == UPGRADE_NULL)){//设备未处于配网中或者未在升级则进入
+	if((vesync_get_device_status() != DEV_CONFIG_NET_READY) ||(app_get_upgrade_source() == UPGRADE_NULL) ||
+		(vesync_get_device_status() != DEV_CONFIG_NET_SUCCESS) || (vesync_scan_wifi_list_busy_status() == false)){//设备未处于配网中或者未在升级或者配网成功则进入
 		vesync_driver_wifi_stop();
 	}
 	app_uart_encode_send(MASTER_SET,CMD_SCALE_SUSPEND,(unsigned char *)&send_bit,sizeof(uint8_t),true);

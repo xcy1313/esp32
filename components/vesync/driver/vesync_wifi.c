@@ -31,6 +31,8 @@ static vesync_wifi_status_e wifi_status = VESYNC_WIFI_INIT;
 
 static bool vesync_wifi_router_link_connect  = false;
 
+static bool vesync_wifi_scan_link_busy = false;
+
 /**
  * @brief 扫描AP热点的回调函数
  * @param arg 		[扫描获取到的AP信息指针]
@@ -160,6 +162,7 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 				esp_wifi_scan_get_ap_num(&apCount);
 				if (apCount == 0) {
 					ESP_LOGI(TAG,"Nothing AP found");
+					vesync_reply_response("/queryWifiList",ERR_CONFIG_WIFI_DEIVER_INIT, "CONFIG_WIFI_DEIVER_INIT");
 					break;
 				}
 				wifi_ap_record_t *ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
@@ -387,6 +390,7 @@ int vesync_get_wifi_ap_mac_string(char *mac_str_buffer)
  */
 int vesync_scan_wifi_list_start(void)
 {
+	vesync_wifi_scan_link_busy = true;
 	return vesync_hal_scan_wifi_list_start();
 }
 
@@ -396,9 +400,19 @@ int vesync_scan_wifi_list_start(void)
  */
 int vesync_scan_wifi_list_stop(void)
 {
+	vesync_wifi_scan_link_busy = false;
 	return vesync_hal_scan_stop();
 }
 
+/**
+ * @brief wifi扫描列表状态
+ * @return true 
+ * @return false 
+ */
+bool vesync_scan_wifi_list_busy_status(void)
+{
+	return vesync_wifi_scan_link_busy;
+}
 /**
  * @brief 获取信号强度
  * @param points 

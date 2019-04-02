@@ -716,6 +716,8 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
                     vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
                 }
                 vesync_refresh_https_token();
+            }else{
+                vesync_reply_net_info_response("/beginRefreshToken",ERR_NOT_NET_CONFIG, "ERR_NOT_NET_CONFIG");
             }
 		}else{
             BLUFI_INFO("Config parameter error !");

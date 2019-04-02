@@ -94,6 +94,13 @@ int vesync_scan_wifi_list_start(void);
 int vesync_scan_wifi_list_stop(void);
 
 /**
+ * @brief wifi扫描列表状态
+ * @return true 
+ * @return false 
+ */
+bool vesync_scan_wifi_list_busy_status(void);
+
+/**
  * @brief 阻塞等待网络断开成功
  * @param wait_time [等待时间，单位：毫秒]
  * @return int 		[等待结果，0 - 等待网络连接成功；-1 - 等待网络连接超时]

@@ -365,18 +365,18 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                     user_fat_data_t  resp_fat_data ={0};
                     backup_user_list[list_number].user_mode =1;  //默认配置为普通用户模式;
 
-                    if(backup_user_list[list_number].imped_value > MAX_IMPED_VALUE){
-                        backup_user_list[list_number].imped_value = MAX_IMPED_VALUE;
-                    }else if(backup_user_list[list_number].imped_value < MIN_IMPED_VALUE){
-                        backup_user_list[list_number].imped_value = MIN_IMPED_VALUE;
-                    }
-
                     if(p_weitht->imped_value != 0){
+                        if(p_weitht->imped_value > MAX_IMPED_VALUE){
+                            p_weitht->imped_value = MAX_IMPED_VALUE;
+                        }else if(p_weitht->imped_value < MIN_IMPED_VALUE){
+                            p_weitht->imped_value = MIN_IMPED_VALUE;
+                        }
+
                         if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) > MAX_IMPED){
-                            if(p_weitht->imped_value < backup_user_list[list_number].imped_value){
-                                backup_user_list[list_number].imped_value = backup_user_list[list_number].imped_value - MAX_IMPED;
-                            }else if(p_weitht->imped_value > backup_user_list[list_number].imped_value){
-                                backup_user_list[list_number].imped_value = backup_user_list[list_number].imped_value + MAX_IMPED;
+                            if(backup_user_list[list_number].imped_value >= p_weitht->imped_value){
+                                p_weitht->imped_value = backup_user_list[list_number].imped_value - MAX_IMPED;
+                            }else{
+                                p_weitht->imped_value = backup_user_list[list_number].imped_value + MAX_IMPED;
                             }
                         }
                     }
