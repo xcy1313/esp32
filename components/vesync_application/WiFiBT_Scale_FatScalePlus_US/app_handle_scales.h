@@ -181,7 +181,12 @@ typedef struct{
 	int8_t					time_zone;		//测量时区;
 	uint8_t 				measu_unit;		//测量单位
 	uint16_t 				weight_kg; 		//体重kg值；
-	uint16_t 				weight_lb; 		//体重lb值；	  
+	uint16_t 				weight_lb; 		//体重lb值；
+	uint8_t					fat_algorithm_version;	//体脂算法版本
+	uint8_t					user_gender;	//用户性别
+	uint8_t					user_age;		//用户年龄
+	uint8_t 				user_height;	//用户身高
+	uint8_t 				unused[8];		//预留
 }user_history_t;
 #pragma pack()				//
 

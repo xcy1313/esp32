@@ -637,6 +637,10 @@ static void vesync_send_all_data_https_req(void)
                         cJSON_AddNumberToObject(history_weight[i],"weighTime",user_history[i].utc_time);
                         cJSON_AddNumberToObject(history_weight[i],"unit",user_history[i].measu_unit);
                         cJSON_AddNumberToObject(history_weight[i],"timezone15m",user_history[i].time_zone);
+                        cJSON_AddNumberToObject(history_weight[i],"arithmeticVersion",user_history[i].fat_algorithm_version);
+                        cJSON_AddStringToObject(history_weight[i],"gender",user_history[i].user_gender ==0?"2":"1");
+                        cJSON_AddNumberToObject(history_weight[i],"age",user_history[i].user_age);
+                        cJSON_AddNumberToObject(history_weight[i],"heightCm",user_history[i].user_height);
                     }
                 }
             }
@@ -827,6 +831,10 @@ static void vesync_send_match_user_data_https_req(void)
                         cJSON_AddNumberToObject(history_weight[i],"weighTime",user_history[i].utc_time);
                         cJSON_AddNumberToObject(history_weight[i],"unit",user_history[i].measu_unit);
                         cJSON_AddNumberToObject(history_weight[i],"timezone15m",user_history[i].time_zone);
+                        cJSON_AddNumberToObject(history_weight[i],"arithmeticVersion",user_history[i].fat_algorithm_version);
+                        cJSON_AddStringToObject(history_weight[i],"gender",user_history[i].user_gender ==0?"2":"1");
+                        cJSON_AddNumberToObject(history_weight[i],"age",user_history[i].user_age);
+                        cJSON_AddNumberToObject(history_weight[i],"heightCm",user_history[i].user_height);
                     }
                 }
             }

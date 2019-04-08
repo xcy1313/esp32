@@ -19,6 +19,8 @@
 
 #define READY_READ_FLASH   BIT0
 
+#define BLE_PROTOCAL_VERSION            0x1 //低四位有效
+
 #define APP_ADVERTISE_TIMEOUT   0
 /**
  * @brief 定义与app交互命令集

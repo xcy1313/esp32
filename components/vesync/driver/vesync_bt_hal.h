@@ -68,7 +68,7 @@ enum{
     IDX_CHAR_B,
     IDX_CHAR_VAL_B,
 
-    HRS_IDX_NB,
+    HRS_IDX_NB
 };
 
 /// device info Attributes Indexes
@@ -84,7 +84,24 @@ enum{
     IDX_DEV_SW_VERSION_CHAR,
     IDX_DEV_SW_VERSION_VAL,
 
-    DEV_DEV_NB,
+    DEV_DEV_NB
+};
+
+///device update Attributes Indexs
+enum{
+    IDX_UPDATE_SVC,
+
+    IDX_UPDATE,
+    IDX_UPDATE_NOTIFY_CHAR,
+    IDX_UPDATE_NOTIFY_VAL,
+    IDX_UPDATE_NOTIFY_DESCRIPTION_VAL,
+
+    IDX_UPDATE_WRITE_CHAR,
+    IDX_UPDATE_WRITE_VAL,
+    IDX_UPDATE_WRITE_NOTIFY_VAL,
+    IDX_UPDATE_WRITE_NOTIFY_DESCRIPTION_VAL,
+
+    DEV_UPDATE_NB
 };
 
 /**

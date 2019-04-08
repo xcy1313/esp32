@@ -7,6 +7,7 @@
 #include "app_body_fat_calc.h"
 #include "app_handle_server.h"
 #include "vesync_net_service.h"
+#include "vesync_build_cfg.h"
 
 #include "vesync_uart.h"
 #include "vesync_flash.h"
@@ -388,8 +389,12 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         history.utc_time = time((time_t *)NULL);
                         history.time_zone = res->user_utc_time.zone;
                         history.measu_unit = p_weitht->measu_unit;
-                        history.weight_kg = p_weitht->weight;
-                        history.weight_lb = p_weitht->lb;
+                        history.weight_kg  = p_weitht->weight;
+                        history.weight_lb  = p_weitht->lb;
+                        history.fat_algorithm_version = FAT_VERSION;
+                        history.user_gender = backup_user_list[list_number].gender;
+                        history.user_age    = backup_user_list[list_number].age;
+                        history.user_height = backup_user_list[list_number].height;
 
                         ESP_LOGI(TAG, "[history:imped[0x%04x]]" ,history.imped_value); 
                         ESP_LOGI(TAG, "[history:utc_time[0x%04x]]" ,history.utc_time);
@@ -397,6 +402,10 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         ESP_LOGI(TAG, "[history:measu_unit:[0x%02x]]" ,history.measu_unit);
                         ESP_LOGI(TAG, "[history:weight_kg:[0x%04x]]" ,history.weight_kg);
                         ESP_LOGI(TAG, "[history:weight_lb:[0x%04x]]" ,history.weight_lb);
+                        ESP_LOGI(TAG, "[history:fat_algorithm_version:[0x%02x]]" ,history.fat_algorithm_version);
+                        ESP_LOGI(TAG, "[history:user_gender:[0x%02x]]" ,history.user_gender);
+                        ESP_LOGI(TAG, "[history:user_age:[0x%02x]]" ,history.user_age);
+                        ESP_LOGI(TAG, "[history:user_height:[0x%02x]]" ,history.user_height);
 
                         match_account_id = backup_user_list[list_number].account;
                         strcpy(mask_user_store_key,backup_user_list[list_number].user_store_key);

@@ -451,7 +451,8 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						if(bt_status){				  //连接蓝牙，禁止称体休眠
 							static uint8_t cnt =0;
 							resp_cnt =&cnt;
-							res_ctl.data = 0x0;       //表示设备主动上传
+							res_ctl.data = 0x0;       							//表示设备主动上传
+							res_ctl.bitN.version  = BLE_PROTOCAL_VERSION;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
 							cnt++;
 							vesync_bt_notify(res_ctl,resp_cnt,bt_command,(uint8_t *)opt ,frame->frame_data_len-1);  //透传称重数据
 						}
@@ -477,6 +478,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							resp_cnt =&cnt;
 
 							res_ctl.data = 0x0;       //表示设备主动上传
+							res_ctl.bitN.version  = BLE_PROTOCAL_VERSION;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
 							*(uint16_t *)&bt_command = CMD_REPORT_POWER;
 							memcpy((uint8_t *)&res->response_hardstate.power,opt,frame->frame_data_len-1);
 
@@ -509,6 +511,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 						static uint8_t cnt =0;
 						resp_cnt =&cnt;
 						res_ctl.data = 0x0;       //表示设备主动上传
+						res_ctl.bitN.version  = BLE_PROTOCAL_VERSION;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
 						*(uint16_t *)&bt_command = CMD_REPORT_ERRPR;
 						memcpy(res->response_error_notice.type,(uint8_t *)opt,sizeof(response_error_notice_t));
 						LOG_E(TAG,"------------------------");
@@ -535,6 +538,7 @@ static void app_uart_recv_cb(const unsigned char *data,unsigned short len)
 							if(bmask_scale){
 								bmask_scale = false;
 								*(uint16_t *)&bt_command = CMD_SET_WEIGHT_UNIT;
+								res_ctl.bitN.version  = BLE_PROTOCAL_VERSION;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
 								vesync_bt_notify(res_ctl,resp_cnt,bt_command,&info_str.user_config_data.measu_unit,sizeof(uint8_t));
 							}
 							cnt++;

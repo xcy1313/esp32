@@ -54,6 +54,7 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result,uint8
     }resp_strl ={{0},0};         
     static uint8_t cnt = 1;
     uint16_t upgrade_cmd = CMD_UPGRADE;
+    res_ctl.bitN.version  = BLE_PROTOCAL_VERSION;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
 
     resp_strl.buf[1] = 0;
     resp_strl.buf[0] = result;
@@ -109,7 +110,7 @@ static void app_handle_upgrade_process_response(uint32_t data)
     }resp_strl ={{0},0};         
     static uint8_t cnt = 1;
     uint16_t upgrade_cmd = CMD_UPGRADE;
-
+    res_ctl.bitN.version  = BLE_PROTOCAL_VERSION;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
     resp_strl.len = sizeof(data);
     ESP_LOGI(TAG, "BT send len[%d]\r\n" ,resp_strl.len);
     memcpy(resp_strl.buf,(uint8_t *)&data ,resp_strl.len);    
@@ -707,7 +708,10 @@ static void app_bt_set_status(BT_STATUS_T bt_status)
 static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
 {
     if(app_get_upgrade_source() == UPGRADE_APP)	return;	//升级过程中不解析蓝牙;
+    ESP_LOGI(TAG, "<----------------------");
+    ESP_LOGI(TAG, "ble receive!!!");
     esp_log_buffer_hex(TAG, data_buf, length);
+    ESP_LOGI(TAG, "<----------------------");
 #if 0    
     switch(data_buf[0]){
         case 1:
@@ -862,6 +866,7 @@ static void app_ble_recv_cb(const unsigned char *data_buf, unsigned char length)
                 }
                 if(bt_prase.frame_ctrl.bitN.request_flag == NEED_ACK){
                     res_ctl.bitN.ack_flag = 1;       //标示当前数据包为应答包;
+                    res_ctl.bitN.version  = 1;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
                     if(res_ctl.bitN.error_flag == 1){
                         ESP_LOGE(TAG, "ERROR CODE！");
                         vesync_bt_notify(res_ctl,cnt,bt_prase.frame_cmd,resp_strl.buf,resp_strl.len);  //返回1个字节的具体错误码
