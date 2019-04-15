@@ -58,21 +58,6 @@ static void app_power_save_enter(void)
 {
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     ESP_LOGI(TAG,"sleep source %d\r\n",cause);
-
-    switch (esp_sleep_get_wakeup_cause()){
-        case ESP_SLEEP_WAKEUP_EXT1: {
-            uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
-            if (wakeup_pin_mask == 0) {
-                int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
-                //printf("Wake up from GPIO %d\n", pin);
-            }else{
-                //printf("Wake up from other GPIO\n");
-            }
-            break;
-        }
-        default:
-            break;
-    }
     //rtc_gpio_isolate(GPIO_NUM_12);
 
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
@@ -185,7 +170,8 @@ static void app_notify_scale_suspend_timerout_callback(TimerHandle_t timer)
 	app_sale_wakeup(true);
 
 	if((vesync_get_device_status() != DEV_CONFIG_NET_READY) ||(app_get_upgrade_source() == UPGRADE_NULL) ||
-		(vesync_get_device_status() != DEV_CONFIG_NET_SUCCESS) || (vesync_scan_wifi_list_busy_status() == false)){//设备未处于配网中或者未在升级或者配网成功则进入
+		(vesync_get_device_status() != DEV_CONFIG_NET_SUCCESS) || (vesync_scan_wifi_list_busy_status() == false) ||
+		(vesync_get_device_status() != DEV_CONFIG_NET_TOKEN)){//设备未处于配网中或者未在升级或者配网成功则进入
 		vesync_driver_wifi_stop();
 	}
 	app_uart_encode_send(MASTER_SET,CMD_SCALE_SUSPEND,(unsigned char *)&send_bit,sizeof(uint8_t),true);
@@ -308,10 +294,6 @@ static void app_scale_hw_version(void *data,uint8_t len)
 void app_scales_power_on(void)
 {
 	if(PRODUCTION_EXIT != vesync_get_production_status())		return;
-
-	app_uart_encode_send(MASTER_INQUIRY,CMD_HW_VN,NULL,0,true);
-	resend_cmd_bit |= RESEND_CMD_HW_VN_BIT;
-	vTaskDelay(20 / portTICK_PERIOD_MS);	//称体反应慢，需要延时发送；
 
 	app_uart_encode_send(MASTER_SET,CMD_MEASURE_UNIT,&info_str.user_config_data.measu_unit,sizeof(uint8_t),true);
 	resend_cmd_bit |= RESEND_CMD_MEASURE_UNIT_BIT;
@@ -739,6 +721,8 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 	}
 	if((resend_cmd_bit & RESEND_CMD_WIFI_STATUS_BIT) == RESEND_CMD_WIFI_STATUS_BIT){
 		uint8_t wifi_conn =0 ;
+		uint8_t bt_conn;
+		static bool refresh_token_status = false;
 		switch(vesync_get_device_status()){
 			case DEV_CONFIG_NET_FAIL:
 				wifi_conn = 1;
@@ -751,10 +735,16 @@ static void app_uart_resend_timerout_callback(TimerHandle_t timer)
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;
+			case DEV_CONFIG_NET_TOKEN:
+				bt_conn = 3;
+				app_sale_wakeup(false);        //激活点亮屏幕显示
+				app_scale_suspend_start();
+				resend_cmd_bit |= RESEND_CMD_BT_STATUS_BIT;
+				app_uart_encode_send(MASTER_SET,CMD_BT_STATUS,(unsigned char *)&bt_conn,sizeof(uint8_t),true);
+				break;
 			case DEV_CONFIG_NET_SUCCESS:
 			case DEV_CONFIG_NET_RECORDS:				//已有配网记录
 				wifi_conn = 2;
-
 				app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
 				resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
 				break;
@@ -843,6 +833,11 @@ void app_scales_start(void)
 	app_sale_wakeup(false);
 	app_button_start();
 	vesync_flash_config(true ,USER_MODEL_NAMESPACE);	//初始化用户模型flash区域
+
+	app_uart_encode_send(MASTER_INQUIRY,CMD_HW_VN,NULL,0,true);
+	resend_cmd_bit |= RESEND_CMD_HW_VN_BIT;
+
+	app_scale_suspend_start();
 }
 
 

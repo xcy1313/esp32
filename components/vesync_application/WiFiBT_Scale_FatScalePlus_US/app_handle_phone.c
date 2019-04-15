@@ -99,26 +99,6 @@ static void app_handle_upgrade_response_ack(char *trace_id ,uint8_t result,uint8
     vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&resp_strl.buf[0],resp_strl.len);  //返回应答设置或查询包
 }
 
-static void app_handle_upgrade_process_response(uint32_t data)
-{
-    frame_ctrl_t res_ctl ={     //应答包res状态  
-                .data = 0x10,
-            };
-    struct{                     //应答数据包
-        uint8_t buf[300];
-        uint16_t len;
-    }resp_strl ={{0},0};         
-    static uint8_t cnt = 1;
-    uint16_t upgrade_cmd = CMD_UPGRADE;
-    res_ctl.bitN.version  = BLE_PROTOCAL_VERSION;       //v0.0.63版本之前是0，之后版本要协议区分 作兼容
-    resp_strl.len = sizeof(data);
-    ESP_LOGI(TAG, "BT send len[%d]\r\n" ,resp_strl.len);
-    memcpy(resp_strl.buf,(uint8_t *)&data ,resp_strl.len);    
-    vesync_bt_notify(res_ctl,&cnt,upgrade_cmd,(unsigned char *)&resp_strl.buf[0],resp_strl.len);  //返回应答设置或查询包
-
-    cnt++;
-}
-
 /**
  * @brief 
  * @param status 
@@ -949,7 +929,7 @@ static void app_handle_create_packet_head_send(uint32_t account,uint32_t total_l
     uint8_t cnt =0;
     uint8_t send_buf[15] ={0};
     send_buf[0] = 0xA5;
-    send_buf[1] = 0x10;  // 状态码
+    send_buf[1] = 0x10|BLE_PROTOCAL_VERSION;  // 状态码
     send_buf[2] = cnt++; // 计数
     *(uint16_t *)&send_buf[3] = 2+total_len+sizeof(account)+sizeof(total_len);
     *(uint16_t *)&send_buf[5] = CMD_INQUIRY_HISTORY; //
@@ -981,7 +961,7 @@ static uint8_t ble_sum_verify(uint8_t *frame ,uint16_t len)
 static void ble_send_inquiry_history_null_data(uint32_t account,uint8_t cnt){
     uint8_t send_buf[17] ={0};
     send_buf[0] = 0xA5;
-    send_buf[1] = 0x10;  // 状态码
+    send_buf[1] = 0x10|BLE_PROTOCAL_VERSION;  // 状态码
     send_buf[2] = cnt; // 计数
     *(uint16_t *)&send_buf[3] = 8+2;
     *(uint16_t *)&send_buf[5] = CMD_INQUIRY_HISTORY; //

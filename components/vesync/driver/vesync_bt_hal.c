@@ -803,7 +803,8 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
                 vesync_reply_net_info_response("/queryDeviceNet",ERR_NOT_NET_CONFIG, "ERR_NOT_NET_CONFIG");
             }
         }else if(!strcmp(uri->valuestring, "/beginRefreshToken")){
-            if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ 
+            if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){
+                vesync_set_device_status(DEV_CONFIG_NET_TOKEN); 
                 if(vesync_get_router_link() == false){
                     vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
                 }
@@ -916,8 +917,8 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                         uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
                         if (descr_value == 0x0001){
                             ESP_LOGI(GATTS_TABLE_TAG, "app notify enable");
-                            uint8_t notify_data[] = {0x30};
-                            vesync_bt_notify_send(notify_data,sizeof(notify_data));
+                            // uint8_t notify_data[] = {0x30};
+                            // vesync_bt_notify_send(notify_data,sizeof(notify_data));
                         }else if (descr_value == 0x0002){
                             ESP_LOGI(GATTS_TABLE_TAG, "app indicate enable");
                         }else{
@@ -927,8 +928,8 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                         uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
                         if (descr_value == 0x0001){
                             ESP_LOGI(GATTS_TABLE_TAG, "update notify enable");
-                            uint8_t notify_data[] = {0x31};
-                            vesync_bt_upgrade_notify_send(true,notify_data,sizeof(notify_data));
+                            // uint8_t notify_data[] = {0x31};
+                            // vesync_bt_upgrade_notify_send(true,notify_data,sizeof(notify_data));
                         }else if (descr_value == 0x0002){
                             ESP_LOGI(GATTS_TABLE_TAG, "update indicate enable");
                         }else{
@@ -938,8 +939,8 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                         uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
                         if (descr_value == 0x0001){
                             ESP_LOGI(GATTS_TABLE_TAG, "update write notify enable");
-                            uint8_t notify_data[] = {0x32};
-                            vesync_bt_upgrade_notify_send(false,notify_data,sizeof(notify_data));
+                            // uint8_t notify_data[] = {0x32};
+                            // vesync_bt_upgrade_notify_send(false,notify_data,sizeof(notify_data));
                         }else if (descr_value == 0x0002){
                             ESP_LOGI(GATTS_TABLE_TAG, "update write indicate enable");
                         }else{

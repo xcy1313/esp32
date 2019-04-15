@@ -351,11 +351,11 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                         memcpy((user_config_data_t *)&backup_user_list[user_cnt],(user_config_data_t *)&user_list[i],sizeof(user_config_data_t));   //将满足条件范围的数据重新拷贝;
                         user_cnt++;
                     }
-                    ESP_LOGI(TAG, "all user config account:[0x%04x],kg:[%d],imped:[%d]",user_list[i].account,user_list[i].weight_kg,user_list[i].imped_value);
+                    ESP_LOGI(TAG, "all user config account:[0x%04x],kg:[%d],lb:[%d],imped:[%d]",user_list[i].account,user_list[i].weight_kg,user_list[i].weight_lb,user_list[i].imped_value);
                 }
                 ESP_LOGI(TAG, "====================================================");
                 for(uint8_t j=0;j<user_cnt;j++){
-                    ESP_LOGI(TAG, "near match user config account:[0x%04x],kg:[%d],imped:[%d],number:[%d]",backup_user_list[j].account,backup_user_list[j].weight_kg,backup_user_list[j].imped_value,j);
+                    ESP_LOGI(TAG, "near match user config account:[0x%04x],kg:[%d],lb:[%d],imped:[%d],number:[%d]",backup_user_list[j].account,backup_user_list[j].weight_kg,backup_user_list[j].weight_lb,backup_user_list[j].imped_value,j);
                 }
                 if(user_cnt !=0){
                     uint8_t list_number =0;
@@ -373,16 +373,33 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
                             p_weitht->imped_value = MIN_IMPED_VALUE;
                         }
 
-                        if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) > MAX_IMPED){
-                            if(backup_user_list[list_number].imped_value >= p_weitht->imped_value){
-                                p_weitht->imped_value = backup_user_list[list_number].imped_value - MAX_IMPED;
-                            }else{
-                                p_weitht->imped_value = backup_user_list[list_number].imped_value + MAX_IMPED;
+                        if(0 != backup_user_list[list_number].imped_value){ //用户模型不为0
+                            if(abs(backup_user_list[list_number].imped_value - p_weitht->imped_value) > MAX_IMPED){
+                                if(backup_user_list[list_number].imped_value >= p_weitht->imped_value){
+                                    p_weitht->imped_value = backup_user_list[list_number].imped_value - MAX_IMPED;
+                                }else{
+                                    p_weitht->imped_value = backup_user_list[list_number].imped_value + MAX_IMPED;
+                                }
                             }
                         }
                     }
-                    ESP_LOGI(TAG, "p_weitht->imped_value [%d]]" ,p_weitht->imped_value);
                     if(bt_status == false){
+                        for(uint8_t i= 0;i< (len/sizeof(user_config_data_t));i++){
+                            if(backup_user_list[list_number].account == user_list[i].account){
+                                user_list[i].weight_kg = p_weitht->weight;
+                                user_list[i].weight_lb = p_weitht->lb;
+                                user_list[i].imped_value = p_weitht->imped_value;   //修订值重新修改模型信息
+                                ESP_LOGI(TAG, "---------------------------------");
+                                ESP_LOGI(TAG, "revise weitht kg_value [%d]" ,user_list[i].weight_kg);
+                                ESP_LOGI(TAG, "revise weitht lb_value [%d]" ,user_list[i].weight_lb);
+                                ESP_LOGI(TAG, "revise weitht imped_value [%d]" ,user_list[i].imped_value);
+                                ESP_LOGI(TAG, "---------------------------------");
+                                break;
+                            }
+                        }
+                        vesync_flash_erase_all_key(USER_MODEL_NAMESPACE,USER_MODEL_KEY);
+                        vesync_flash_write(USER_MODEL_NAMESPACE,USER_MODEL_KEY,(char *)user_list,len);  //修正当前用户模型信息;
+
                         user_history_t history = {0};
 
                         history.imped_value = p_weitht->imped_value;
@@ -412,9 +429,9 @@ bool body_fat_person(bool bt_status,hw_info *res ,response_weight_data_t *p_weit
 
                         memcpy((user_history_t *)&res->user_history_data ,(user_history_t *)&history,sizeof(user_history_t));
                         if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ //设备已配网
-                            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0);
+                            app_handle_net_service_task_notify_bit(UPLOAD_WEIGHT_DATA_REQ,0,0); //数据上报服务器
                         }else{                                                      //设备未配网
-                            app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,0,0);
+                            app_handle_net_service_task_notify_bit(STORE_WEIGHT_DATA_REQ,0,0);  //数据转储
                         }
                     }
                     body_fat_calc(&resp_fat_data,ALL_CALC,&backup_user_list[list_number],p_weitht); //计算体脂参数5项指标

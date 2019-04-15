@@ -136,6 +136,9 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 		case MQTT_EVENT_ERROR:
 			LOG_I(TAG, "MQTT_EVENT_ERROR");
 			break;
+		default:
+			LOG_I(TAG, "MQTT other error:%d",event->event_id);
+			break;
 	}
 	return ESP_OK;
 }

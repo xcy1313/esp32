@@ -186,7 +186,6 @@ typedef struct{
 	uint8_t					user_gender;	//用户性别
 	uint8_t					user_age;		//用户年龄
 	uint8_t 				user_height;	//用户身高
-	uint8_t 				unused[8];		//预留
 }user_history_t;
 #pragma pack()				//
 

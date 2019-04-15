@@ -138,8 +138,8 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "config info NULL");
 		vesync_set_device_status(DEV_CONFIG_NET_NULL);			//第一次使用，未配网
 	}
-	// uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
-	// strcpy((char *)product_config.cid,(char *)test_cid);
+	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
+	strcpy((char *)product_config.cid,(char *)test_cid);
 	get_device_info();
 	// while(1){
 	// 	sleep(5);

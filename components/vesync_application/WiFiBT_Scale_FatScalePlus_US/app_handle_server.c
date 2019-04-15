@@ -1001,7 +1001,9 @@ void router_status(vesync_router_link_status_t status)
 void device_status(device_status_e status)
 {
     LOG_I(TAG, "device status %d\n",status);
+    static bool refresh_token_status = false;
     uint8_t wifi_conn =0;
+    uint8_t bt_conn;
 	switch(status){
         case DEV_CONFIG_NET_FAIL:
             wifi_conn = 1;
@@ -1012,6 +1014,10 @@ void device_status(device_status_e status)
             wifi_conn = 0;
             app_uart_encode_send(MASTER_SET,CMD_WIFI_STATUS,(unsigned char *)&wifi_conn,sizeof(uint8_t),true);
             resend_cmd_bit |= RESEND_CMD_WIFI_STATUS_BIT;
+			break;
+        case DEV_CONFIG_NET_TOKEN:
+            app_sale_wakeup(false);        //激活点亮屏幕显示
+            app_scale_suspend_start();
 			break;
         case DEV_CONFIG_NET_SUCCESS:
 		case DEV_CONFIG_NET_RECORDS:				//已有配网记录
