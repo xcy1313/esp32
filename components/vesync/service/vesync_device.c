@@ -20,8 +20,10 @@
 // static vesync_device_conf_t s_device_config;					//设备配置信息
 // static vesync_product_conf_t s_product_config;				//设备产品信息
 static device_status_e device_status = DEV_CONFIG_NET_NULL;		//设备配网状态，默认为离线状态
+static vesync_router_link_status_t router_status = DEV_ROUTER_LINK_INIT;		//设备配网状态，默认为离线状态
 
 static device_status_cb_t dev_status_callback = NULL;			//定义配网状态回调函数指针
+static vesync_router_link_status_cb_t router_link_status_callback = NULL;
 
 /**
  * [vesync_get_device_status 获取设备状态]
@@ -29,6 +31,7 @@ static device_status_cb_t dev_status_callback = NULL;			//定义配网状态回�
  */
 device_status_e vesync_get_device_status(void)
 {
+	LOG_I(TAG, "vesync_get_device_status : %d.",device_status);
 	return device_status;
 }
 
@@ -55,6 +58,34 @@ void vesync_regist_devstatus_cb(device_status_cb_t cb)
 {
 	dev_status_callback = cb;
 }
+
+vesync_router_link_status_t vesync_get_router_link_status(void)
+{
+	return router_status;
+}
+/**
+ * @brief 设置路由器连接状态
+ * @param status 
+ */
+void vesync_set_router_link_status(vesync_router_link_status_t status)
+{
+	LOG_I(TAG, "vesync_set_router_link_status status:%d ,router_status:%d", status,router_status);
+	if(router_status != status){
+		router_status = status;
+		if(router_link_status_callback != NULL)
+			router_link_status_callback(status);
+	}
+}
+
+/**
+ * @brief 应用层注册路由器连接状态
+ * @param cb 
+ */
+void vesync_regist_router_link_status_cb(vesync_router_link_status_cb_t cb)
+{
+	router_link_status_callback = cb;
+}
+
 
 /**
  * [vesync_reset_device_conf 设备配置清空复位]

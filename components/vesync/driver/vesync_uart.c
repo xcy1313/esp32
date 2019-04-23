@@ -65,9 +65,10 @@ void vesync_uart_encode_send(uint8_t ctl,uint8_t cmd,const unsigned char *data,u
 	if(len >sizeof(sendbuf)-len)	return;
 
     sendlen = Comm_frame_pack(ctl,cmd,data,len+1,(unsigned char *)&sendbuf); //数据内容包含1个字节cmd 所以加一
-
+    ESP_LOGI(TAG, "---------------------->");
+    ESP_LOGI(TAG, "uart send.....");
     esp_log_buffer_hex(TAG, sendbuf, sendlen);
-
+    ESP_LOGI(TAG, "---------------------->");
     if(sendlen != 0){
         WriteCoreQueue(sendbuf,sendlen);
     }

@@ -58,6 +58,10 @@ static void vesync_connect_wifi_callback(vesync_wifi_status_e status)
 			xTaskNotify(event_center_taskhd, NETWORK_CONNECTED, eSetBits);			//通知事件处理中心任务
 			break;
 		case VESYNC_WIFI_LOST_IP:
+		case VESYNC_WIFI_WRONG_PASSWORD:
+		case VESYNC_WIFI_NO_AP_FOUND:
+		case VESYNC_WIFI_CONNECT_FAIL:
+			LOG_I(TAG, "vesync_connect_wifi_callback status:%d " ,status);
 			xTaskNotify(event_center_taskhd, NETWORK_DISCONNECTED, eSetBits);		//通知事件处理中心任务
 			break;
 		default:
@@ -131,6 +135,9 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 
 		case MQTT_EVENT_ERROR:
 			LOG_I(TAG, "MQTT_EVENT_ERROR");
+			break;
+		default:
+			LOG_I(TAG, "MQTT other error:%d",event->event_id);
 			break;
 	}
 	return ESP_OK;
@@ -288,7 +295,11 @@ static uint8_t vesync_json_https_service_parse(uint8_t mask,char *read_buf)
 			cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
 			if(mask == UPGRADE_REFRESH_ATTRIBUTE_REQ){
 				esp_restart();
+<<<<<<< HEAD
     			return 0;
+=======
+    			return ret;
+>>>>>>> FatScale00-future
 			}
 			if(true == cJSON_IsObject(result)){
 				cJSON *token = cJSON_GetObjectItemCaseSensitive(result, "token");
@@ -346,6 +357,10 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	itoa(seconds, traceId_buf, 10);
 
 	int rssi = vesync_get_ap_rssi(8);
+<<<<<<< HEAD
+=======
+	
+>>>>>>> FatScale00-future
     switch(mask){
         case NETWORK_CONFIG_REQ:
             cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
@@ -399,6 +414,13 @@ void vesync_json_add_https_service_register(uint8_t mask)
 	if(buff_len > 0 && ret == 0){
 		LOG_I(TAG, "Https recv %d byte data : \n%s", buff_len, recv_buff);
 		vesync_json_https_service_parse(mask,recv_buff);
+	}else{
+		time_t seconds;
+		seconds = time((time_t *)NULL);
+		char traceId_buf[64];
+		itoa(seconds, traceId_buf, 10);
+		vesync_set_device_status(DEV_CONFIG_NET_RECORDS);							//设备有配网记录，配网失败
+		vesync_notify_app_net_result(traceId_buf,ERR_CONNECT_HTTPS_SERVER_FAIL,"ERR_CONNECT_HTTPS_SERVER_FAIL",ret);	
 	}
 
     free(out);

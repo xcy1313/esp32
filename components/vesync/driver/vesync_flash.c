@@ -113,7 +113,7 @@ bool vesync_flash_write(const char *label_name,const char *key_name,const void *
         required_size += len;
     }
     ESP_LOGI(TAG, "NVS ready write len =%d,err =0x%04x",required_size,err);
-#if 1      
+#if 0      
     nvs_stats_t nvs_stats;
     nvs_get_stats(label_name, &nvs_stats);
     
@@ -146,7 +146,7 @@ bool vesync_flash_write(const char *label_name,const char *key_name,const void *
     char *r_buf = (char *)malloc(required_size);
 
     err = nvs_get_blob(fp, key_name, r_buf, &required_size);
-    
+ #if 0   
     printf("\r\n");
     printf("read nvc------------------------>\n");
     if (err == ESP_OK) {
@@ -156,14 +156,14 @@ bool vesync_flash_write(const char *label_name,const char *key_name,const void *
     }
     printf("\r\n");
     printf("end----------------------------->\n");
-    
+#endif    
     nvs_close(fp);
     free(buf);
     free(r_buf);
         return true;
 
 error:
-    printf("falsh error %d;err 0x%04x\r\n",err_code ,err);
+    //printf("falsh error %d;err 0x%04x\r\n",err_code ,err);
     if (buf) {
         free(buf);
     }
@@ -737,6 +737,7 @@ int32_t vesync_nvs_write_data(char *part_name ,char *key ,uint8_t *data,uint16_t
         return err;
     }
 /******************************************************/    
+#if 0
     char *r_buf = (char *)malloc(len);
     err = nvs_get_blob(handle, key, r_buf, &len);
     printf("read nvc------------------------>\n");
@@ -747,6 +748,7 @@ int32_t vesync_nvs_write_data(char *part_name ,char *key ,uint8_t *data,uint16_t
     }
     printf("end----------------------------->\n");
     free(r_buf);
+#endif    
 /******************************************************/ 
 
     nvs_close(handle);

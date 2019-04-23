@@ -187,7 +187,7 @@ void vesync_hal_connect_wifi(char *ssid ,char *pwd)
 		LOG_E(TAG, "pwd is NULL");
 		return;
 	}
-	ESP_ERROR_CHECK( esp_wifi_disconnect() );	//不加导致配网时发送扫描不到ap的bug;
+	//ESP_ERROR_CHECK( esp_wifi_disconnect() );	//不加导致配网时发送扫描不到ap的bug;
 	ESP_ERROR_CHECK( esp_wifi_stop() );
 
 	strcpy((char *)wifi_config.sta.ssid,(char *)ssid);
@@ -320,7 +320,22 @@ void vesync_hal_init_wifi_module(vesync_wifi_cb callback,bool power_save)
 	if(power_save){
 		ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MODEM));			//开启wifi省电模式;
 	}
-	ESP_ERROR_CHECK( esp_wifi_start() );
+}
+
+/**
+ * @brief 硬件抽象层启动wifi
+ */
+void vesync_hal_wifi_start(void)
+{
+	ESP_ERROR_CHECK( esp_wifi_start() );	
+}
+
+/**
+ * @brief 硬件抽象层停止wifi
+ */
+void vesync_hal_wifi_stop(void)
+{
+	ESP_ERROR_CHECK( esp_wifi_stop() );
 }
 
 /**

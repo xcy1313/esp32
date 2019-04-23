@@ -11,6 +11,7 @@
 #include "vesync_log.h"
 #include "vesync_wifi.h"
 #include "vesync_bt_hal.h"
+#include "vesync_device.h"
 
 #include "cJSON.h"
 
@@ -29,6 +30,9 @@ static vesync_wifi_cb s_vesync_wifi_callback = NULL;		//wifi连接状态回调�
 static vesync_wifi_status_e wifi_status = VESYNC_WIFI_INIT;
 
 static bool vesync_wifi_router_link_connect  = false;
+
+static bool vesync_wifi_scan_link_busy = false;
+
 /**
  * @brief 扫描AP热点的回调函数
  * @param arg 		[扫描获取到的AP信息指针]
@@ -88,6 +92,11 @@ static void vesync_set_wifi_status(vesync_wifi_status_e new_status)
 {
     if(new_status != wifi_status){
         wifi_status = new_status;
+		ESP_LOGI(TAG, "vesync_set_wifi_status %d", new_status);
+		if(NULL != s_vesync_wifi_callback)	//驱动层调用上一层注册的回调函数，WiFi状态传递给上一层继续处理
+		{
+			s_vesync_wifi_callback(new_status);
+		}
     }
 }
 
@@ -122,18 +131,30 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_NO_AP_FOUND:
-			vesync_notify_app_net_result("NULL",ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND",0);
+			//if(vesync_get_device_status() == DEV_CONFIG_NET_READY)
+			{
+				vesync_notify_app_net_result("NULL",ERR_CONFIG_NO_AP_FOUND,"CONFIG_NO_AP_FOUND",0);
+			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_NO_AP_FOUND");
+			ostatus = VESYNC_WIFI_NO_AP_FOUND;
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_CONNECT_FAIL:
-			vesync_notify_app_net_result("NULL",ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL",0);
+			//if(vesync_get_device_status() == DEV_CONFIG_NET_READY)
+			{
+				vesync_notify_app_net_result("NULL",ERR_CONFIG_CONNECT_WIFI_FAIL,"CONFIG_CONNECT_WIFI_FAIL",0);
+			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_CONNECT_FAIL");
+			ostatus = VESYNC_WIFI_CONNECT_FAIL;
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_WRONG_PASSWORD:
-			vesync_notify_app_net_result("NULL",ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD",0);
+			//if(vesync_get_device_status() == DEV_CONFIG_NET_READY)
+			{
+				vesync_notify_app_net_result("NULL",ERR_CONFIG_WRONG_PASSWORD,"CONFIG_WRONG_PASSWORD",0);
+			}
 			ESP_LOGE(TAG,"VESYNC_WIFI_WRONG_PASSWORD");
+			ostatus = VESYNC_WIFI_WRONG_PASSWORD;
 			vesync_wifi_router_link_connect = false;
 			break;
 		case VESYNC_WIFI_SCAN_DONE:{
@@ -141,6 +162,7 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 				esp_wifi_scan_get_ap_num(&apCount);
 				if (apCount == 0) {
 					ESP_LOGI(TAG,"Nothing AP found");
+					vesync_reply_response("/queryWifiList",ERR_CONFIG_WIFI_DEIVER_INIT, "CONFIG_WIFI_DEIVER_INIT");
 					break;
 				}
 				wifi_ap_record_t *ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
@@ -149,32 +171,28 @@ static void hal_connect_wifi_callback(vesync_wifi_status_e status)
 					ESP_LOGI(TAG,"malloc error, ap_list is NULL");
 					break;
 				}
+				ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
 				wifi_ap_record_t *blufi_ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
 				if (!blufi_ap_list) {
 					ESP_LOGI(TAG,"malloc error, blufi_ap_list is NULL");
 					break;
 				}
-				ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
 
 				for (int i = 0; i < apCount; ++i){
 					blufi_ap_list[i].authmode = ap_list[i].authmode; 
 					blufi_ap_list[i].rssi = ap_list[i].rssi;
 					memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
 				}
-				free(ap_list);
-				free(blufi_ap_list);
 				vesync_hal_scan_stop();
 				blufi_wifi_list_packet(apCount,blufi_ap_list);
+				free(ap_list);
+				free(blufi_ap_list);
 			}
 			break;
 		default:
 			break;
 	}
 	vesync_set_wifi_status(ostatus);	//用于本文件处理
-	if(NULL != s_vesync_wifi_callback)	//驱动层调用上一层注册的回调函数，WiFi状态传递给上一层继续处理
-	{
-		s_vesync_wifi_callback(status);
-	}
 }
 
 /**
@@ -231,6 +249,24 @@ static void vesync_driver_register_cb(vesync_wifi_cb callback)
 }
 
 /**
+ * @brief WIFI Drive层启动wifi
+ */
+void vesync_driver_wifi_start(void)
+{
+	vesync_hal_wifi_start();
+	LOG_I(TAG, "vesync_driver_wifi_start!!!\n");	
+}
+
+/**
+ * @brief WIFI Drive层停止wifi
+ */
+void vesync_driver_wifi_stop(void)
+{
+	vesync_hal_wifi_stop();
+	LOG_I(TAG, "vesync_driver_wifi_stop!!!\n");
+}
+
+/**
  * @brief 初始化wifi模块
  * @param callback 
  * @param power_save 
@@ -239,7 +275,7 @@ void vesync_init_wifi_module(vesync_wifi_cb callback,bool power_save)
 {
 	vesync_driver_register_cb(callback);
 	vesync_hal_init_wifi_module(hal_connect_wifi_callback,power_save);
-
+	
 	s_network_event_group = xEventGroupCreate();
 	
 	if(NULL != callback){
@@ -354,6 +390,7 @@ int vesync_get_wifi_ap_mac_string(char *mac_str_buffer)
  */
 int vesync_scan_wifi_list_start(void)
 {
+	vesync_wifi_scan_link_busy = true;
 	return vesync_hal_scan_wifi_list_start();
 }
 
@@ -363,9 +400,19 @@ int vesync_scan_wifi_list_start(void)
  */
 int vesync_scan_wifi_list_stop(void)
 {
+	vesync_wifi_scan_link_busy = false;
 	return vesync_hal_scan_stop();
 }
 
+/**
+ * @brief wifi扫描列表状态
+ * @return true 
+ * @return false 
+ */
+bool vesync_scan_wifi_list_busy_status(void)
+{
+	return vesync_wifi_scan_link_busy;
+}
 /**
  * @brief 获取信号强度
  * @param points 

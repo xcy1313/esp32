@@ -61,20 +61,20 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 		case BT_FRAME_HEAD:
 			if( byteData == BT_HEAD ){
 				*step = BT_FRAME_CTRL;
-				ESP_LOGI(BT_TAG, "BT_FRAME_HEAD :%02x",byteData);
+				//ESP_LOGI(BT_TAG, "BT_FRAME_HEAD :%02x",byteData);
 	        }
 			break;
 
 		case BT_FRAME_CTRL:
 			frame->frame_ctrl.data = byteData;
 			*step = BT_FRAME_SEQ;
-			ESP_LOGI(BT_TAG, "BT_FRAME_CTRL :%02x",byteData);
+			//ESP_LOGI(BT_TAG, "BT_FRAME_CTRL :%02x",byteData);
 			break;
 
 		case BT_FRAME_SEQ:
 			frame->frame_cnt = byteData;
 			*step = BT_FRAME_LEN;
-			ESP_LOGI(BT_TAG, "BT_FRAME_SEQ :%02x",byteData);
+			//ESP_LOGI(BT_TAG, "BT_FRAME_SEQ :%02x",byteData);
 			break;
 
 		case BT_FRAME_LEN:
@@ -86,7 +86,7 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 				*step = BT_FRAME_CMD;
 				frame->frame_data_len = *(unsigned short *)&back_buf[0];
 				cnt =0;
-				ESP_LOGI(BT_TAG, "BT_FRAME_LEN :%02x",back_buf[0]);
+				//ESP_LOGI(BT_TAG, "BT_FRAME_LEN :%02x",back_buf[0]);
 				//帧数据长度有效性判断
 				if (BT_DATA_BUFF_MAX < frame->frame_data_len){
 					*step = BT_FRAME_HEAD;
@@ -106,7 +106,7 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 				*step = BT_FRAME_DATA;
 				frame->frame_cmd = *(unsigned short *)&back_buf[0];
 				frame->frame_data_pos =0;	
-				ESP_LOGI(BT_TAG, "BT_FRAME_CMD %02x",back_buf[0]);
+				//ESP_LOGI(BT_TAG, "BT_FRAME_CMD %02x",back_buf[0]);
 				cnt =0;
 			}			
 			break;
@@ -117,7 +117,7 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 				frame->frame_sum = byteData;
 				calc_sum = sum_verify(frame);	 //计算校验和
 				frame->frame_sum = calc_sum;
-				ESP_LOGI(BT_TAG, "BT_FRAME_SUM %02x",byteData);
+				//ESP_LOGI(BT_TAG, "BT_FRAME_SUM %02x",byteData);
 				if(frame->frame_sum != calc_sum){
 					*step = BT_FRAME_HEAD;
 				}else{
@@ -129,7 +129,7 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 					esp_log_buffer_hex(BT_TAG,frame->frame_data,frame->frame_data_pos);
 					frame->frame_data_pos = 0;
 					*step = BT_FRAME_SUM;
-					ESP_LOGI(BT_TAG, "BT_FRAME_DATA over!");
+					//ESP_LOGI(BT_TAG, "BT_FRAME_DATA over!");
 				}	
 			}
 			break;
@@ -138,7 +138,7 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 			frame->frame_sum = byteData;
 			calc_sum = sum_verify(frame);	 //计算校验和
 			frame->frame_sum = calc_sum;
-			ESP_LOGI(BT_TAG, "BT_FRAME_SUM %02x",byteData);
+			//ESP_LOGI(BT_TAG, "BT_FRAME_SUM %02x",byteData);
     		if(frame->frame_sum != calc_sum){
 				*step = BT_FRAME_HEAD;
     		}else{
@@ -149,7 +149,7 @@ unsigned char bt_data_frame_decode(unsigned char byteData, unsigned char channel
 		case BT_FRAME_END:
 		    *step = BT_FRAME_HEAD;
 			if( byteData == BT_END ){
-				ESP_LOGI(BT_TAG, "BT_FRAME_END");
+				//ESP_LOGI(BT_TAG, "BT_FRAME_END");
 				ret = 1;				
 			}
 			break;

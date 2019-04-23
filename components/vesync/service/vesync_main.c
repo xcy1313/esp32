@@ -14,10 +14,12 @@
 #include "vesync_sntp_service.h"
 #include "vesync_flash.h"
 #include "vesync_log.h"
+#include "vesync_build_cfg.h"
 
 #include "vesync_https.h"
 #include "vesync_device.h"
 #include "vesync_ota.h"
+#include "esp_ota_ops.h"
 
 static const char* TAG = "vesync_main";
 
@@ -42,11 +44,10 @@ static void vesync_event_center_thread(void *args)
 			//LOG_I(TAG, "Event center get new notified : %x.", notified_value);
 
 			if(notified_value & NETWORK_CONNECTED){
+				vesync_set_router_link_status(DEV_ROUTER_LINK_CONNTECD);
 				if(strlen((char *)product_config.cid) !=0){
 					if(vesync_get_device_status() == DEV_CONFIG_NET_READY){
 						vesync_register_https_net();	//请求配网;
-					}else{
-						vesync_set_device_status(DEV_CONFIG_NET_SUCCESS);
 					}
 				}
 			}
@@ -60,7 +61,7 @@ static void vesync_event_center_thread(void *args)
 				vesync_json_add_https_service_register(UPGRADE_REFRESH_ATTRIBUTE_REQ);
 			}
 			if(notified_value & NETWORK_DISCONNECTED){
-				vesync_set_device_status(DEV_CONFIG_NET_FAIL);
+				vesync_set_router_link_status(DEV_ROUTER_LINK_DISCONNTED);
 			}
 			if(notified_value & RECEIVE_UART_DATA)
 			{
@@ -103,24 +104,34 @@ void vesync_register_application_cb(vesync_application_cb_t cb)
 }
 
 /**
+ * [get_device_info  获取配置信息保存扇区，打印固件及设备相关信息等，此处的打印默认一直输出，不可关闭]
+ * @return  [无]
+ */
+static void get_device_info(void)
+{
+	printf("\r\n\nESP32 SDK version : %s \r\n", system_get_sdk_version());
+	printf("VeSync SDK version : %s \r\n", vesync_get_vesync_sdk_version());
+
+	const esp_partition_t *configured = esp_ota_get_boot_partition();
+    ESP_LOGI(TAG, "configured partition type %d subtype %d (offset 0x%08x)",
+             configured->type, configured->subtype, configured->address);
+	//设备MAC地址
+	char wifi_mac[6 * 3];
+    vesync_get_wifi_sta_mac_string(wifi_mac);
+	printf("User run area : %s \r\n",(configured->subtype == 0)?"factory":"ota_0");
+	printf("Device MAC : %s \r\n",wifi_mac);
+	printf("Device type : %s \r\n",PRODUCT_WIFI_NAME);
+	printf("Firmware version : %s \r\n",FIRM_VERSION);
+}
+
+/**
  * @brief vesync平台入口
  * @param args [无]
  */
 void vesync_entry(void *args)
 {
-	if(pdPASS != xTaskCreate(vesync_event_center_thread,
-	                         EVENT_TASK_NAME,
-	                         EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),
-	                         NULL,
-	                         EVENT_TASK_PRIO,
-	                         &event_center_taskhd))
-	{
-		LOG_E(TAG, "Create event center task fail !");
-	}
 	vesync_clinet_wifi_module_init(true);
-	if(NULL != vesync_application_cb){
-		vesync_application_cb();
-	}
+	xTaskCreate(vesync_event_center_thread,EVENT_TASK_NAME,EVENT_TASK_STACSIZE / sizeof(portSTACK_TYPE),NULL,EVENT_TASK_PRIO,&event_center_taskhd);
 	vesync_flash_read_product_config(&product_config);
 	if(vesync_flash_read_net_info(&net_info) == 0){
 		vesync_set_device_status(DEV_CONFIG_NET_RECORDS);		//已配网但未连接上服务器
@@ -128,9 +139,9 @@ void vesync_entry(void *args)
 		LOG_E(TAG, "config info NULL");
 		vesync_set_device_status(DEV_CONFIG_NET_NULL);			//第一次使用，未配网
 	}
-	uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
-	strcpy((char *)product_config.cid,(char *)test_cid);
-
+	// uint8_t test_cid[] = "0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1"; //Eric：0LZ8xknbQJC41fgVvG79w06tGLsA_jK1   0LWPG6SG9xBPtnQaJbD8qCxVk2GKwMI1
+	// strcpy((char *)product_config.cid,(char *)test_cid);
+	get_device_info();
 	// while(1){
 	// 	sleep(5);
 	// 	//vesync_printf_system_time();

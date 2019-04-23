@@ -31,8 +31,8 @@
 
 #define GATTS_TABLE_TAG "Vesync_BT"
 
-#define APP_ADV_INTERVAL_MIN            0x20                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
-#define APP_ADV_INTERVAL_MAX            0x40                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
+#define APP_ADV_INTERVAL_MIN            0x200                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
+#define APP_ADV_INTERVAL_MAX            0x200                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 300 ms). */
 #define TX_POWER                        ESP_PWR_LVL_N0                /* +3dbm*/
 #define APP_ADV_TIMEOUT_IN_SECONDS      ADVER_TIME_OUT                /**< The advertising timeout (in units of seconds). */
 
@@ -144,42 +144,57 @@ static struct gatts_profile_inst heart_rate_profile_tab[PROFILE_NUM] = {
 };
 
 /* user Service characteristic*/
-static const uint16_t GATTS_SERVICE_PRIMARY_UUID   = 0xFFF0;
-static const uint16_t GATTS_CHAR_NOTIFY_UUID       = 0xFFF1;
-static const uint16_t GATTS_CHAR_WRITE_UUID        = 0xFFF2;
+const uint16_t GATTS_SERVICE_PRIMARY_UUID   = 0xFFF0;
+const uint16_t GATTS_CHAR_NOTIFY_UUID       = 0xFFF1;
+const uint16_t GATTS_CHAR_WRITE_UUID        = 0xFFF2;
+
+/* user update service*/
+const uint8_t GATTS_UPDATE_SERVICE_UUID[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB0, 0x00, 0x40, 0x51, 0x04, 0xC0, 0xFF, 0x00, 0xF0};
+const uint8_t GATTS_UPDATE_CHAR_NOTIFY_UUID[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB0, 0x00, 0x40, 0x51, 0x04, 0xC1, 0xFF, 0x00, 0xF0};
+const uint8_t GATTS_UPDATE_CHAR_WRITE_UUID[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB0, 0x00, 0x40, 0x51, 0x04, 0xC2, 0xFF, 0x00, 0xF0};
+const uint8_t upgrade_cccd[2]      = {0x00, 0x00};
+const uint8_t upgrade_write_cccd[2]      = {0x00, 0x00};
+const uint8_t update_char_prop_write_notify      = ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GATT_CHAR_PROP_BIT_WRITE_NR|ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+uint16_t update_server_handle_table[DEV_UPDATE_NB];
+const char upgrade_description_identify[] = {"Img Identify"};
+const char upgrade_description_block[] = {"Img Block"};
 
 /* device information characteristic */
-static const uint16_t GATTS_SYSTEM_ID_UUID         = ESP_GATT_UUID_SYSTEM_ID; 
-static const uint16_t GATTS_MODEL_NUMBER_UUID      = ESP_GATT_UUID_MODEL_NUMBER_STR;
-static const uint16_t GATTS_SERIAL_NUMBER_UUID     = ESP_GATT_UUID_SERIAL_NUMBER_STR;
-static const uint16_t GATTS_FW_VERSION_UUID        = ESP_GATT_UUID_FW_VERSION_STR;
-static const uint16_t GATTS_HW_VERSION_UUID        = ESP_GATT_UUID_HW_VERSION_STR;
-static const uint16_t GATTS_SW_VERSION_UUID        = ESP_GATT_UUID_SW_VERSION_STR;
-static const uint16_t GATTS_MANU_NAME_UUID         = ESP_GATT_UUID_MANU_NAME;
-static const uint16_t GATTS_IEEE_DATA_UUID         = ESP_GATT_UUID_IEEE_DATA;
-static const uint16_t GATTS_PNP_ID_UUID            = ESP_GATT_UUID_PNP_ID;
+const uint16_t GATTS_SYSTEM_ID_UUID         = ESP_GATT_UUID_SYSTEM_ID; 
+const uint16_t GATTS_MODEL_NUMBER_UUID      = ESP_GATT_UUID_MODEL_NUMBER_STR;
+const uint16_t GATTS_SERIAL_NUMBER_UUID     = ESP_GATT_UUID_SERIAL_NUMBER_STR;
+const uint16_t GATTS_FW_VERSION_UUID        = ESP_GATT_UUID_FW_VERSION_STR;
+const uint16_t GATTS_HW_VERSION_UUID        = ESP_GATT_UUID_HW_VERSION_STR;
+const uint16_t GATTS_SW_VERSION_UUID        = ESP_GATT_UUID_SW_VERSION_STR;
+const uint16_t GATTS_MANU_NAME_UUID         = ESP_GATT_UUID_MANU_NAME;
+const uint16_t GATTS_IEEE_DATA_UUID         = ESP_GATT_UUID_IEEE_DATA;
+const uint16_t GATTS_PNP_ID_UUID            = ESP_GATT_UUID_PNP_ID;
 
-static const uint16_t primary_service_uuid         = ESP_GATT_UUID_PRI_SERVICE; 
-static const uint16_t character_declaration_uuid   = ESP_GATT_UUID_CHAR_DECLARE;
-static const uint16_t character_client_config_uuid = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
-static const uint8_t char_prop_write               = ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GATT_CHAR_PROP_BIT_WRITE_NR;
-static const uint8_t char_prop_notify              = ESP_GATT_CHAR_PROP_BIT_NOTIFY;
-static const uint8_t char_prop_read                = ESP_GATT_CHAR_PROP_BIT_READ;
-static const uint8_t char_prop_read_notify         = ESP_GATT_CHAR_PROP_BIT_READ|ESP_GATT_CHAR_PROP_BIT_NOTIFY;
-static const uint8_t heart_measurement_ccc[2]      = {0x00, 0x00};
-static const uint8_t char_value[4]                 = {0x06, 0xd0};
-static const uint8_t systemId_value[2]             = {0x01, 0x10};
+const uint16_t primary_service_uuid         = ESP_GATT_UUID_PRI_SERVICE; 
+const uint16_t character_declaration_uuid   = ESP_GATT_UUID_CHAR_DECLARE;
+const uint16_t character_client_config_uuid = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
+const uint16_t character_client_config_description_uuid = ESP_GATT_UUID_CHAR_DESCRIPTION;   //0x2901
+const uint8_t char_prop_write               = ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GATT_CHAR_PROP_BIT_WRITE_NR;
+const uint8_t char_prop_notify              = ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+const uint8_t char_prop_read                = ESP_GATT_CHAR_PROP_BIT_READ;
+const uint8_t char_prop_read_notify         = ESP_GATT_CHAR_PROP_BIT_READ|ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+const uint8_t heart_measurement_ccc[2]      = {0x00, 0x00};
+const uint8_t char_value[4]                 = {0x06, 0xd0};
+const uint8_t systemId_value[2]             = {0x01, 0x10};
 
 ///device Service
-static const uint16_t device_svc = ESP_GATT_UUID_DEVICE_INFO_SVC;
-static const uint16_t bat_lev_uuid = ESP_GATT_UUID_BATTERY_LEVEL;
-static const uint8_t   bat_lev_ccc[2] ={ 0x00, 0x00};
-static const uint16_t char_format_uuid = ESP_GATT_UUID_CHAR_PRESENT_FORMAT;
+const uint16_t device_svc = ESP_GATT_UUID_DEVICE_INFO_SVC;
+const uint16_t bat_lev_uuid = ESP_GATT_UUID_BATTERY_LEVEL;
+const uint8_t   bat_lev_ccc[2] ={ 0x00, 0x00};
+const uint16_t char_format_uuid = ESP_GATT_UUID_CHAR_PRESENT_FORMAT;
 static uint8_t fw_version[5] = {0x30,0x2e,0x30,0x2e,0x31};
 static uint8_t hw_version[5] = {0x30,0x2e,0x30,0x2e,0x31};
 static uint8_t sw_version[] = "R0000V0001";//{0x31,0x2e,0x31,0x2e,0x31};
 
-static const esp_gatts_attr_db_t device_info_att_db[DEV_DEV_NB] =
+/**
+ * @brief 设备属性服务，包含版本信息、固件版本信息、pcb板信息 查询版本信息通道
+ */
+const esp_gatts_attr_db_t device_info_att_db[DEV_DEV_NB] =
 {
     // Battary Service Declaration
     [IDX_DEV_SVC]               =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ,
@@ -206,8 +221,10 @@ static const esp_gatts_attr_db_t device_info_att_db[DEV_DEV_NB] =
 
 };
 
-/* Full Database Description - Used to add attributes into the database */
-static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] =
+/**
+ * @brief 设备应用通信服务 业务逻辑交互通道
+ */
+const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] =
 {
     // Service Declaration
     [IDX_SVC]        =
@@ -240,6 +257,62 @@ static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] =
       GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(char_value), (uint8_t *)char_value}},
 };
 
+/**
+ * @brief 设备升级服务，标准服务UUID，公共接口升级通道
+ */
+const esp_gatts_attr_db_t update_att_db[DEV_UPDATE_NB] =
+{
+    // Service Declaration
+    [IDX_UPDATE_SVC]        =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ,
+      sizeof(uint16_t), sizeof(GATTS_UPDATE_SERVICE_UUID), (uint8_t *)&GATTS_UPDATE_SERVICE_UUID}},
+
+    /* Characteristic Declaration */
+    [IDX_UPDATE]     =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
+      CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&update_char_prop_write_notify}},
+
+    /* Characteristic Value */
+    [IDX_UPDATE_NOTIFY_CHAR] =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&GATTS_UPDATE_CHAR_NOTIFY_UUID, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+      GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(char_value), (uint8_t *)char_value}},
+
+    /* Client Characteristic Configuration Descriptor */
+    [IDX_UPDATE_NOTIFY_VAL]  =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+    sizeof(uint16_t), sizeof(upgrade_cccd), (uint8_t *)upgrade_cccd}},
+
+    /* Client Characteristic Configuration Descriptor */
+    [IDX_UPDATE_NOTIFY_DESCRIPTION_VAL]  =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_description_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+    sizeof(upgrade_description_identify), sizeof(upgrade_description_identify), (uint8_t *)upgrade_description_identify}},
+
+    /* Characteristic Declaration */
+    [IDX_UPDATE_WRITE_CHAR]      =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
+      CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&update_char_prop_write_notify}},
+
+    /* Characteristic Value */
+    [IDX_UPDATE_WRITE_VAL]  =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&GATTS_UPDATE_CHAR_WRITE_UUID, ESP_GATT_PERM_WRITE,
+      GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(char_value), (uint8_t *)char_value}},
+    
+    /* Client Characteristic Configuration Descriptor */
+    [IDX_UPDATE_WRITE_NOTIFY_VAL]  =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+      sizeof(uint16_t), sizeof(upgrade_write_cccd), (uint8_t *)upgrade_write_cccd}},
+
+     /* Client Characteristic Configuration Descriptor */
+    [IDX_UPDATE_WRITE_NOTIFY_DESCRIPTION_VAL]  =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_description_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+      sizeof(upgrade_description_block), sizeof(upgrade_description_block), (uint8_t *)upgrade_description_block}},
+};
+
+/**
+ * @brief gap事件状态回调处理，
+ * @param event 回调事件
+ * @param param 回调参数
+ */
 static void vesync_hal_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
     switch (event) {
@@ -363,7 +436,14 @@ uint32_t vesync_bt_notify(frame_ctrl_t ctl,uint8_t *cnt,uint16_t cmd,const unsig
     if(vesync_get_bt_status() != BT_CONNTED)    return 1;
     sendlen = bt_data_frame_encode(ctl,cnt,cmd,notify_data,len,sendbuf);
 
+<<<<<<< HEAD
     esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
+=======
+    ESP_LOGI(GATTS_TABLE_TAG, "---------------------->");
+    ESP_LOGI(GATTS_TABLE_TAG, "ble send!!!");
+    esp_log_buffer_hex(GATTS_TABLE_TAG, sendbuf, sendlen);
+    ESP_LOGI(GATTS_TABLE_TAG, "---------------------->");
+>>>>>>> FatScale00-future
     ret = esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, heart_rate_handle_table[IDX_CHAR_VAL_A],
                                         (uint16_t)sendlen, (uint8_t *)sendbuf, false);
 
@@ -382,6 +462,22 @@ uint32_t vesync_bt_notify_send(const uint8_t *notify_data ,unsigned short len)
     return ret;                                 
 }
 
+/**
+ * @brief 自定义升级服务notfiy通知发送接口
+ * @param handle_if 为true默认使用Img Identify handle update_server_handle_table[IDX_UPDATE_NOTIFY_CHAR] ,为false默认使用Img Block update_server_handle_table[IDX_UPDATE_WRITE_CHAR]
+ * @param notify_data 
+ * @param len 
+ * @return uint32_t 
+ */
+uint32_t vesync_bt_upgrade_notify_send(bool handle_if,const uint8_t *notify_data ,unsigned short len)
+{
+    uint16_t handle = handle_if == true?update_server_handle_table[IDX_UPDATE_NOTIFY_CHAR]:update_server_handle_table[IDX_UPDATE_WRITE_VAL];
+
+    uint32_t ret = 0;
+    ret = esp_ble_gatts_send_indicate(ble_gatts_if, ble_conn_id, handle,
+                                        (uint16_t)len, (uint8_t *)notify_data, false);
+    return ret;                                 
+}
 /**
  * @brief 更新蓝牙连接间隔
  * @param min_interval min_interval = x*1.25ms
@@ -451,7 +547,7 @@ void vesync_notify_app_net_result(char *trace_id,int err_code ,char *err_describ
     buflen = sprintf((char *)upload_buf, "{\"uri\":\"/beginConfigReply\",\"err\":%d,\"description\":\"%s\",\"server_code\":%d,\"traceId\":\"%s\",\"routerMac\":\"%s\",\"deviceRSSI\":\"%d\",\"firmVersion\":\"%s\"}",
             err_code,err_describe,server_err_code,trace_id,ap_mac_addr,rssi,FIRM_VERSION);
 
-    BLUFI_INFO("blufi send app %s len %d \r\n", upload_buf,buflen);
+    //BLUFI_INFO("blufi send app %s len %d \r\n", upload_buf,buflen);
 
     vesync_blufi_notify(upload_buf, buflen);
 }
@@ -709,11 +805,14 @@ static void vesync_blufi_recv_custom_message(net_info_t *info,const char *data, 
                 vesync_reply_net_info_response("/queryDeviceNet",ERR_NOT_NET_CONFIG, "ERR_NOT_NET_CONFIG");
             }
         }else if(!strcmp(uri->valuestring, "/beginRefreshToken")){
-            if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){ 
+            if((vesync_get_device_status() >= DEV_CONFIG_NET_RECORDS)){
+                vesync_set_device_status(DEV_CONFIG_NET_TOKEN); 
                 if(vesync_get_router_link() == false){
                     vesync_client_connect_wifi((char *)net_info.station_config.wifiSSID, (char *)net_info.station_config.wifiPassword);
                 }
                 vesync_refresh_https_token();
+            }else{
+                vesync_reply_net_info_response("/beginRefreshToken",ERR_NOT_NET_CONFIG, "ERR_NOT_NET_CONFIG");
             }
 		}else{
             BLUFI_INFO("Config parameter error !");
@@ -793,8 +892,9 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             //添加设备属性表 uuid 0x180a
             esp_err_t create_attr_ret = esp_ble_gatts_create_attr_tab(device_info_att_db, gatts_if, DEV_DEV_NB, SVC_INST_ID);
             if (create_attr_ret){
-                ESP_LOGE(GATTS_TABLE_TAG, "create attr table failed, error code = %x", create_attr_ret);
+                ESP_LOGE(GATTS_TABLE_TAG, "create device attr table failed, error code = %x", create_attr_ret);
             }
+
             vesync_set_bt_status(BT_CREATE_SERVICE);
         }
        	    break;
@@ -802,23 +902,51 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_READ_EVT");
        	    break;
         case ESP_GATTS_WRITE_EVT:{          //写没有应答
-                res = find_char_and_desr_index(p_data->write.handle);
+                //res = find_char_and_desr_index(p_data->write.handle);
+                //ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_WRITE_EVT : handle = %d\n", res);
+                ESP_LOGI(GATTS_TABLE_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %d, handle %d", param->write.conn_id, param->write.trans_id, param->write.handle);
                 if (!param->write.is_prep){
-                    if(res == IDX_CHAR_VAL_B){
+                    if(param->write.handle == heart_rate_handle_table[IDX_CHAR_VAL_B]){
                         rx_frame_t rx_frame ={0};
                         rx_frame.len = param->write.len;
                         memcpy((char *)rx_frame.buff,(char *)param->write.value,param->write.len);
                         xQueueSend(hal_bt_receive_queue,&rx_frame,portTICK_PERIOD_MS);
-                    }else if(res == IDX_CHAR_CFG_A){
-                        if(param->write.len == 2){
-                            uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
-                            if (descr_value == 0x0001){
-                                ESP_LOGI(GATTS_TABLE_TAG, "notify enable");
-                            }else if (descr_value == 0x0002){
-                                ESP_LOGI(GATTS_TABLE_TAG, "indicate enable");
-                            }else{
-                                ESP_LOGI(GATTS_TABLE_TAG, "notify disable");
-                            }
+                    }else if(param->write.handle == update_server_handle_table[IDX_UPDATE_WRITE_VAL]){                 //升级服务char写
+                        esp_log_buffer_hex(GATTS_TABLE_TAG, param->write.value, param->write.len);
+                    }else if(param->write.handle == update_server_handle_table[IDX_UPDATE_NOTIFY_CHAR]){                 //升级服务char写
+                        esp_log_buffer_hex(GATTS_TABLE_TAG, param->write.value, param->write.len);
+                    }else if(param->write.handle == heart_rate_handle_table[IDX_CHAR_CFG_A] && param->write.len == 2){
+                        uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
+                        if (descr_value == 0x0001){
+                            ESP_LOGI(GATTS_TABLE_TAG, "app notify enable");
+                            // uint8_t notify_data[] = {0x30};
+                            // vesync_bt_notify_send(notify_data,sizeof(notify_data));
+                        }else if (descr_value == 0x0002){
+                            ESP_LOGI(GATTS_TABLE_TAG, "app indicate enable");
+                        }else{
+                            ESP_LOGI(GATTS_TABLE_TAG, "app notify disable");
+                        }
+                    }else if(param->write.handle == update_server_handle_table[IDX_UPDATE_NOTIFY_VAL] && param->write.len == 2){
+                        uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
+                        if (descr_value == 0x0001){
+                            ESP_LOGI(GATTS_TABLE_TAG, "update notify enable");
+                            // uint8_t notify_data[] = {0x31};
+                            // vesync_bt_upgrade_notify_send(true,notify_data,sizeof(notify_data));
+                        }else if (descr_value == 0x0002){
+                            ESP_LOGI(GATTS_TABLE_TAG, "update indicate enable");
+                        }else{
+                            ESP_LOGI(GATTS_TABLE_TAG, "update notify disable");
+                        }
+                    }else if(param->write.handle == update_server_handle_table[IDX_UPDATE_WRITE_NOTIFY_VAL] && param->write.len == 2){
+                        uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
+                        if (descr_value == 0x0001){
+                            ESP_LOGI(GATTS_TABLE_TAG, "update write notify enable");
+                            // uint8_t notify_data[] = {0x32};
+                            // vesync_bt_upgrade_notify_send(false,notify_data,sizeof(notify_data));
+                        }else if (descr_value == 0x0002){
+                            ESP_LOGI(GATTS_TABLE_TAG, "update write indicate enable");
+                        }else{
+                            ESP_LOGI(GATTS_TABLE_TAG, "update write notify disable");
                         }
                     }
                 }else{
@@ -859,16 +987,26 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             if (param->add_attr_tab.status != ESP_GATT_OK){
                 ESP_LOGE(GATTS_TABLE_TAG, "create attribute table failed, error code=0x%x", param->add_attr_tab.status);
             }else{
-                ESP_LOGI(GATTS_TABLE_TAG, "add tab uuid = %x", param->add_attr_tab.svc_uuid.uuid.uuid16);
+                ESP_LOGI(GATTS_TABLE_TAG, "add tab uuid16 = %x", param->add_attr_tab.svc_uuid.uuid.uuid16);
+                esp_err_t create_attr_ret;
                 if (param->add_attr_tab.svc_uuid.uuid.uuid16 == ESP_GATT_UUID_DEVICE_INFO_SVC){ //之前是否注册设备信息服务属性
-                    esp_err_t create_attr_ret = esp_ble_gatts_create_attr_tab(gatt_db, gatts_if, HRS_IDX_NB, SVC_INST_ID);
+                    create_attr_ret = esp_ble_gatts_create_attr_tab(gatt_db, gatts_if, HRS_IDX_NB, SVC_INST_ID);
                     if (create_attr_ret){
                        ESP_LOGE(GATTS_TABLE_TAG, "create attr table failed, error code = %x", create_attr_ret);
                     }
                 }
-                
-                memcpy(heart_rate_handle_table, param->add_attr_tab.handles, sizeof(heart_rate_handle_table));
-                esp_ble_gatts_start_service(heart_rate_handle_table[IDX_SVC]);
+                else if(param->add_attr_tab.svc_uuid.uuid.uuid16 == GATTS_SERVICE_PRIMARY_UUID){//之前是否注册产品服务属性
+                    memcpy(heart_rate_handle_table, param->add_attr_tab.handles, sizeof(heart_rate_handle_table));
+                    esp_ble_gatts_start_service(heart_rate_handle_table[IDX_SVC]);
+                    create_attr_ret = esp_ble_gatts_create_attr_tab(update_att_db, gatts_if, DEV_UPDATE_NB, SVC_INST_ID);
+                    if (create_attr_ret){
+                        ESP_LOGE(GATTS_TABLE_TAG, "create update attr table failed, error code = %x", create_attr_ret);
+                    }
+                }else if(param->add_attr_tab.svc_uuid.uuid.uuid128 == GATTS_UPDATE_SERVICE_UUID){
+                    ESP_LOGE(GATTS_TABLE_TAG, "create update attr table success");
+                }
+                memcpy(update_server_handle_table, param->add_attr_tab.handles, sizeof(update_server_handle_table));
+                esp_ble_gatts_start_service(update_server_handle_table[IDX_UPDATE_SVC]);
             }
             break;
         }

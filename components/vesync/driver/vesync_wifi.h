@@ -94,6 +94,13 @@ int vesync_scan_wifi_list_start(void);
 int vesync_scan_wifi_list_stop(void);
 
 /**
+ * @brief wifi扫描列表状态
+ * @return true 
+ * @return false 
+ */
+bool vesync_scan_wifi_list_busy_status(void);
+
+/**
  * @brief 阻塞等待网络断开成功
  * @param wait_time [等待时间，单位：毫秒]
  * @return int 		[等待结果，0 - 等待网络连接成功；-1 - 等待网络连接超时]
@@ -126,5 +133,15 @@ bool vesync_get_router_link(void);
  * @return int 
  */
 int vesync_get_ap_rssi(int points);
+
+/**
+ * @brief WIFI Drive层启动wifi
+ */
+void vesync_driver_wifi_start(void);
+
+/**
+ * @brief WIFI Drive层停止wifi
+ */
+void vesync_driver_wifi_stop(void);
 
 #endif
